@@ -30,19 +30,14 @@ struct ZaehlerBlock: View {
                     .foregroundStyle(.secondary)
             } else {
                 VStack(spacing: 10) {
-                    ForEach(zaehler) { zeile(fuer: $0) }
+                    ForEach(zaehler) { z in
+                        NavigationLink(value: z) {
+                            zeile(fuer: z)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
             }
-
-            VStack(alignment: .leading, spacing: 4) {
-                Button { } label: { Text("Zählerstand erfassen") }
-                    .buttonStyle(.bordered)
-                    .disabled(true)
-                Text("Verfügbar in Task 0.13")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
-            .padding(.top, 4)
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -69,20 +64,48 @@ struct ZaehlerBlock: View {
 
             Spacer()
 
-            if let letzter = letzterStand(z) {
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text(NSDecimalNumber(decimal: letzter.stand).stringValue + " " + z.einheit)
-                        .font(.callout.weight(.semibold))
-                        .monospacedDigit()
-                    Text(letzter.ablesedatum.formatted(date: .numeric, time: .omitted))
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-            } else {
-                Text("Kein aktueller Stand")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
+            HStack(spacing: 8) {
+                rechtePrimaerInfo(fuer: z)
+                Circle()
+                    .fill(status(fuer: z).farbe)
+                    .frame(width: 10, height: 10)
+                    .accessibilityLabel(statusBeschreibung(status(fuer: z)))
             }
+        }
+    }
+
+    @ViewBuilder
+    private func rechtePrimaerInfo(fuer z: Zaehler) -> some View {
+        if let letzter = letzterStand(z) {
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(NSDecimalNumber(decimal: letzter.stand).stringValue + " " + z.einheit)
+                    .font(.callout.weight(.semibold))
+                    .monospacedDigit()
+                Text(letzter.ablesedatum.formatted(date: .numeric, time: .omitted))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        } else {
+            Text("Kein Stand")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+        }
+    }
+
+    // MARK: - Status
+
+    private func status(fuer z: Zaehler) -> KachelStatus {
+        let anzahl = (z.staende ?? []).count
+        if anzahl >= 2 { return .gruen }
+        if anzahl == 1 { return .gelb }
+        return .rot
+    }
+
+    private func statusBeschreibung(_ s: KachelStatus) -> String {
+        switch s {
+        case .gruen: return "Anfangs- und Endstand erfasst"
+        case .gelb:  return "Nur ein Stand erfasst"
+        case .rot:   return "Keine Stände erfasst"
         }
     }
 

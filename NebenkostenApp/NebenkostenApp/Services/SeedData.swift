@@ -53,11 +53,28 @@ enum SeedData {
             bauMieter(ausJson: json, einheitenNachID: einheitenNachID, context: context)
         }
 
-        // Zähler: nur wenn an Einheiten noch keine Zähler hängen.
-        let hatZaehler = (immobilie.wohneinheiten ?? [])
-            .contains(where: { !($0.zaehler ?? []).isEmpty })
-        if !hatZaehler {
-            bauZaehler(ausJson: json, einheitenNachID: einheitenNachID, immobilie: immobilie, context: context)
+        // Zähler: Lookup aufbauen, fehlende anlegen.
+        let alleZaehlerVorhanden = (immobilie.hauptzaehler ?? [])
+            + (immobilie.wohneinheiten ?? []).flatMap { $0.zaehler ?? [] }
+        let zaehlerNachID: [String: Zaehler]
+        if alleZaehlerVorhanden.isEmpty {
+            zaehlerNachID = bauZaehler(
+                ausJson: json,
+                einheitenNachID: einheitenNachID,
+                immobilie: immobilie,
+                context: context
+            )
+        } else {
+            zaehlerNachID = Dictionary(
+                uniqueKeysWithValues: alleZaehlerVorhanden.map { ($0.bezeichnung, $0) }
+            )
+        }
+
+        // Zählerstände: nur wenn an den Zählern noch keine Stände hängen.
+        let hatStaende = zaehlerNachID.values
+            .contains(where: { !($0.staende ?? []).isEmpty })
+        if !hatStaende {
+            bauZaehlerstaende(ausJson: json, zaehlerNachID: zaehlerNachID, context: context)
         }
 
         // Abrechnungsperioden: nur wenn noch keine vorhanden.
@@ -166,9 +183,10 @@ enum SeedData {
         einheitenNachID: [String: Wohneinheit],
         immobilie: Immobilie,
         context: ModelContext
-    ) {
-        guard let rohe = json["zaehler"] as? [[String: Any]] else { return }
+    ) -> [String: Zaehler] {
+        guard let rohe = json["zaehler"] as? [[String: Any]] else { return [:] }
 
+        var proID: [String: Zaehler] = [:]
         for roh in rohe {
             let z = Zaehler()
             z.bezeichnung = (roh["id"] as? String) ?? ""
@@ -184,7 +202,57 @@ enum SeedData {
                 z.immobilie = immobilie
             }
             context.insert(z)
+            if !z.bezeichnung.isEmpty { proID[z.bezeichnung] = z }
         }
+        return proID
+    }
+
+    // MARK: - Zählerstände
+
+    /// Liest zaehlerstaende.anfang_periode und .ende_periode aus der JSON
+    /// und legt je Zähler einen Zählerstand zum jeweiligen Datum an.
+    /// Werte `null` und unbekannte zaehler_id werden übersprungen.
+    private static func bauZaehlerstaende(
+        ausJson json: [String: Any],
+        zaehlerNachID: [String: Zaehler],
+        context: ModelContext
+    ) {
+        guard let bloecke = json["zaehlerstaende"] as? [String: Any] else { return }
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+
+        for schluessel in ["anfang_periode", "ende_periode"] {
+            guard let block = bloecke[schluessel] as? [String: Any],
+                  let datumRoh = block["datum"] as? String,
+                  let datum = formatter.date(from: datumRoh),
+                  let staende = block["staende"] as? [[String: Any]]
+            else { continue }
+
+            for roh in staende {
+                guard let zaehlerID = roh["zaehler_id"] as? String,
+                      let zaehler = zaehlerNachID[zaehlerID],
+                      let wert = decimal(aus: roh["wert"])
+                else { continue }
+
+                let zs = Zaehlerstand()
+                zs.ablesedatum = datum
+                zs.stand = wert
+                zs.quelle = .importiert
+                zs.zaehler = zaehler
+                context.insert(zs)
+            }
+        }
+    }
+
+    private static func decimal(aus raw: Any?) -> Decimal? {
+        if let d = raw as? Double { return Decimal(string: "\(d)") }
+        if let i = raw as? Int    { return Decimal(i) }
+        if let s = raw as? String { return Decimal(string: s) }
+        if let n = raw as? NSNumber { return Decimal(string: "\(n.doubleValue)") }
+        return nil
     }
 
     private static func medium(aus typRoh: String) -> Medium {

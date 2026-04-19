@@ -43,13 +43,15 @@ struct ObjektDashboardViewModel {
     }
 
     var zaehler: KachelDaten {
-        let alleZaehler = (immobilie.hauptzaehler ?? [])
-            + (immobilie.wohneinheiten ?? []).flatMap { $0.zaehler ?? [] }
-        let ist = alleZaehler.filter { zaehler in
-            (zaehler.staende ?? []).contains(where: { istInPeriode($0.ablesedatum) })
-        }.count
-        let einheitenAnzahl = (immobilie.wohneinheiten ?? []).count
-        let soll = max(einheitenAnzahl * 3 + 2, 1)
+        // MVP-Scope: nur Wohnungs-Zähler, Hauptzähler der Liegenschaft
+        // werden separat behandelt (Task später). Pro Zähler zwei Stände
+        // erwartet (Anfangs- + Endstand in der aktiven Periode).
+        let einheitZaehler = (immobilie.wohneinheiten ?? []).flatMap { $0.zaehler ?? [] }
+        let ist = einheitZaehler
+            .flatMap { $0.staende ?? [] }
+            .filter { istInPeriode($0.ablesedatum) }
+            .count
+        let soll = max(einheitZaehler.count * 2, 1)
         return KachelDaten(status: status(ist: ist, soll: soll), ist: ist, soll: soll)
     }
 

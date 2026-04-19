@@ -51,8 +51,20 @@ final class Immobilie {
     /// Tag im Monat (1-31) des Abrechnungsstarts. Meist 1.
     var abrechnungsstartTag: Int = 1
 
-    var heizungsart: Heizungsart = Heizungsart.gasZentral
-    var warmwasserbereitung: Warmwasserbereitung = Warmwasserbereitung.zentralMitHeizung
+    // String-Backing, damit bestehende Stores ohne diese Spalten nicht
+    // beim Lesen crashen (SwiftData liefert dann nil — der String-Default
+    // fängt das ab).
+    private var heizungsartRoh: String = Heizungsart.gasZentral.rawValue
+    private var warmwasserbereitungRoh: String = Warmwasserbereitung.zentralMitHeizung.rawValue
+
+    var heizungsart: Heizungsart {
+        get { Heizungsart(rawValue: heizungsartRoh) ?? .gasZentral }
+        set { heizungsartRoh = newValue.rawValue }
+    }
+    var warmwasserbereitung: Warmwasserbereitung {
+        get { Warmwasserbereitung(rawValue: warmwasserbereitungRoh) ?? .zentralMitHeizung }
+        set { warmwasserbereitungRoh = newValue.rawValue }
+    }
 
     // MARK: Relationships
 
@@ -226,6 +238,17 @@ enum Ablesequelle: String, Codable, CaseIterable {
     case kiExtrahiert
     case importiert
     case versorgerRechnung
+    case geschaetzt
+
+    var anzeigeName: String {
+        switch self {
+        case .manuell:           return "Manuell"
+        case .kiExtrahiert:      return "Foto"
+        case .importiert:        return "Importiert"
+        case .versorgerRechnung: return "Versorger"
+        case .geschaetzt:        return "Geschätzt"
+        }
+    }
 }
 
 @Model
