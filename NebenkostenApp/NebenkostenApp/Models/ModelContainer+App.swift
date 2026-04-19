@@ -26,18 +26,33 @@ extension ModelContainer {
         Abrechnungsposition.self
     ]
 
-    /// Haupt-Container für die App, mit CloudKit-Sync über privaten Container.
+    /// Haupt-Container für die App. Versucht zuerst CloudKit (privater
+    /// Container), fällt bei fehlender Entitlement oder nicht angemeldeter
+    /// iCloud auf lokales SwiftData zurück, damit die App auch ohne
+    /// aktiven Developer Account lauffähig bleibt (Phase 0).
     ///
     /// Der Container-Identifier muss identisch zum iCloud-Container in den
     /// Xcode Capabilities sein. Beim Produktiv-Launch Placeholder ersetzen.
     static func app() throws -> ModelContainer {
         let schema = Schema(alleSchemaTypen)
-        let config = ModelConfiguration(
-            schema: schema,
-            isStoredInMemoryOnly: false,
-            cloudKitDatabase: .private("iCloud.com.example.NebenkostenApp")
-        )
-        return try ModelContainer(for: schema, configurations: [config])
+
+        do {
+            let cloudConfig = ModelConfiguration(
+                schema: schema,
+                isStoredInMemoryOnly: false,
+                cloudKitDatabase: .private("iCloud.com.example.NebenkostenApp")
+            )
+            return try ModelContainer(for: schema, configurations: [cloudConfig])
+        } catch {
+            #if DEBUG
+            print("⚠️ CloudKit nicht verfügbar (\(error.localizedDescription)) — Fallback auf lokales SwiftData.")
+            #endif
+            let lokalConfig = ModelConfiguration(
+                schema: schema,
+                isStoredInMemoryOnly: false
+            )
+            return try ModelContainer(for: schema, configurations: [lokalConfig])
+        }
     }
 
     /// In-Memory-Container für Tests und SwiftUI-Previews.

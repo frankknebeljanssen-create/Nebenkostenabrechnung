@@ -1,32 +1,22 @@
-//
-//  NebenkostenAppApp.swift
-//  NebenkostenApp
-//
-//  Created by Frank Knebel-Janssen on 19.04.26.
-//
-
 import SwiftUI
 import SwiftData
 
 @main
 struct NebenkostenAppApp: App {
-    var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            Item.self,
-        ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+    let container: ModelContainer
 
+    init() {
         do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
+            container = try .app()
         } catch {
-            fatalError("Could not create ModelContainer: \(error)")
+            fatalError("ModelContainer konnte nicht erzeugt werden: \(error)")
         }
-    }()
+    }
 
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .modelContainer(container)
         }
-        .modelContainer(sharedModelContainer)
     }
 }
