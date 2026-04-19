@@ -82,6 +82,11 @@ enum SeedData {
             bauKostenarten(fuer: immobilie, context: context)
         }
 
+        // Rechnungen: aus JSON, nur wenn noch keine vorhanden.
+        if (immobilie.rechnungen ?? []).isEmpty {
+            bauRechnungen(ausJson: json, immobilie: immobilie, context: context)
+        }
+
         // Abrechnungsperioden: nur wenn noch keine vorhanden.
         if (immobilie.perioden ?? []).isEmpty {
             bauPeriode(ausJson: json, immobilie: immobilie, context: context)
@@ -301,6 +306,85 @@ enum SeedData {
             ka.sortierung = (index + 1) * 10
             ka.immobilie = immobilie
             context.insert(ka)
+        }
+    }
+
+    // MARK: - Rechnungen
+
+    /// Liest `umlagefaehig: true`-Rechnungen aus der Testdaten-JSON und
+    /// verknüpft sie mit der passenden Kostenart anhand eines festen
+    /// Mappings pro Rechnungs-ID.
+    private static func bauRechnungen(
+        ausJson json: [String: Any],
+        immobilie: Immobilie,
+        context: ModelContext
+    ) {
+        guard let rohe = json["rechnungen"] as? [[String: Any]] else { return }
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+
+        // Rechnungs-ID → Kostenart-Bezeichnung (aus bauKostenarten).
+        let kostenartNachRechnung: [String: String] = [
+            "gasag_2024_2025":                   "Heizung und Warmwasser",
+            "bwb_2024_2025":                     "Be- und Entwässerung",
+            "bsr_2025":                          "Müllabfuhr (BSR)",
+            "grundsteuer_2025":                  "Grundsteuer",
+            "allianz_2024_2025":                 "Gebäudeversicherung",
+            "leske_wartung_2024_2025":           "Heizung und Warmwasser",
+            "kirschnereit_schornsteinfeger_2025":"Schornsteinfeger",
+            "freter_treppenhaus_2025":           "Gebäudereinigung",
+            "guenther_winterdienst_2024_2025":   "Schnee- und Eisbeseitigung"
+        ]
+
+        let kostenartenNachBezeichnung = Dictionary(
+            uniqueKeysWithValues: (immobilie.kostenarten ?? []).map { ($0.bezeichnung, $0) }
+        )
+
+        for roh in rohe {
+            guard let id = roh["id"] as? String,
+                  (roh["umlagefaehig"] as? Bool) == true
+            else { continue }
+
+            let r = Rechnung()
+            r.immobilie = immobilie
+            r.lieferant = (roh["versorger"] as? String) ?? ""
+            r.rechnungsnummer = (roh["rechnungs_nr"] as? String)
+                ?? (roh["bescheid_nr"] as? String)
+                ?? id
+            if let datumStr = roh["rechnungsdatum"] as? String,
+               let datum = formatter.date(from: datumStr) {
+                r.rechnungsdatum = datum
+            } else if let enderaum = roh["zeitraum_ende"] as? String,
+                      let ende = formatter.date(from: enderaum) {
+                r.rechnungsdatum = ende
+            } else {
+                r.rechnungsdatum = Date()
+            }
+            if let von = roh["zeitraum_start"] as? String,
+               let datum = formatter.date(from: von) {
+                r.leistungVon = datum
+            }
+            if let bis = roh["zeitraum_ende"] as? String,
+               let datum = formatter.date(from: bis) {
+                r.leistungBis = datum
+            }
+            if let brutto = decimal(aus: roh["gesamt_brutto"]) {
+                r.betragBruttoEuro = brutto
+            }
+            if let lohn = decimal(aus: roh["arbeitskosten_brutto"]) {
+                r.lohnanteilBruttoEuro = lohn
+            }
+            r.geprueft = true
+
+            if let kostenartName = kostenartNachRechnung[id],
+               let kostenart = kostenartenNachBezeichnung[kostenartName] {
+                r.kostenart = kostenart
+            }
+
+            context.insert(r)
         }
     }
 
