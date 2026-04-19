@@ -15,24 +15,55 @@ import SwiftData
 @MainActor
 enum SeedData {
 
+    /// Idempotent: legt jeden Teil (Immobilie, Wohneinheiten, Mieter, Zähler,
+    /// Perioden) nur an, wenn er in der DB fehlt. Damit werden neue Seed-
+    /// Bestandteile (z.B. Perioden aus Task 0.11, Zähler aus Task 0.12) auch
+    /// in schon bestehenden Simulator-Stores nachgetragen, ohne dass der
+    /// User die App deinstallieren muss.
     static func seedeWennLeer(in context: ModelContext) {
-        // Nur seeden, wenn noch KEINE Immobilie existiert.
-        let descriptor = FetchDescriptor<Immobilie>()
-        let vorhandene = (try? context.fetchCount(descriptor)) ?? 0
-        guard vorhandene == 0 else { return }
-
         guard let url = Bundle.main.url(forResource: "Bahnhofstr37_2025", withExtension: "json"),
               let data = try? Data(contentsOf: url),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
         else { return }
 
-        let immobilie = bauImmobilie(ausJson: json)
-        context.insert(immobilie)
+        // Immobilie: vorhandene verwenden oder neue anlegen.
+        let vorhandene = (try? context.fetch(FetchDescriptor<Immobilie>())) ?? []
+        let immobilie: Immobilie
+        if let ersteVorhanden = vorhandene.first {
+            immobilie = ersteVorhanden
+        } else {
+            immobilie = bauImmobilie(ausJson: json)
+            context.insert(immobilie)
+        }
 
-        let einheitenNachID = bauWohneinheiten(ausJson: json, immobilie: immobilie, context: context)
-        bauMieter(ausJson: json, einheitenNachID: einheitenNachID, context: context)
-        bauZaehler(ausJson: json, einheitenNachID: einheitenNachID, immobilie: immobilie, context: context)
-        bauPeriode(ausJson: json, immobilie: immobilie, context: context)
+        // Wohneinheiten: Lookup aufbauen, fehlende anlegen.
+        var einheitenNachID: [String: Wohneinheit] = [:]
+        if (immobilie.wohneinheiten ?? []).isEmpty {
+            einheitenNachID = bauWohneinheiten(ausJson: json, immobilie: immobilie, context: context)
+        } else {
+            for we in immobilie.wohneinheiten ?? [] {
+                einheitenNachID[we.bezeichnung] = we
+            }
+        }
+
+        // Mieter: nur wenn an noch keiner Einheit ein Mietverhältnis hängt.
+        let hatMieter = (immobilie.wohneinheiten ?? [])
+            .contains(where: { !($0.mietverhaeltnisse ?? []).isEmpty })
+        if !hatMieter {
+            bauMieter(ausJson: json, einheitenNachID: einheitenNachID, context: context)
+        }
+
+        // Zähler: nur wenn an Einheiten noch keine Zähler hängen.
+        let hatZaehler = (immobilie.wohneinheiten ?? [])
+            .contains(where: { !($0.zaehler ?? []).isEmpty })
+        if !hatZaehler {
+            bauZaehler(ausJson: json, einheitenNachID: einheitenNachID, immobilie: immobilie, context: context)
+        }
+
+        // Abrechnungsperioden: nur wenn noch keine vorhanden.
+        if (immobilie.perioden ?? []).isEmpty {
+            bauPeriode(ausJson: json, immobilie: immobilie, context: context)
+        }
 
         try? context.save()
     }
