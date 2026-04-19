@@ -31,6 +31,7 @@ enum SeedData {
 
         let einheitenNachID = bauWohneinheiten(ausJson: json, immobilie: immobilie, context: context)
         bauMieter(ausJson: json, einheitenNachID: einheitenNachID, context: context)
+        bauPeriode(ausJson: json, immobilie: immobilie, context: context)
 
         try? context.save()
     }
@@ -114,6 +115,47 @@ enum SeedData {
                 mv.wohneinheit = wohneinheit
             }
             context.insert(mv)
+        }
+    }
+
+    // MARK: - Abrechnungsperioden
+
+    /// Legt zwei Perioden an: die 2024/25 mit allen Testdaten (aus der
+    /// Testdaten-JSON) und eine noch leere Folgeperiode 2025/26 — damit im
+    /// Dashboard ein Periode-Dropdown mit zwei Einträgen sichtbar ist und
+    /// der Umschaltmechanismus getestet werden kann.
+    private static func bauPeriode(
+        ausJson json: [String: Any],
+        immobilie: Immobilie,
+        context: ModelContext
+    ) {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+
+        // Periode 1: 2024/25 aus der JSON.
+        if let rohe = json["abrechnungsperiode"] as? [String: Any],
+           let startRoh = rohe["start"] as? String,
+           let endeRoh = rohe["ende"] as? String,
+           let start = formatter.date(from: startRoh),
+           let ende = formatter.date(from: endeRoh) {
+            let periode = Abrechnungsperiode()
+            periode.von = start
+            periode.bis = ende
+            periode.immobilie = immobilie
+            context.insert(periode)
+        }
+
+        // Periode 2: 2025/26 — noch komplett leer (keine Zähler/Rechnungen
+        // erfasst). Dient als Demo für den Periode-Wechsel.
+        if let start = formatter.date(from: "2025-11-01"),
+           let ende = formatter.date(from: "2026-10-31") {
+            let periode = Abrechnungsperiode()
+            periode.von = start
+            periode.bis = ende
+            periode.immobilie = immobilie
+            context.insert(periode)
         }
     }
 }
