@@ -12,6 +12,46 @@
 import Foundation
 import SwiftData
 
+// MARK: - AppUser
+
+enum UserRolle: String, Codable, CaseIterable, Sendable {
+    case privat       = "Privat"
+    case unternehmer  = "Unternehmer"
+}
+
+/// Stammdaten der App-Nutzerin. Ein privater CloudKit-Container pro
+/// Apple-ID → in der Regel existiert genau ein AppUser-Objekt. Wird über
+/// den Onboarding-Flow angelegt (DSGVO-Zustimmung + Basisdaten).
+@Model
+final class AppUser {
+    var id: UUID = UUID()
+    var erstelltAm: Date = Date()
+
+    var name: String = ""
+    var anschrift: String = ""
+    var ort: String = ""
+    var email: String = ""
+    var telefon: String = ""
+
+    /// Steuer-ID optional.
+    var steuerID: String = ""
+
+    /// String-Backing schützt vor Crashes, wenn bestehende Stores die
+    /// Spalte noch nicht kennen.
+    private var rolleRoh: String = UserRolle.privat.rawValue
+    var rolle: UserRolle {
+        get { UserRolle(rawValue: rolleRoh) ?? .privat }
+        set { rolleRoh = newValue.rawValue }
+    }
+
+    var iban: String = ""
+
+    var datenschutzZustimmungAm: Date?
+    var avvZustimmungAm: Date?
+
+    init() {}
+}
+
 // MARK: - Immobilie
 
 enum Heizungsart: String, Codable, CaseIterable, Sendable {

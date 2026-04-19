@@ -14,6 +14,7 @@ extension ModelContainer {
 
     /// Liste aller @Model-Klassen. Bei neuer Entität hier ergänzen.
     private static let alleSchemaTypen: [any PersistentModel.Type] = [
+        AppUser.self,
         Immobilie.self,
         Wohneinheit.self,
         Mietverhaeltnis.self,
