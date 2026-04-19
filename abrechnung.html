@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Nebenkostenabrechnung {{periode.bezeichnung}}</title>
+<style>
+  @page { size: A4; margin: 2cm 2.5cm 2cm 2.5cm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif;
+    font-size: 10pt;
+    line-height: 1.45;
+    color: #1a1a1a;
+    margin: 0;
+  }
+  .absender-klein {
+    font-size: 7.5pt;
+    color: #666;
+    border-bottom: 0.5pt solid #666;
+    padding-bottom: 2mm;
+    margin-bottom: 6mm;
+  }
+  .empfaenger {
+    margin-bottom: 15mm;
+    line-height: 1.35;
+  }
+  .datum {
+    text-align: right;
+    margin-bottom: 8mm;
+  }
+  h1 {
+    font-size: 13pt;
+    margin: 0 0 2mm 0;
+    font-weight: 600;
+  }
+  .periode {
+    margin-bottom: 8mm;
+    font-size: 10pt;
+  }
+  .anrede { margin-bottom: 4mm; }
+  .einleitung { margin-bottom: 8mm; }
+
+  h2 {
+    font-size: 11pt;
+    font-weight: 600;
+    margin: 8mm 0 3mm 0;
+    border-bottom: 0.5pt solid #999;
+    padding-bottom: 1mm;
+  }
+
+  table { width: 100%; border-collapse: collapse; }
+
+  table.uebersicht { margin-bottom: 6mm; }
+  table.uebersicht td { padding: 2mm 0; }
+  table.uebersicht td.betrag { text-align: right; font-variant-numeric: tabular-nums; }
+  table.uebersicht tr.saldo td {
+    border-top: 0.5pt solid #1a1a1a;
+    border-bottom: 2pt double #1a1a1a;
+    font-weight: 600;
+    padding: 3mm 0;
+  }
+
+  table.kosten th, table.kosten td {
+    padding: 1.8mm 2mm;
+    text-align: left;
+    vertical-align: top;
+  }
+  table.kosten th {
+    background: #f4f4f2;
+    border-bottom: 0.5pt solid #999;
+    font-weight: 600;
+    font-size: 9pt;
+  }
+  table.kosten td { border-bottom: 0.25pt solid #ddd; }
+  table.kosten td.num,
+  table.kosten th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  table.kosten td.key { font-size: 8.5pt; color: #555; }
+  table.kosten tr.summe td {
+    border-top: 0.5pt solid #1a1a1a;
+    border-bottom: 2pt double #1a1a1a;
+    font-weight: 600;
+    padding-top: 2.5mm;
+  }
+
+  .hinweis-box {
+    margin-top: 6mm;
+    padding: 3mm 4mm;
+    background: #f9f7ef;
+    border-left: 2pt solid #b89f4c;
+    font-size: 9.5pt;
+  }
+
+  .schluss { margin-top: 10mm; }
+  .unterschrift { margin-top: 12mm; }
+
+  .pagebreak { page-break-before: always; }
+
+  .anlage-header {
+    font-size: 9pt;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.3pt;
+    margin-bottom: 2mm;
+  }
+</style>
+</head>
+<body>
+
+<div class="absender-klein">
+  {{vermieter.name}} &middot; {{vermieter.adresse}} &middot; {{vermieter.ort}}
+</div>
+
+<div class="empfaenger">
+  {{mieter.anrede}}<br>
+  {{mieter.name}}<br>
+  {{mieter.adresse}}<br>
+  {{mieter.ort}}
+</div>
+
+<div class="datum">{{datum}}</div>
+
+<h1>Nebenkostenabrechnung {{periode.bezeichnung}}</h1>
+<div class="periode">Abrechnungszeitraum: {{periode.von}} &ndash; {{periode.bis}}</div>
+
+<p class="anrede">{{mieter.anredeFormell}},</p>
+
+<p class="einleitung">
+  anbei erhalten Sie die Abrechnung Ihrer Betriebskosten für den oben genannten Zeitraum
+  für die von Ihnen angemietete Wohneinheit {{einheit.bezeichnung}}, {{immobilie.adresse}}, {{immobilie.ort}}.
+</p>
+
+<h2>Ihre Abrechnung im &Uuml;berblick</h2>
+<table class="uebersicht">
+  <tr>
+    <td>Gesamtkosten (Ihr Anteil)</td>
+    <td class="betrag">{{abrechnung.gesamtkostenEuro}} &euro;</td>
+  </tr>
+  <tr>
+    <td>Ihre geleisteten Vorauszahlungen</td>
+    <td class="betrag">&minus; {{abrechnung.vorauszahlungenEuro}} &euro;</td>
+  </tr>
+  <tr class="saldo">
+    <td>{{abrechnung.saldoLabel}}</td>
+    <td class="betrag">{{abrechnung.saldoBetragFormatiert}} &euro;</td>
+  </tr>
+</table>
+
+<h2>Aufstellung der Betriebskosten</h2>
+<table class="kosten">
+  <thead>
+    <tr>
+      <th>Kostenart</th>
+      <th class="num">Gesamtkosten</th>
+      <th class="key">Umlageschl&uuml;ssel</th>
+      <th class="num">Ihr Anteil</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{#positionen}}
+    <tr>
+      <td>{{bezeichnung}}</td>
+      <td class="num">{{gesamtkostenEuro}} &euro;</td>
+      <td class="key">{{verteilerschluessel}}</td>
+      <td class="num">{{mieteranteilEuro}} &euro;</td>
+    </tr>
+    {{/positionen}}
+    <tr class="summe">
+      <td colspan="3">Summe Ihre Betriebskosten</td>
+      <td class="num">{{abrechnung.gesamtkostenEuro}} &euro;</td>
+    </tr>
+  </tbody>
+</table>
+
+{{#steuer35aRelevant}}
+<div class="hinweis-box">
+  <strong>Hinweis zu &sect; 35a EStG:</strong>
+  Von den oben aufgeführten Kosten entfallen <strong>{{abrechnung.steuer35aBetragEuro}} &euro;</strong>
+  auf haushaltsnahe Dienstleistungen bzw. Handwerkerleistungen, die Sie in Ihrer
+  Einkommensteuererklärung geltend machen können.
+</div>
+{{/steuer35aRelevant}}
+
+<p class="schluss">
+  Sollten Sie Fragen zu dieser Abrechnung haben, wenden Sie sich gerne an uns.
+</p>
+
+<p class="schluss">Mit freundlichen Grüßen</p>
+<p class="unterschrift">{{vermieter.name}}</p>
+
+{{#hatHeizungsAnlage}}
+<div class="pagebreak"></div>
+<div class="anlage-header">Anlage 1</div>
+<h1>Heizkostenabrechnung</h1>
+<div class="periode">Zeitraum: {{periode.von}} &ndash; {{periode.bis}}</div>
+
+<h2>Aufteilung nach HeizkostenV (30 % Fl&auml;che / 70 % Verbrauch)</h2>
+<table class="kosten">
+  <thead>
+    <tr>
+      <th>Position</th>
+      <th class="num">Wert</th>
+      <th class="num">Einheit</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Gesamtkosten Heizung (Brennstoff + Nebenkosten)</td>
+      <td class="num">{{heizung.gesamtkostenEuro}}</td>
+      <td class="num">&euro;</td>
+    </tr>
+    <tr>
+      <td>Gesamtverbrauch W&auml;rmemengenz&auml;hler</td>
+      <td class="num">{{heizung.wmzGesamt}}</td>
+      <td class="num">kWh</td>
+    </tr>
+    <tr>
+      <td>Ihr Verbrauch W&auml;rmemengenz&auml;hler</td>
+      <td class="num">{{heizung.wmzAnteil}}</td>
+      <td class="num">kWh</td>
+    </tr>
+    <tr>
+      <td>Flächenanteil (30 %, {{einheit.flaecheM2}}/{{immobilie.gesamtflaecheM2}} m²)</td>
+      <td class="num">{{heizung.flaechenanteilEuro}}</td>
+      <td class="num">&euro;</td>
+    </tr>
+    <tr>
+      <td>Verbrauchsanteil (70 %, {{heizung.verbrauchAnteilProzent}} %)</td>
+      <td class="num">{{heizung.verbrauchsanteilEuro}}</td>
+      <td class="num">&euro;</td>
+    </tr>
+    <tr class="summe">
+      <td colspan="2">Ihr Heizkosten-Anteil gesamt</td>
+      <td class="num">{{heizung.gesamtAnteilEuro}} &euro;</td>
+    </tr>
+  </tbody>
+</table>
+{{/hatHeizungsAnlage}}
+
+{{#hatCo2Anlage}}
+<div class="pagebreak"></div>
+<div class="anlage-header">Anlage 2</div>
+<h1>CO<sub>2</sub>-Kostenaufteilung</h1>
+<p class="einleitung">
+  Gem&auml;&szlig; Kohlendioxidkostenaufteilungsgesetz (CO2KostAufG) wird der
+  CO<sub>2</sub>-Preis zwischen Vermieter und Mieter nach dem spezifischen
+  CO<sub>2</sub>-Aussto&szlig; des Geb&auml;udes aufgeteilt.
+</p>
+<table class="kosten">
+  <tbody>
+    <tr>
+      <td>CO<sub>2</sub>-Aussto&szlig; des Geb&auml;udes</td>
+      <td class="num">{{co2.kgProM2}}</td>
+      <td class="num">kg/m²/Jahr</td>
+    </tr>
+    <tr>
+      <td>Einstufung nach CO2KostAufG</td>
+      <td colspan="2">{{co2.stufe}}</td>
+    </tr>
+    <tr>
+      <td>Mieteranteil</td>
+      <td class="num">{{co2.mieteranteilProzent}} %</td>
+      <td class="num"></td>
+    </tr>
+    <tr>
+      <td>CO<sub>2</sub>-Kosten gesamt</td>
+      <td class="num">{{co2.gesamtEuro}}</td>
+      <td class="num">&euro;</td>
+    </tr>
+    <tr class="summe">
+      <td colspan="2">Ihr CO<sub>2</sub>-Anteil</td>
+      <td class="num">{{co2.mieteranteilEuro}} &euro;</td>
+    </tr>
+  </tbody>
+</table>
+{{/hatCo2Anlage}}
+
+</body>
+</html>

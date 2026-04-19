@@ -1,0 +1,62 @@
+# ───── Xcode ─────
+## User-spezifische Einstellungen (nicht checken)
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+
+## Build-Artefakte
+build/
+DerivedData/
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+*.moved-aside
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+
+## Playground-Timelines
+timeline.xctimeline
+playground.xcworkspace
+
+# ───── Swift Package Manager ─────
+.swiftpm/
+.build/
+Package.resolved
+
+# ───── Abhängigkeitsmanager (zur Sicherheit — nicht aktiv genutzt) ─────
+Pods/
+Carthage/Build/
+
+# ───── macOS ─────
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+
+# ───── Umgebung / Geheimnisse ─────
+.env
+*.env
+*.secrets
+secrets.plist
+GoogleService-Info.plist.local
+
+# ───── Editor / IDE ─────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ───── fastlane (falls später genutzt) ─────
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output

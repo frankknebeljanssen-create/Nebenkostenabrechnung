@@ -1,0 +1,403 @@
+//
+//  DataModel.swift
+//  NebenkostenApp
+//
+//  SwiftData-Modelle für die Nebenkostenabrechnung.
+//
+//  CloudKit-Kompatibilität: Alle Properties haben Default-Werte, alle
+//  Relationships sind optional, keine @Attribute(.unique)-Constraints.
+//  Für den privaten CloudKit-Container pro User.
+//
+
+import Foundation
+import SwiftData
+
+// MARK: - Immobilie
+
+@Model
+final class Immobilie {
+    var id: UUID = UUID()
+    var erstelltAm: Date = Date()
+
+    /// Straße und Hausnummer, z.B. "Bahnhofstraße 37"
+    var adresse: String = ""
+
+    /// Postleitzahl und Ort, z.B. "12207 Berlin"
+    var ort: String = ""
+
+    /// Gesamtwohn-/Nutzfläche in m² (Summe aller Einheiten inkl. Gewerbe)
+    var gesamtflaecheM2: Decimal = 0
+
+    /// Monat (1-12), in dem das Abrechnungsjahr beginnt.
+    /// Kalenderjahr → 1. Bei Bahnhofstr. 37 → 11 (01.11.-31.10.)
+    var abrechnungsstartMonat: Int = 1
+
+    /// Tag im Monat (1-31) des Abrechnungsstarts. Meist 1.
+    var abrechnungsstartTag: Int = 1
+
+    // MARK: Relationships
+
+    @Relationship(deleteRule: .cascade, inverse: \Wohneinheit.immobilie)
+    var wohneinheiten: [Wohneinheit]? = []
+
+    @Relationship(deleteRule: .cascade, inverse: \Abrechnungsperiode.immobilie)
+    var perioden: [Abrechnungsperiode]? = []
+
+    /// Nur Hauptzähler der Liegenschaft (Hausanschluss Wasser, Gas, etc.).
+    /// Wohnungszähler hängen an der jeweiligen Wohneinheit.
+    @Relationship(deleteRule: .cascade, inverse: \Zaehler.immobilie)
+    var hauptzaehler: [Zaehler]? = []
+
+    @Relationship(deleteRule: .cascade, inverse: \Rechnung.immobilie)
+    var rechnungen: [Rechnung]? = []
+
+    @Relationship(deleteRule: .cascade, inverse: \Kostenart.immobilie)
+    var kostenarten: [Kostenart]? = []
+
+    init() {}
+}
+
+// MARK: - Wohneinheit
+
+enum Nutzungsart: String, Codable, CaseIterable {
+    case wohnung
+    case einliegerwohnung
+    case gewerbe
+    case leerstand
+}
+
+@Model
+final class Wohneinheit {
+    var id: UUID = UUID()
+
+    /// Menschlicher Name, z.B. "EG", "OG", "Kellergeschoss Tonstudio"
+    var bezeichnung: String = ""
+
+    /// Wohn-/Nutzfläche in m²
+    var flaecheM2: Decimal = 0
+
+    /// Nutzungsart (Wohnung, Gewerbe, …)
+    var nutzungsart: Nutzungsart = Nutzungsart.wohnung
+
+    /// Wohnt der Vermieter selbst in dieser Einheit? Relevant für §35a EStG.
+    var selbstnutzung: Bool = false
+
+    // MARK: Relationships
+
+    var immobilie: Immobilie?
+
+    @Relationship(deleteRule: .cascade, inverse: \Zaehler.wohneinheit)
+    var zaehler: [Zaehler]? = []
+
+    @Relationship(deleteRule: .cascade, inverse: \Mietverhaeltnis.wohneinheit)
+    var mietverhaeltnisse: [Mietverhaeltnis]? = []
+
+    init() {}
+}
+
+// MARK: - Mietverhältnis
+
+@Model
+final class Mietverhaeltnis {
+    var id: UUID = UUID()
+
+    var mieterName: String = ""
+    var mieterAnschrift: String = ""
+    var mieterEmail: String = ""
+
+    /// Einzugsdatum
+    var einzugAm: Date = Date()
+
+    /// Auszugsdatum, nil bei aktivem Mietverhältnis
+    var auszugAm: Date?
+
+    /// Monatliche Betriebskostenvorauszahlung in €
+    var vorauszahlungMonatEuro: Decimal = 0
+
+    /// Anzahl Personen im Haushalt (für personenbezogene Umlagen)
+    var anzahlPersonen: Int = 1
+
+    // MARK: Relationships
+
+    var wohneinheit: Wohneinheit?
+
+    @Relationship(deleteRule: .cascade, inverse: \Abrechnung.mietverhaeltnis)
+    var abrechnungen: [Abrechnung]? = []
+
+    init() {}
+}
+
+// MARK: - Zähler
+
+enum Zaehlertyp: String, Codable, CaseIterable {
+    /// Hauptzähler an der Liegenschaft (Hausanschluss)
+    case haupt
+    /// Zähler pro Wohneinheit
+    case wohnung
+    /// Zwischenzähler (z.B. Gartenwasser, zieht vom Hauptverbrauch ab)
+    case zwischen
+}
+
+enum Medium: String, Codable, CaseIterable {
+    case kaltwasser
+    case warmwasser
+    case gas
+    case strom
+    case waermeenergie    // Wärmemengenzähler (kWh)
+    case oel
+}
+
+@Model
+final class Zaehler {
+    var id: UUID = UUID()
+
+    /// Seriennummer auf dem Gerät, z.B. "8SEN0210876943"
+    var seriennummer: String = ""
+
+    /// Lesbarer Name, z.B. "Hauptzähler Wasser", "WMZ OG Bad"
+    var bezeichnung: String = ""
+
+    var typ: Zaehlertyp = Zaehlertyp.haupt
+    var medium: Medium = Medium.kaltwasser
+
+    /// Einheit der Anzeige, z.B. "m³", "kWh"
+    var einheit: String = ""
+
+    /// Gaszähler: Umrechnungsfaktor z-Zahl, default 1
+    var umrechnungsfaktor: Decimal = 1
+
+    /// Gaszähler: Brennwert in kWh/m³ (GASAG liefert das auf der Rechnung)
+    var brennwertKwhProM3: Decimal?
+
+    // MARK: Relationships
+    //
+    // Entweder immobilie (Hauptzähler) ODER wohneinheit (Wohnungszähler) ist
+    // gesetzt — nie beides. Invariante wird in der Calc-Layer validiert.
+
+    var immobilie: Immobilie?
+    var wohneinheit: Wohneinheit?
+
+    @Relationship(deleteRule: .cascade, inverse: \Zaehlerstand.zaehler)
+    var staende: [Zaehlerstand]? = []
+
+    init() {}
+}
+
+// MARK: - Zählerstand
+
+enum Ablesequelle: String, Codable, CaseIterable {
+    case manuell
+    case kiExtrahiert
+    case importiert
+    case versorgerRechnung
+}
+
+@Model
+final class Zaehlerstand {
+    var id: UUID = UUID()
+
+    var ablesedatum: Date = Date()
+    var stand: Decimal = 0
+
+    var quelle: Ablesequelle = Ablesequelle.manuell
+
+    /// Foto des Zählers als Nachweis (CloudKit Asset via externalStorage)
+    @Attribute(.externalStorage) var foto: Data?
+
+    /// Freitext-Notizen, z.B. "Abgelesen vor Mieterwechsel"
+    var notizen: String = ""
+
+    var zaehler: Zaehler?
+
+    init() {}
+}
+
+// MARK: - Kostenart
+
+enum Umlageschluessel: String, Codable, CaseIterable {
+    /// Nach m² Wohnfläche
+    case flaeche
+    /// Nach Anzahl Personen
+    case personen
+    /// Direkt nach Verbrauch (z.B. Wasser m³)
+    case verbrauch
+    /// Gleichmäßig pro Wohneinheit
+    case einheiten
+    /// HeizkostenV: 30% Fläche, 70% Verbrauch (Default)
+    case heizkosten3070
+    /// HeizkostenV: 50/50
+    case heizkosten5050
+    /// Warmwasser: 30% Fläche, 70% Warmwasserzähler
+    case warmwasser3070
+    /// Direkt einer Einheit zugeordnet, nicht umgelegt
+    case direkt
+    /// Manuelle Festlegung pro Einheit
+    case individuell
+}
+
+@Model
+final class Kostenart {
+    var id: UUID = UUID()
+
+    /// z.B. "Grundsteuer", "Be- und Entwässerung", "Heizung"
+    var bezeichnung: String = ""
+
+    /// BetrKV §2 Nummer, z.B. "1", "2", "4a"
+    var betrKvKategorie: String = ""
+
+    var umlageschluessel: Umlageschluessel = Umlageschluessel.flaeche
+
+    /// §35a EStG haushaltsnahe Dienstleistung oder Handwerkerleistung?
+    var paragraph35a: Bool = false
+
+    /// Nur Lohnanteil absetzbar (Handwerker: ja, Reinigung: typ. gesamt)
+    var paragraph35aNurLohnanteil: Bool = false
+
+    /// In der Abrechnung aktiv?
+    var aktiv: Bool = true
+
+    /// Reihenfolge auf der Abrechnung
+    var sortierung: Int = 0
+
+    // MARK: Relationships
+
+    var immobilie: Immobilie?
+
+    @Relationship(deleteRule: .nullify, inverse: \Rechnung.kostenart)
+    var rechnungen: [Rechnung]? = []
+
+    @Relationship(deleteRule: .nullify, inverse: \Abrechnungsposition.kostenart)
+    var positionen: [Abrechnungsposition]? = []
+
+    init() {}
+}
+
+// MARK: - Rechnung
+
+@Model
+final class Rechnung {
+    var id: UUID = UUID()
+
+    /// Lieferant, z.B. "GASAG", "Berliner Wasserbetriebe", "Allianz"
+    var lieferant: String = ""
+
+    /// Rechnungsnummer, z.B. "211002198550"
+    var rechnungsnummer: String = ""
+
+    /// Rechnungsdatum (Ausstellung)
+    var rechnungsdatum: Date = Date()
+
+    /// Leistungszeitraum von (kann gebrochen zum Abrechnungsjahr liegen!)
+    var leistungVon: Date = Date()
+    /// Leistungszeitraum bis
+    var leistungBis: Date = Date()
+
+    /// Gesamtbetrag brutto in €
+    var betragBruttoEuro: Decimal = 0
+
+    /// Lohnanteil brutto für §35a, falls ausgewiesen
+    var lohnanteilBruttoEuro: Decimal?
+
+    /// PDF oder Foto der Rechnung
+    @Attribute(.externalStorage) var anhang: Data?
+    var anhangTyp: String = "pdf"    // "pdf", "jpg", "heic"
+
+    /// KI-Extraktion: Rohdaten oder Notizen
+    var extraktionsNotizen: String = ""
+
+    /// Wurde die Rechnung bereits geprüft/freigegeben?
+    var geprueft: Bool = false
+
+    // MARK: Relationships
+
+    var immobilie: Immobilie?
+    var kostenart: Kostenart?
+
+    init() {}
+}
+
+// MARK: - Abrechnungsperiode
+
+@Model
+final class Abrechnungsperiode {
+    var id: UUID = UUID()
+
+    var von: Date = Date()
+    var bis: Date = Date()
+
+    /// Abrechnungsstatus — abgeschlossen heißt: keine Änderungen mehr
+    var abgeschlossen: Bool = false
+
+    /// Wann versendet (nil = noch nicht)
+    var versandtAm: Date?
+
+    // MARK: Relationships
+
+    var immobilie: Immobilie?
+
+    @Relationship(deleteRule: .cascade, inverse: \Abrechnung.periode)
+    var abrechnungen: [Abrechnung]? = []
+
+    init() {}
+}
+
+// MARK: - Abrechnung (pro Mietverhältnis)
+
+@Model
+final class Abrechnung {
+    var id: UUID = UUID()
+
+    var erstelltAm: Date = Date()
+
+    /// Gesamtbetrag aller auf diese Einheit umgelegten Kosten
+    var gesamtkostenEuro: Decimal = 0
+
+    /// Vorauszahlungen des Mieters in der Periode
+    var vorauszahlungenEuro: Decimal = 0
+
+    /// Saldo = gesamtkosten - vorauszahlungen
+    /// Positiv → Nachzahlung des Mieters; Negativ → Erstattung
+    var saldoEuro: Decimal = 0
+
+    /// §35a EStG ausweisbarer Betrag (haushaltsnah + Handwerker)
+    var steuer35aBetragEuro: Decimal = 0
+
+    /// PDF der fertigen Abrechnung
+    @Attribute(.externalStorage) var pdfDatei: Data?
+
+    // MARK: Relationships
+
+    var periode: Abrechnungsperiode?
+    var mietverhaeltnis: Mietverhaeltnis?
+
+    @Relationship(deleteRule: .cascade, inverse: \Abrechnungsposition.abrechnung)
+    var positionen: [Abrechnungsposition]? = []
+
+    init() {}
+}
+
+// MARK: - Abrechnungsposition (Einzelposten)
+
+@Model
+final class Abrechnungsposition {
+    var id: UUID = UUID()
+
+    /// Gesamtkosten dieser Kostenart für die ganze Immobilie in der Periode
+    var gesamtkostenEuro: Decimal = 0
+
+    /// Anteil der Einheit an diesen Kosten
+    var mieteranteilEuro: Decimal = 0
+
+    /// Beschreibung des Verteilerschlüssels, z.B. "181/528 m²" oder "45 von 434 m³"
+    var verteilerschluesselText: String = ""
+
+    /// Sortierung auf der Abrechnung
+    var sortierung: Int = 0
+
+    // MARK: Relationships
+
+    var abrechnung: Abrechnung?
+    var kostenart: Kostenart?
+
+    init() {}
+}
