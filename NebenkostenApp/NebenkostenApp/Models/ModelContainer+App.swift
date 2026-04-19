@@ -26,33 +26,47 @@ extension ModelContainer {
         Abrechnungsposition.self
     ]
 
-    /// Haupt-Container für die App. Versucht zuerst CloudKit (privater
-    /// Container), fällt bei fehlender Entitlement oder nicht angemeldeter
-    /// iCloud auf lokales SwiftData zurück, damit die App auch ohne
-    /// aktiven Developer Account lauffähig bleibt (Phase 0).
+    /// Schaltet den CloudKit-Sync ein/aus. Muss in Task 0.21 auf `true`
+    /// gestellt werden, sobald
+    ///   - der Developer Account bei Apple aktiv ist,
+    ///   - der iCloud-Container `iCloud.com.example.NebenkostenApp` im
+    ///     Developer Portal angelegt ist,
+    ///   - die iCloud-Capability im Xcode-Target aktiviert ist.
+    ///
+    /// Solange `false`: reiner lokaler SwiftData-Betrieb. Vermeidet den
+    /// SwiftData-internen CloudKit-Init, der bei fehlender Entitlement
+    /// mit NSException bricht (nicht über Swift-`throws` abfangbar).
+    static let cloudKitAktiv = false
+
+    /// Haupt-Container für die App. Versucht — falls `cloudKitAktiv` — den
+    /// privaten CloudKit-Container und fällt bei Swift-Errors auf lokales
+    /// SwiftData zurück. Bis dahin: nur lokaler Store.
     ///
     /// Der Container-Identifier muss identisch zum iCloud-Container in den
     /// Xcode Capabilities sein. Beim Produktiv-Launch Placeholder ersetzen.
     static func app() throws -> ModelContainer {
         let schema = Schema(alleSchemaTypen)
 
-        do {
-            let cloudConfig = ModelConfiguration(
-                schema: schema,
-                isStoredInMemoryOnly: false,
-                cloudKitDatabase: .private("iCloud.com.example.NebenkostenApp")
-            )
-            return try ModelContainer(for: schema, configurations: [cloudConfig])
-        } catch {
-            #if DEBUG
-            print("⚠️ CloudKit nicht verfügbar (\(error.localizedDescription)) — Fallback auf lokales SwiftData.")
-            #endif
-            let lokalConfig = ModelConfiguration(
-                schema: schema,
-                isStoredInMemoryOnly: false
-            )
-            return try ModelContainer(for: schema, configurations: [lokalConfig])
+        if cloudKitAktiv {
+            do {
+                let cloudConfig = ModelConfiguration(
+                    schema: schema,
+                    isStoredInMemoryOnly: false,
+                    cloudKitDatabase: .private("iCloud.com.example.NebenkostenApp")
+                )
+                return try ModelContainer(for: schema, configurations: [cloudConfig])
+            } catch {
+                #if DEBUG
+                print("⚠️ CloudKit nicht verfügbar (\(error.localizedDescription)) — Fallback auf lokales SwiftData.")
+                #endif
+            }
         }
+
+        let lokalConfig = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: false
+        )
+        return try ModelContainer(for: schema, configurations: [lokalConfig])
     }
 
     /// In-Memory-Container für Tests und SwiftUI-Previews.
