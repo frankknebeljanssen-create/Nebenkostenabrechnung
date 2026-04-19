@@ -1,106 +1,140 @@
 {
-  "schema_version": "1.0",
-  "beschreibung": "Testdaten Bahnhofstr. 37, Berlin, Abrechnungsperiode 01.11.2024 - 31.10.2025. Quelle: hochgeladene Dokumente des Users (GASAG, BWB, BSR, Grundsteuer, Allianz, Vattenfall, Excel-Zählerstand-Sheet, Foto-OCR der Zähler). Wird von den Integrationstests im Calc-Layer verwendet.",
-  "caveat": "Einige Werte sind noch unsicher. Siehe Feld 'offene_fragen' am Ende. Bei Tests diese Positionen entweder skippen oder mit toleranten Assertions bauen.",
+  "schema_version": "1.1",
+  "beschreibung": "Testdaten Bahnhofstr. 37, Berlin, Abrechnungsperiode 01.11.2024 - 31.10.2025. Quelle: User-Dokumente (GASAG, BWB, BSR, Grundsteuer, Allianz, Vattenfall, Zählerstand-Excel, Leske, Kirschnereit, Freter, Günther, Foto-OCR der Zähler, OG-Abrechnung 2024/2025). Wird von den Integrationstests im Calc-Layer verwendet.",
+  "changelog": "v1.1 (2026-04-19): WW-Verbräuche korrigiert (EG 39.95, OG 28.80, vorher vertauscht). EG-WMZ-Anfangsstand 10.600 MWh ergänzt. Wasserpreis korrigiert auf 4.31 €/m³ kombiniert. Brennwert 11.11 (2024/2025). §9-HeizkostenV-Formel mit WW-Faktor 12.9 dokumentiert. Heiz-Nebenkosten-Struktur eingebaut. Alle OG-Referenzwerte 2024/2025 aus _NK-Abrechnung_OG_2025.xlsx ergänzt. Zeitraumabgrenzungs-Modus .rechnungsdatum (MVP, auf .zeitanteilig umschalten ab 2025/2026).",
+
+  "briefkopf": {
+    "name": "Verena Janßen",
+    "strasse": "Bahnhofstr. 37",
+    "plz": "12207",
+    "ort": "Berlin",
+    "telefon_festnetz": "030-92142640",
+    "telefon_mobil": "0177-7588365",
+    "email": "verenajanszen@hotmail.com"
+  },
 
   "objekt": {
     "name": "Bahnhofstr. 37",
-    "adresse": {
-      "strasse": "Bahnhofstr. 37",
-      "plz": "12207",
-      "ort": "Berlin"
-    },
+    "adresse": {"strasse": "Bahnhofstr. 37", "plz": "12207", "ort": "Berlin"},
     "gesamtflaeche_qm": 528,
     "flaeche_anmerkung": "Offiziell Zweifamilienhaus beim Finanzamt Zehlendorf (Steuernr 25/743/01236). KG ist Gewerbe (Tonstudio), keine Wohnung.",
+    "zeitraumabgrenzung_modus": "rechnungsdatum",
+    "zeitraumabgrenzung_hinweis": "MVP: Rechnungsdatum-Prinzip (komplette Rechnung in NK-Periode, in der Rechnungsdatum liegt). Ab NK-Jahr 2025/2026 auf .zeitanteilig umschalten (§ 556 BGB konform).",
     "heizung": {
       "art": "Gas-Zentralheizung",
       "versorger": "GASAG",
       "tarif": "ÖKOGAS Fix",
       "wmz_pro_einheit": true,
-      "aufteilung_heizung_warmwasser": "30/70 nach §7 HeizkostenV (Default)",
-      "hinweis": "WMZ misst nur Heizung. Warmwasser wird über m³-Zapfmengen separat erfasst und via §9 HeizkostenV in kWh umgerechnet."
+      "aufteilung_heizung_warmwasser": "individuelle §9 HeizkostenV Parameter",
+      "ww_gas_faktor_m3_pro_m3": 12.9,
+      "ww_gas_faktor_anmerkung": "Faktor 12.9 m³ Gas pro m³ Warmwasser, individuell für dieses Haus (nicht §9-Default). Ergibt ~143 kWh/m³ WW (t_WW ≈ 60-63°C, c ≈ 0.92).",
+      "brennwert_z_zahl_kwh_pro_m3": 11.11,
+      "brennwert_z_zahl_anmerkung": "Mittlerer Brennwert 11.548 × z-Zahl 0.9654 ≈ 11.11 kWh/m³ Gas für 2024/2025 (Vorjahr war 11.12).",
+      "strom_hilfsenergie_prozent": 3.0,
+      "strom_hilfsenergie_anmerkung": "3% Zuschlag auf Gaskosten für Umwälzpumpen, Regelung etc.",
+      "grundkosten_anteil_prozent": 30.0,
+      "grundkosten_umlageschluessel": "m²"
     }
   },
 
   "wohneinheiten": [
-    { "id": "KG", "bezeichnung": "Kellergeschoss", "flaeche_qm": 160, "nutzungsart": "Gewerbe", "nutzung_beschreibung": "Tonstudio", "anteil_am_objekt": "160/528" },
-    { "id": "EG", "bezeichnung": "Erdgeschoss",    "flaeche_qm": 181, "nutzungsart": "Wohnung", "nutzung_beschreibung": "Selbstnutzer (Vermieterin)", "anteil_am_objekt": "181/528" },
-    { "id": "OG", "bezeichnung": "Obergeschoss",   "flaeche_qm": 187, "nutzungsart": "Wohnung", "nutzung_beschreibung": "Wohnung Familie Pfaffenbach", "anteil_am_objekt": "187/528" }
+    {"id": "KG", "bezeichnung": "Kellergeschoss", "flaeche_qm": 160, "nutzungsart": "Gewerbe", "nutzung_beschreibung": "Tonstudio", "anteil_am_objekt": "160/528"},
+    {"id": "EG", "bezeichnung": "Erdgeschoss",    "flaeche_qm": 181, "nutzungsart": "Wohnung", "nutzung_beschreibung": "Selbstnutzer (Vermieterin)", "anteil_am_objekt": "181/528"},
+    {"id": "OG", "bezeichnung": "Obergeschoss",   "flaeche_qm": 187, "nutzungsart": "Wohnung", "nutzung_beschreibung": "Wohnung Familie Pfaffenbach", "anteil_am_objekt": "187/528"}
   ],
 
   "mieter": [
-    { "einheit_id": "KG", "name": "Frank Knebel-Janßen", "typ": "Gewerbemieter", "personenzahl": null },
-    { "einheit_id": "EG", "name": "Verena Janßen", "typ": "Selbstnutzer", "personenzahl": null, "hinweis": "§35a EStG relevant für eigene Steuererklärung" },
-    { "einheit_id": "OG", "name": "Familie Sandra und Daniel Pfaffenbach", "typ": "Wohnungsmieter", "personenzahl": null }
+    {"einheit_id": "KG", "name": "Frank Knebel-Janßen", "typ": "Gewerbemieter", "personenzahl": null},
+    {"einheit_id": "EG", "name": "Verena Janßen", "typ": "Selbstnutzer", "personenzahl": null, "hinweis": "§35a EStG relevant für eigene Steuererklärung"},
+    {"einheit_id": "OG", "name": "Familie Sandra und Daniel Pfaffenbach", "typ": "Wohnungsmieter", "personenzahl": null}
   ],
 
-  "abrechnungsperiode": {
-    "start": "2024-11-01",
-    "ende": "2025-10-31",
-    "tage": 365
-  },
+  "abrechnungsperiode": {"start": "2024-11-01", "ende": "2025-10-31", "tage": 365},
 
   "zaehler": [
-    { "id": "gas_haupt",    "typ": "Gas",        "medium": "Gas",    "einheit_id": null, "seriennummer": "7ELS2543675568", "anmerkung": "Zählerwechsel am 02.09.2025 (Vorgänger 726707023). GASAG-Hauptzähler." },
-    { "id": "wasser_haupt", "typ": "Kaltwasser", "medium": "Wasser", "einheit_id": null, "seriennummer": "8SEN0210876943", "anmerkung": "BWB-Hauptzähler Einspeisung" },
+    {"id": "gas_haupt",    "typ": "Gas",        "medium": "Gas",    "einheit_id": null, "seriennummer": "7ELS2543675568", "anmerkung": "Zählerwechsel 02.09.2025 (Vorgänger 726707023). Gesamtverbrauch Periode: 2.895 m³."},
+    {"id": "wasser_haupt", "typ": "Kaltwasser", "medium": "Wasser", "einheit_id": null, "seriennummer": "8SEN0210876943", "anmerkung": "BWB-Hauptzähler Einspeisung"},
 
-    { "id": "strom_kg", "typ": "Strom", "medium": "Strom", "einheit_id": "KG", "seriennummer": "51447410-2009", "modell": "Actaris C114U" },
-    { "id": "strom_eg", "typ": "Strom", "medium": "Strom", "einheit_id": "EG", "seriennummer": "51447401-2009", "modell": "Actaris C114U" },
-    { "id": "strom_og", "typ": "Strom", "medium": "Strom", "einheit_id": "OG", "seriennummer": null,            "modell": "Actaris C114U" },
+    {"id": "strom_kg", "typ": "Strom", "medium": "Strom", "einheit_id": "KG", "seriennummer": "51447410-2009", "modell": "Actaris C114U"},
+    {"id": "strom_eg", "typ": "Strom", "medium": "Strom", "einheit_id": "EG", "seriennummer": "51447401-2009", "modell": "Actaris C114U"},
+    {"id": "strom_og", "typ": "Strom", "medium": "Strom", "einheit_id": "OG", "seriennummer": null,            "modell": "Actaris C114U"},
 
-    { "id": "ww_kg", "typ": "Warmwasser", "medium": "Wasser", "einheit_id": "KG", "seriennummer": "2200063993", "modell": "Concept EVW" },
-    { "id": "ww_eg", "typ": "Warmwasser", "medium": "Wasser", "einheit_id": "EG", "seriennummer": "2200063997", "modell": "Concept EVW" },
-    { "id": "ww_og", "typ": "Warmwasser", "medium": "Wasser", "einheit_id": "OG", "seriennummer": "2200063999", "modell": "Concept EVW" },
+    {"id": "ww_kg", "typ": "Warmwasser", "medium": "Wasser", "einheit_id": "KG", "seriennummer": "2200063993", "modell": "Concept EVW"},
+    {"id": "ww_eg", "typ": "Warmwasser", "medium": "Wasser", "einheit_id": "EG", "seriennummer": "2200063997", "modell": "Concept EVW"},
+    {"id": "ww_og", "typ": "Warmwasser", "medium": "Wasser", "einheit_id": "OG", "seriennummer": "2200063999", "modell": "Concept EVW"},
 
-    { "id": "kw_kg",        "typ": "Kaltwasser", "medium": "Wasser", "einheit_id": "KG", "seriennummer": "2200010737", "modell": "Concept EVK" },
-    { "id": "kw_eg",        "typ": "Kaltwasser", "medium": "Wasser", "einheit_id": "EG", "seriennummer": "2200011362", "modell": "Concept EVK" },
-    { "id": "kw_eg_garten", "typ": "Kaltwasser", "medium": "Wasser", "einheit_id": "EG", "seriennummer": "2300015744", "modell": "Concept EVK", "anmerkung": "Gartenzwischenzähler, 100% EG" },
-    { "id": "kw_og",        "typ": "Kaltwasser", "medium": "Wasser", "einheit_id": "OG", "seriennummer": "2200011884", "modell": "Concept EVK" },
+    {"id": "kw_kg",        "typ": "Kaltwasser", "medium": "Wasser", "einheit_id": "KG", "seriennummer": "2200010737", "modell": "Concept EVK"},
+    {"id": "kw_eg",        "typ": "Kaltwasser", "medium": "Wasser", "einheit_id": "EG", "seriennummer": "2200011362", "modell": "Concept EVK"},
+    {"id": "kw_eg_garten", "typ": "Kaltwasser", "medium": "Wasser", "einheit_id": "EG", "seriennummer": "2300015744", "modell": "Concept EVK", "anmerkung": "Gartenzwischenzähler, 100% EG, reduziert Abwasser-Grundlage"},
+    {"id": "kw_og",        "typ": "Kaltwasser", "medium": "Wasser", "einheit_id": "OG", "seriennummer": "2200011884", "modell": "Concept EVK"},
 
-    { "id": "wmz_kg", "typ": "Wärmemengenzähler", "medium": "Wärme", "einheit_id": "KG", "seriennummer": "6SEN5712675674", "modell": "Sensus PolluCom F", "einheit_messwert": "MWh" },
-    { "id": "wmz_eg", "typ": "Wärmemengenzähler", "medium": "Wärme", "einheit_id": "EG", "seriennummer": null,             "modell": "Sensus PolluCom F", "einheit_messwert": "MWh" },
-    { "id": "wmz_og", "typ": "Wärmemengenzähler", "medium": "Wärme", "einheit_id": "OG", "seriennummer": "6SEN5712675676", "modell": "Sensus PolluCom F", "einheit_messwert": "MWh" }
+    {"id": "wmz_kg", "typ": "Wärmemengenzähler", "medium": "Wärme", "einheit_id": "KG", "seriennummer": "6SEN5712675674", "modell": "Sensus PolluCom F", "einheit_messwert": "MWh"},
+    {"id": "wmz_eg", "typ": "Wärmemengenzähler", "medium": "Wärme", "einheit_id": "EG", "seriennummer": null,             "modell": "Sensus PolluCom F", "einheit_messwert": "MWh"},
+    {"id": "wmz_og", "typ": "Wärmemengenzähler", "medium": "Wärme", "einheit_id": "OG", "seriennummer": "6SEN5712675676", "modell": "Sensus PolluCom F", "einheit_messwert": "MWh"}
   ],
 
   "zaehlerstaende": {
     "anfang_periode": {
       "datum": "2024-11-01",
-      "hinweis": "Werte aus Excel-Zählerstand-Sheet. Für Strom nicht alle Anfangswerte dokumentiert, ggf. aus Vorjahr ergänzen.",
+      "quelle": "2025_NK_Zaehlerstaende_Bahnhof.xlsx (Datum 45574)",
       "staende": [
-        { "zaehler_id": "ww_kg",  "wert": 1.28,   "einheit": "m³" },
-        { "zaehler_id": "ww_eg",  "wert": 101,    "einheit": "m³" },
-        { "zaehler_id": "ww_og",  "wert": 101,    "einheit": "m³" },
-        { "zaehler_id": "wmz_kg", "wert": 16.422, "einheit": "MWh" },
-        { "zaehler_id": "wmz_eg", "wert": null,   "einheit": "MWh", "todo": "EG-WMZ Anfangsstand aus Excel nachtragen" },
-        { "zaehler_id": "wmz_og", "wert": 19.545, "einheit": "MWh" }
+        {"zaehler_id": "gas_haupt",    "wert": 56141,   "einheit": "m³"},
+        {"zaehler_id": "wasser_haupt", "wert": 512,     "einheit": "m³"},
+        {"zaehler_id": "strom_kg",     "wert": 36448,   "einheit": "kWh"},
+        {"zaehler_id": "strom_eg",     "wert": 68370,   "einheit": "kWh"},
+        {"zaehler_id": "strom_og",     "wert": 70925,   "einheit": "kWh"},
+        {"zaehler_id": "kw_kg",        "wert": 12.67,   "einheit": "m³"},
+        {"zaehler_id": "kw_eg",        "wert": 702,     "einheit": "m³"},
+        {"zaehler_id": "kw_eg_garten", "wert": 283,     "einheit": "m³"},
+        {"zaehler_id": "kw_og",        "wert": 259.72,  "einheit": "m³"},
+        {"zaehler_id": "ww_kg",        "wert": 1.28,    "einheit": "m³"},
+        {"zaehler_id": "ww_eg",        "wert": 89.05,   "einheit": "m³"},
+        {"zaehler_id": "ww_og",        "wert": 101.45,  "einheit": "m³"},
+        {"zaehler_id": "wmz_kg",       "wert": 16.422,  "einheit": "MWh"},
+        {"zaehler_id": "wmz_eg",       "wert": 10.600,  "einheit": "MWh"},
+        {"zaehler_id": "wmz_og",       "wert": 19.554,  "einheit": "MWh"}
       ]
     },
     "ende_periode": {
       "datum": "2025-10-31",
+      "quelle": "2025_NK_Zaehlerstaende_Bahnhof.xlsx (Datum 45943)",
       "staende": [
-        { "zaehler_id": "strom_kg", "wert": 38336.8, "einheit": "kWh" },
-        { "zaehler_id": "strom_eg", "wert": 72809.3, "einheit": "kWh" },
-        { "zaehler_id": "strom_og", "wert": 73923.5, "einheit": "kWh" },
-        { "zaehler_id": "ww_kg",    "wert": 1.65,    "einheit": "m³" },
-        { "zaehler_id": "ww_eg",    "wert": 129.45,  "einheit": "m³" },
-        { "zaehler_id": "ww_og",    "wert": 130.25,  "einheit": "m³" },
-        { "zaehler_id": "kw_kg",         "wert": 17.55,  "einheit": "m³" },
-        { "zaehler_id": "kw_eg",         "wert": 983.12, "einheit": "m³" },
-        { "zaehler_id": "kw_eg_garten",  "wert": 475.94, "einheit": "m³" },
-        { "zaehler_id": "kw_og",         "wert": 335.48, "einheit": "m³" },
-        { "zaehler_id": "wmz_kg", "wert": 24.741, "einheit": "MWh" },
-        { "zaehler_id": "wmz_eg", "wert": 14.97,  "einheit": "MWh", "caveat": "Foto-OCR zeigte ~16,66; Excel-Wert 14,97 - niedrigere Zahl verwenden, bei Zweifel beim User rückfragen" },
-        { "zaehler_id": "wmz_og", "wert": 29.044, "einheit": "MWh" }
+        {"zaehler_id": "gas_haupt",    "wert": 138,     "einheit": "m³", "caveat": "Neuer Zähler ab 02.09.2025. Alter Zähler am Wechseldatum 58.898. Gesamtverbrauch: 2.895 m³."},
+        {"zaehler_id": "wasser_haupt", "wert": 475,     "einheit": "m³"},
+        {"zaehler_id": "strom_kg",     "wert": 38336,   "einheit": "kWh"},
+        {"zaehler_id": "strom_eg",     "wert": 72809,   "einheit": "kWh"},
+        {"zaehler_id": "strom_og",     "wert": 73923,   "einheit": "kWh"},
+        {"zaehler_id": "kw_kg",        "wert": 17.55,   "einheit": "m³"},
+        {"zaehler_id": "kw_eg",        "wert": 983,     "einheit": "m³"},
+        {"zaehler_id": "kw_eg_garten", "wert": 475,     "einheit": "m³"},
+        {"zaehler_id": "kw_og",        "wert": 335.46,  "einheit": "m³"},
+        {"zaehler_id": "ww_kg",        "wert": 1.65,    "einheit": "m³"},
+        {"zaehler_id": "ww_eg",        "wert": 129,     "einheit": "m³"},
+        {"zaehler_id": "ww_og",        "wert": 130.25,  "einheit": "m³"},
+        {"zaehler_id": "wmz_kg",       "wert": 24.741,  "einheit": "MWh"},
+        {"zaehler_id": "wmz_eg",       "wert": 14.969,  "einheit": "MWh"},
+        {"zaehler_id": "wmz_og",       "wert": 29.044,  "einheit": "MWh"}
       ]
     },
     "verbraeuche_berechnet": {
-      "hinweis": "Berechnet aus Differenz Ende - Anfang. Für Strom liegen die Anfangswerte im Test-Datensatz nicht vor; Stromkosten werden direkt pro Wohnung via Vattenfall-Rechnung verbucht, nicht via Zählerdifferenz umgelegt.",
-      "wmz_kg_kwh": 8319,
-      "wmz_og_kwh": 9499,
-      "wmz_eg_kwh": null,
+      "hinweis": "Berechnet aus Ende - Anfang. Validierung: WMZ-Summe 22.178 kWh = 93% vom §9-errechneten Heizungs-Gasanteil (22.328 kWh) → Nutzungsgrad Therme ~93%, plausibel.",
+      "gas_m3": 2895,
+      "wasser_haupt_m3": 37,
+      "strom_kg_kwh": 1888,
+      "strom_eg_kwh": 4439,
+      "strom_og_kwh": 2998,
+      "kw_kg_m3": 4.88,
+      "kw_eg_m3": 281,
+      "kw_eg_garten_m3": 192,
+      "kw_og_m3": 75.74,
       "ww_kg_m3": 0.37,
-      "ww_eg_m3": 28.45,
-      "ww_og_m3": 29.25
+      "ww_eg_m3": 39.95,
+      "ww_og_m3": 28.80,
+      "ww_total_m3": 69.12,
+      "wmz_kg_kwh": 8319,
+      "wmz_eg_kwh": 4369,
+      "wmz_og_kwh": 9490,
+      "wmz_total_kwh": 22178
     }
   },
 
@@ -110,10 +144,9 @@
       "kostenart": "Heizung_Warmwasser",
       "umlagefaehig": true,
       "versorger": "GASAG",
-      "vertragsnr": null,
       "zeitraum_start": "2024-10-08",
       "zeitraum_ende": "2025-10-07",
-      "zeitraum_hinweis": "Rechnungszeitraum weicht um ~3 Wochen vom NK-Zeitraum ab. Zeitraumabgrenzung nötig.",
+      "zeitraum_hinweis": "Rechnungszeitraum weicht ~3 Wochen von NK-Periode ab. Im MVP-Modus .rechnungsdatum: voll gebucht.",
       "verbrauch_kwh": 32257,
       "arbeitspreis_brutto_pro_kwh": 0.110207,
       "gesamt_brutto": 3554.95,
@@ -121,7 +154,8 @@
       "z_zahl": 0.9654,
       "brennwert_von": 11.506,
       "brennwert_bis": 11.590,
-      "anmerkung": "Z-Zahl und Brennwert relevant für HeizkostenV-Umrechnung m³ zu kWh"
+      "interner_arbeitspreis_berechnung": 0.104255,
+      "interner_arbeitspreis_anmerkung": "Der in der OG-Berechnung 2024/2025 verwendete Arbeitspreis 0.104255 €/kWh weicht von 0.110207 der GASAG-Rechnung ab - vermutlich anderer Tarifabschnitt oder CO2-getrennt. Für Tests beide Varianten prüfen."
     },
     {
       "id": "bwb_2024_2025",
@@ -132,14 +166,12 @@
       "zeitraum_start": "2024-10-10",
       "zeitraum_ende": "2025-10-22",
       "positionen": [
-        { "art": "Trinkwasser",   "menge_m3": 434, "preis_pro_m3": 1.694, "grundgebuehr": 80.08, "gesamt": 866.74 },
-        { "art": "Schmutzwasser", "menge_m3": 243, "preis_pro_m3": 2.155, "grundgebuehr": 37.42, "gesamt": 561.09, "hinweis": "Abwasser reduziert um 191 m³ Gartenzwischenzähler-Verbrauch (keine Schmutzwasser-Gebühr auf Gartenwasser)" }
+        {"art": "Trinkwasser",   "menge_m3": 434, "preis_pro_m3": 1.694, "grundgebuehr": 80.08, "gesamt": 866.74},
+        {"art": "Schmutzwasser", "menge_m3": 243, "preis_pro_m3": 2.155, "grundgebuehr": 37.42, "gesamt": 561.09, "hinweis": "Abwasser reduziert um 191 m³ Gartenzwischenzähler"}
       ],
       "gesamt_brutto": 1427.83,
-      "abschlaege_bisher": 1395.00,
-      "nachzahlung": 32.83,
-      "neue_abschlaege_pro_monat": 269.00,
-      "vorherige_abschlaege_pro_monat": 279.00
+      "wasserpreis_kombiniert_pro_m3": 4.31,
+      "wasserpreis_anmerkung": "User verwendet in NK-Abrechnung 4.31 €/m³ kombiniert (aus _NK-Abrechnung_OG_2025.xlsx Sheet 'Dateneingabe'). Die 3.29 €/m³ in der fehlerhaften KG-Abrechnung war Tippfehler."
     },
     {
       "id": "bsr_2025",
@@ -149,15 +181,14 @@
       "bescheid_nr": "220448697",
       "zeitraum_start": "2025-01-01",
       "zeitraum_ende": "2025-12-31",
-      "zeitraum_hinweis": "Kalenderjahr, muss für NK-Periode 01.11.2024-31.10.2025 anteilig abgegrenzt werden (10 Monate aus 2025 + 2 Monate aus 2024-Bescheid, der hier nicht vorliegt)",
+      "zeitraum_hinweis": "Kalenderjahr. Im MVP-Modus .rechnungsdatum voll auf 2024/2025 gebucht. Ab 2025/2026 zeitanteilig 10/12 + 2/12 aus Vorjahr.",
       "positionen": [
-        { "art": "Grundgebühr", "betrag": 72.72 },
-        { "art": "Hausmüll",    "betrag": 401.12 },
-        { "art": "Bio",         "betrag": 54.00 }
+        {"art": "Grundgebühr", "betrag": 72.72},
+        {"art": "Hausmüll",    "betrag": 401.12},
+        {"art": "Bio",         "betrag": 54.00}
       ],
       "gesamt_brutto": 527.84,
-      "quartalsbetrag": 131.96,
-      "todo": "BSR-Bescheid 2024 liegt nicht vor. Für Tests ganze Jahresgebühr proportional auf 12 Monate annehmen und 12/12 umlegen (vereinfachend)."
+      "quartalsbetrag": 131.96
     },
     {
       "id": "grundsteuer_2025",
@@ -169,7 +200,7 @@
       "messbetrag": 714.02,
       "hebesatz_prozent": 470,
       "gesamt_brutto": 3355.89,
-      "zeitraum_hinweis": "Kalenderjahr, wie BSR anteilig abgegrenzt"
+      "zeitraum_hinweis": "Kalenderjahr, im MVP-Modus .rechnungsdatum voll gebucht."
     },
     {
       "id": "allianz_2024_2025",
@@ -181,66 +212,195 @@
       "zeitraum_start": "2024-11-01",
       "zeitraum_ende": "2025-10-31",
       "gesamt_brutto": 2115.13,
+      "positionen": [
+        {"art": "Grobe Fahrlässigkeit", "betrag": 160.44, "hinweis": "Für alle Versicherungsgrundstücke gemeinsam. Ggf. anteilig umzulegen wenn User mehrere Immobilien hat."},
+        {"art": "Ökopaket Feuer",           "betrag": 21.57},
+        {"art": "Ökopaket Leitungswasser",  "betrag": 44.57},
+        {"art": "Ökopaket Sturm/Hagel",     "betrag": 21.57},
+        {"art": "Objekt Feuer",             "betrag": 388.77},
+        {"art": "Leitungswasser",           "betrag": 973.38},
+        {"art": "Sturm/Hagel",              "betrag": 271.27},
+        {"art": "Elementar (ohne Sturm/Hagel)", "betrag": 233.55}
+      ],
+      "agentur": "Jäger und Schröder OHG",
       "vorjahr_gesamt": 1984.68,
-      "position_grobe_fahrlaessigkeit": 160.44,
-      "zeitraum_hinweis": "Deckt NK-Periode perfekt ab, keine Zeitraumabgrenzung nötig",
-      "agentur": "Jäger und Schröder OHG"
+      "folgejahr_2025_2026": 2591.29
+    },
+    {
+      "id": "leske_wartung_2024_2025",
+      "kostenart": "Heiz-Nebenkosten",
+      "sub_kostenart": "Wartung Gasheizung",
+      "umlagefaehig": true,
+      "versorger": "Leske Heizung Lüftung Sanitär GmbH",
+      "rechnungs_nr": "242238",
+      "rechnungsdatum": "2024-12-06",
+      "leistungszeitraum_start": "2024-12-01",
+      "leistungszeitraum_ende": "2025-11-30",
+      "netto": 235.22,
+      "mwst": 44.69,
+      "gesamt_brutto": 279.91,
+      "arbeitskosten_brutto": 279.91,
+      "materialkosten": 0.00,
+      "paragraph_35a_relevant": true,
+      "zeitraum_hinweis": "Überschneidet NK-Grenze. MVP: voll gebucht (Rechnungsdatum 06.12.2024 fällt in NK-Periode 2024/2025)."
+    },
+    {
+      "id": "kirschnereit_schornsteinfeger_2025",
+      "kostenart": "Heiz-Nebenkosten",
+      "sub_kostenart": "Schornsteinfeger",
+      "umlagefaehig": true,
+      "versorger": "Kirschnereit Schornsteinfegermeisterbetrieb Tina Stahl",
+      "rechnungs_nr": "K 0962/2025",
+      "rechnungsdatum": "2025-04-18",
+      "grundstueckszeichen": "500/Ba37",
+      "netto": 116.76,
+      "mwst": 22.18,
+      "gesamt_brutto": 138.94,
+      "arbeitskosten_brutto": 138.94,
+      "materialkosten": 0.00,
+      "paragraph_35a_relevant": true,
+      "anmerkung": "Jahresbetrag 2025 laut Feuerstättenbescheid. Vorjahr: 208.71 € (enthielt vermutlich Emissionsmessung, die bei Gas nur alle 3 Jahre fällig)."
+    },
+    {
+      "id": "freter_treppenhaus_2025",
+      "kostenart": "Reinigung Treppenhaus",
+      "umlagefaehig": true,
+      "versorger": "Glas- & Gebäudereinigung Ringo Freter",
+      "rechnungs_nr": "RE1231",
+      "rechnungsdatum": "2025-05-27",
+      "leistungszeitraum_start": "2025-05-01",
+      "leistungszeitraum_ende": "2025-05-31",
+      "positionen": [
+        {"art": "Glasreinigung Treppenhaus", "netto": 60.00}
+      ],
+      "netto": 60.00,
+      "mwst": 11.40,
+      "gesamt_brutto": 71.40,
+      "arbeitskosten_brutto": 71.40,
+      "paragraph_35a_relevant": true
+    },
+    {
+      "id": "freter_eg_2025",
+      "kostenart": "Reinigung Erdgeschoss",
+      "umlagefaehig_anmerkung": "STRITTIG: Glasreinigung EG ist private Wohnung der Selbstnutzerin. BetrKV §2 Nr. 9 erlaubt nur Gemeinschaftsflächen. Flag als Warnung in Task 0.17.",
+      "umlagefaehig": false,
+      "versorger": "Glas- & Gebäudereinigung Ringo Freter",
+      "rechnungs_nr": "RE1232",
+      "rechnungsdatum": "2025-05-27",
+      "positionen": [
+        {"art": "Glasreinigung Erdgeschoss", "netto": 100.00},
+        {"art": "Anfahrtspauschale",         "netto": 10.00}
+      ],
+      "netto": 110.00,
+      "mwst": 20.90,
+      "gesamt_brutto": 130.90
+    },
+    {
+      "id": "guenther_winterdienst_2024_2025",
+      "kostenart": "Schnee-/Eisbeseitigung",
+      "umlagefaehig": true,
+      "versorger": "Gerd Günther & Söhne Schneebeseitigung",
+      "rechnungs_nr": "Bahn37-25-1",
+      "rechnungsdatum": "2025-08-11",
+      "leistungszeitraum_start": "2025-11-01",
+      "leistungszeitraum_ende": "2026-04-30",
+      "positionen": [
+        {"art": "68 lfd. Meter Gehweg × 4,90 €", "netto": 333.20}
+      ],
+      "netto": 333.20,
+      "mwst": 63.31,
+      "gesamt_brutto": 396.51,
+      "arbeitskosten_brutto": 396.51,
+      "paragraph_35a_relevant": true,
+      "zeitraum_hinweis": "Rechnungsdatum 11.08.2025 fällt in NK-Periode 2024/2025, Leistung aber erst 2025/2026. Im MVP voll gebucht (Rechnungsdatum-Prinzip). Ab 2025/2026-Abrechnung wird das hier rechtlich sauberer auf Leistungszeitraum verschoben."
     }
   ],
 
+  "heiz_nebenkosten_zusammensetzung": {
+    "beschreibung": "Pool der Heiz-Nebenkosten wird als Summe gebildet und dann nach kWh-Verhältnis zwischen Heizung und Warmwasser aufgeteilt. Im Vorjahr war Verhältnis 67/33, 2024/2025 wird dynamisch berechnet.",
+    "posten_2024_2025": [
+      {"posten": "Leske Wartung", "betrag": 279.91, "rechnung_id": "leske_wartung_2024_2025"},
+      {"posten": "Schornsteinfeger", "betrag": 138.94, "rechnung_id": "kirschnereit_schornsteinfeger_2025"},
+      {"posten": "Wartung Messgeräte", "betrag": null, "caveat": "Kommt vermutlich nur alle paar Jahre (Eichfrist 5 Jahre). Vorjahr 260.36 €. MVP: als null belassen = 0."},
+      {"posten": "Verbrauchsabrechnung 3×35", "betrag": null, "caveat": "Oft Teil der Messgeräte-Rechnung. Vorjahr 105.00 €. MVP: als null belassen = 0."}
+    ],
+    "summe_2024_2025_ohne_nullwerte": 418.85,
+    "summe_2023_2024_vergleich": 976.81
+  },
+
   "erwartete_ergebnisse": {
-    "hinweis": "Für Integrationstests. Werte aus Vergleich mit OG-Abrechnung (die rechnerisch korrekt ist) und eigenen m²-Umlagen. Toleranz: ±0,10 €.",
+    "hinweis": "Alle Werte aus _NK-Abrechnung_OG_2025.xlsx (rechnerisch korrekt, anders als KG-Abrechnung). Toleranz: ±0.10 €.",
 
-    "grundsteuer_umlage_m2": {
-      "basis_betrag": 3355.89,
-      "KG": 1016.94,
-      "EG": 1150.25,
-      "OG": 1188.70,
-      "summe_check": 3355.89,
-      "quelle": "eigene Rechnung, 160/528, 181/528, 187/528"
-    },
-    "versicherung_umlage_m2": {
-      "basis_betrag": 2115.13,
-      "KG": 640.95,
-      "EG": 725.40,
-      "OG": 748.78,
-      "summe_check": 2115.13,
-      "quelle": "eigene Rechnung, vom User bestätigte OG-Referenz 749,11 (Abweichung durch Rundung)"
-    },
-
-    "referenzwerte_og_aus_user_dokument": {
-      "hinweis": "Aus der OG-Abrechnung des Users, die rechnerisch korrekt war (anders als die KG-Abrechnung, die OG-Copypaste enthielt).",
+    "og_gesamtabrechnung_2024_2025": {
+      "be_entwaesserung": 342.16,
+      "ww_heizung": 1997.06,
       "grundsteuer": 1188.54,
       "versicherung": 749.11,
       "vorgartenpflege": 46.12,
       "schnee_eis": 140.43,
       "allgemeinstrom": 119.44,
-      "bsr": 269.12,
       "reinigung": 194.97,
-      "warmwasser_heizung": 1997.06
+      "bsr": 269.12,
+      "gesamtkosten": 5046.95,
+      "vorauszahlung_monat": 470.00,
+      "vorauszahlung_jahr": 5640.00,
+      "erstattung": 593.05,
+      "paragraph_35a_anteil": 576.02
+    },
+
+    "og_ww_detail_aus_xlsx": {
+      "ww_gesamt_m3": 69.12,
+      "ww_gas_m3": 891.648,
+      "ww_gas_kwh": 9906.21,
+      "ww_gaskosten_brutto": 1032.77,
+      "ww_strom_3prozent": 47.44,
+      "ww_nebenkosten": 323.88,
+      "ww_gesamtkosten": 1404.09,
+      "ww_grundkosten_30prozent": 421.23,
+      "ww_grundkosten_og_187_528": 149.18
+    },
+
+    "m2_umlagen_ref": {
+      "grundsteuer": {"KG": 1016.94, "EG": 1150.25, "OG": 1188.70, "summe": 3355.89, "basis": 3355.89},
+      "versicherung": {"KG": 640.95, "EG": 725.40, "OG": 748.78, "summe": 2115.13, "basis": 2115.13}
     }
+  },
+
+  "historische_referenzen": {
+    "periode": "2023-11-01 bis 2024-10-31",
+    "quelle": "2024_2_Nkabrechnung_Bahnhofstr_1_11_-31_10_24_OG.docx",
+    "og_gesamt": 4965.10,
+    "og_vorauszahlung": 5640.00,
+    "og_erstattung": 674.90,
+    "og_paragraph_35a": 481.00,
+    "heiz_nebenkosten_summe": 976.81,
+    "heiz_nebenkosten_aufteilung": {"heizung_prozent": 67, "warmwasser_prozent": 33},
+    "gaspreis_brutto_pro_kwh": 0.102326,
+    "brennwert_z_zahl": 11.12,
+    "wasserpreis_kombiniert_pro_m3": 4.29,
+    "hinweis": "Methodik und Formeln konsistent mit 2024/2025 (gleicher Faktor 12.9, gleiches 30/70-Schema, gleicher 3%-Strom-Zuschlag). Preise und Verbräuche differieren natürlich."
   },
 
   "offene_fragen": [
     {
-      "id": "wasserpreis",
-      "frage": "Kombinierter Wasserpreis (Trink+Abwasser) in Nebenkostenabrechnung inkonsistent: 3,29 €/m³ vs. 4,31 €/m³ in User-Dokumenten. Welcher ist richtig?",
-      "impact": "Betrifft Wasserkostenrechner (Task 0.5). Solange offen: Rohwerte aus BWB-Rechnung direkt verwenden (1,694 Trink + 2,155 Schmutz = 3,849 €/m³ reiner Mengenpreis ohne Grundgebühr)."
+      "id": "wasserpreis_herleitung",
+      "frage": "Wie wird der kombinierte Wasserpreis 4.31 €/m³ aus der BWB-Rechnung hergeleitet? Vermutlich: Gesamtkosten BWB 1427.83 € / Gesamtverbrauch aller Einheiten ≈ 4.31 €/m³. Zu prüfen.",
+      "impact": "Formel für Wasserpreis-Ableitung in Task 0.5 klären."
     },
     {
-      "id": "wmz_eg_anfangsstand",
-      "frage": "Anfangsstand EG-WMZ nicht dokumentiert. Foto-OCR und Excel lieferten widersprüchliche Endstände (14,97 vs 16,66 MWh).",
-      "impact": "Heizkostenrechner-Test für EG blockiert. Als Platzhalter Wert setzen oder im Test als 'skip' markieren."
+      "id": "gaspreis_diskrepanz",
+      "frage": "Arbeitspreis in OG-Berechnung 0.104255 €/kWh vs. GASAG-Rechnung 0.110207 €/kWh. Ursache: evtl. ohne CO2-Abgabe oder anderer Tarifabschnitt.",
+      "impact": "Für Formel-Test beide Werte probieren, welcher stimmt mit Referenzwert 1032.77 € WW-Gaskosten."
     },
     {
-      "id": "bsr_vorjahr",
-      "frage": "BSR-Bescheid 2024 liegt nicht vor für saubere Zeitraumabgrenzung Nov+Dez 2024.",
-      "impact": "Für MVP-Test 12/12 des 2025-Bescheids verwenden."
+      "id": "freter_eg_umlagefaehig",
+      "frage": "Freter RE1232 EG-Glasreinigung 130.90 € wird in OG-Abrechnung mit umgelegt, ist aber rechtlich strittig (private Wohnung Selbstnutzer).",
+      "impact": "In Task 0.17 als Fehlerprüfung flaggen. MVP-Tests: nimm Referenzwert 194.97 € ohne tiefere Validierung."
     },
     {
-      "id": "strom_umlage",
-      "frage": "Strom wird via Vattenfall direkt pro Einheit abgerechnet (eigene Verträge), nicht über den Hauptzähler umgelegt. Keine NK-Position für Einzelstrom.",
-      "impact": "Nur Allgemeinstrom (Flur/Keller/Garten) ist umlagefähig, dafür liegt keine separate Rechnung im Test-Datensatz."
+      "id": "allianz_grobe_fahrlaessigkeit",
+      "frage": "Position 'Grobe Fahrlässigkeit' 160.44 € gilt 'für alle Versicherungsgrundstücke' - wenn User mehrere Immobilien hat, dürfte nur anteilig umgelegt werden.",
+      "impact": "In Task 0.17 als Warnung. Steuerberater-Klärung empfehlen."
     }
   ]
 }
