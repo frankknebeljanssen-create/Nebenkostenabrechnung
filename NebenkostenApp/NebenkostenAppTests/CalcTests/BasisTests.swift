@@ -65,6 +65,26 @@ struct BasisTests {
         #expect(wert.gerundet(auf: 1, modus: .aufrunden) == Decimal(string: "5.1"))
     }
 
+    // MARK: - Bankers-Rundung (half-to-even, Konvention für Positionsbeträge)
+
+    @Test("Bankers: 2,5 rundet auf 2 (gerade)")
+    func bankers_abwaerts() {
+        let wert = Decimal(string: "2.5")!
+        #expect(wert.gerundet(auf: 0, modus: .bankers) == 2)
+    }
+
+    @Test("Bankers: 3,5 rundet auf 4 (gerade)")
+    func bankers_aufwaerts() {
+        let wert = Decimal(string: "3.5")!
+        #expect(wert.gerundet(auf: 0, modus: .bankers) == 4)
+    }
+
+    @Test("Bankers: 0,025 auf 2 Stellen ergibt 0,02 (gerade)")
+    func bankers_zweiStellen() {
+        let wert = Decimal(string: "0.025")!
+        #expect(wert.gerundet(auf: 2, modus: .bankers) == Decimal(string: "0.02"))
+    }
+
     // MARK: - Default-Modus
 
     @Test("Default-Modus ist kaufmännisch")
