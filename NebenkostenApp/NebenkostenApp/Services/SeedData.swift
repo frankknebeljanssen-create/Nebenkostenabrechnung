@@ -31,6 +31,7 @@ enum SeedData {
 
         let einheitenNachID = bauWohneinheiten(ausJson: json, immobilie: immobilie, context: context)
         bauMieter(ausJson: json, einheitenNachID: einheitenNachID, context: context)
+        bauZaehler(ausJson: json, einheitenNachID: einheitenNachID, immobilie: immobilie, context: context)
         bauPeriode(ausJson: json, immobilie: immobilie, context: context)
 
         try? context.save()
@@ -109,6 +110,7 @@ enum SeedData {
         for roh in rohe {
             let mv = Mietverhaeltnis()
             mv.mieterName = (roh["name"] as? String) ?? ""
+            mv.mieterTyp = mieterTyp(aus: (roh["typ"] as? String) ?? "")
             mv.einzugAm = Date(timeIntervalSince1970: 0)   // Unbekannt — MVP
             if let einheitID = roh["einheit_id"] as? String,
                let wohneinheit = einheitenNachID[einheitID] {
@@ -116,6 +118,69 @@ enum SeedData {
             }
             context.insert(mv)
         }
+    }
+
+    private static func mieterTyp(aus roh: String) -> MieterTyp {
+        switch roh {
+        case "Gewerbemieter": return .gewerbemieter
+        case "Selbstnutzer":  return .selbstnutzer
+        default:              return .wohnungsmieter
+        }
+    }
+
+    // MARK: - Zähler
+
+    private static func bauZaehler(
+        ausJson json: [String: Any],
+        einheitenNachID: [String: Wohneinheit],
+        immobilie: Immobilie,
+        context: ModelContext
+    ) {
+        guard let rohe = json["zaehler"] as? [[String: Any]] else { return }
+
+        for roh in rohe {
+            let z = Zaehler()
+            z.bezeichnung = (roh["id"] as? String) ?? ""
+            z.seriennummer = (roh["seriennummer"] as? String) ?? ""
+            z.medium = medium(aus: (roh["typ"] as? String) ?? "")
+            z.einheit = standardEinheit(fuer: z.medium)
+            z.typ = zaehlerTyp(fuer: roh)
+
+            let einheitID = roh["einheit_id"] as? String
+            if let id = einheitID, let einheit = einheitenNachID[id] {
+                z.wohneinheit = einheit
+            } else if einheitID == nil {
+                z.immobilie = immobilie
+            }
+            context.insert(z)
+        }
+    }
+
+    private static func medium(aus typRoh: String) -> Medium {
+        switch typRoh {
+        case "Gas":                  return .gas
+        case "Strom":                return .strom
+        case "Warmwasser":           return .warmwasser
+        case "Kaltwasser":           return .kaltwasser
+        case "Wärmemengenzähler":    return .waermeenergie
+        default:                     return .kaltwasser
+        }
+    }
+
+    private static func standardEinheit(fuer medium: Medium) -> String {
+        switch medium {
+        case .kaltwasser, .warmwasser, .gas: return "m³"
+        case .strom:          return "kWh"
+        case .waermeenergie:  return "MWh"
+        case .oel:            return "L"
+        }
+    }
+
+    private static func zaehlerTyp(fuer roh: [String: Any]) -> Zaehlertyp {
+        if (roh["einheit_id"] as? String) == nil { return .haupt }
+        let anmerkung = (roh["anmerkung"] as? String ?? "").lowercased()
+        if anmerkung.contains("zwischen") { return .zwischen }
+        return .wohnung
     }
 
     // MARK: - Abrechnungsperioden

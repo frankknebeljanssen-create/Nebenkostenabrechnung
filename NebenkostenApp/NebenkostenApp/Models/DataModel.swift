@@ -116,6 +116,12 @@ final class Wohneinheit {
 
 // MARK: - Mietverhältnis
 
+enum MieterTyp: String, Codable, CaseIterable, Sendable {
+    case wohnungsmieter = "Wohnungsmieter"
+    case gewerbemieter  = "Gewerbemieter"
+    case selbstnutzer   = "Selbstnutzer"
+}
+
 @Model
 final class Mietverhaeltnis {
     var id: UUID = UUID()
@@ -123,6 +129,8 @@ final class Mietverhaeltnis {
     var mieterName: String = ""
     var mieterAnschrift: String = ""
     var mieterEmail: String = ""
+
+    var mieterTyp: MieterTyp = MieterTyp.wohnungsmieter
 
     /// Einzugsdatum
     var einzugAm: Date = Date()
