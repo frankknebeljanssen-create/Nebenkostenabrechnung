@@ -6,7 +6,11 @@
 import SwiftUI
 
 struct MieterBlock: View {
+    let wohneinheit: Wohneinheit
     let mietverhaeltnis: Mietverhaeltnis?
+
+    @State private var zeigeEdit = false
+    @State private var zeigeNeu = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -34,25 +38,41 @@ struct MieterBlock: View {
                         }
                     }
                 }
+
+                Button {
+                    zeigeEdit = true
+                } label: {
+                    Label("Bearbeiten", systemImage: "pencil")
+                }
+                .buttonStyle(.bordered)
+                .padding(.top, 4)
             } else {
                 Text("Kein aktives Mietverhältnis")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-            }
 
-            VStack(alignment: .leading, spacing: 4) {
-                Button { } label: { Text("Bearbeiten") }
-                    .buttonStyle(.bordered)
-                    .disabled(true)
-                Text("Verfügbar in Task 0.15")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                Button {
+                    zeigeNeu = true
+                } label: {
+                    Label("Mietverhältnis anlegen", systemImage: "plus.circle.fill")
+                }
+                .buttonStyle(.borderedProminent)
+                .padding(.top, 4)
             }
-            .padding(.top, 4)
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 14))
+        .sheet(isPresented: $zeigeEdit) {
+            if let mv = mietverhaeltnis {
+                MieterEditView(modus: .bearbeiten(mv))
+            }
+        }
+        .sheet(isPresented: $zeigeNeu) {
+            if let immobilie = wohneinheit.immobilie {
+                MieterEditView(modus: .neu(immobilie: immobilie, vorauswahl: wohneinheit))
+            }
+        }
     }
 }

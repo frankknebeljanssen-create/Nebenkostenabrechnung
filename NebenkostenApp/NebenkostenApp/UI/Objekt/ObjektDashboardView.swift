@@ -132,7 +132,10 @@ struct ObjektDashboardView: View {
     private var kachelGrid: some View {
         LazyVGrid(columns: spalten, spacing: 12) {
             let m = viewModel.mieter
-            StatusKachel(titel: "Mieter",      symbol: "person.2",              status: m.status,  ist: m.ist,  soll: m.soll)
+            NavigationLink(value: MieterListenZiel(immobilie: immobilie)) {
+                StatusKachel(titel: "Mieter", symbol: "person.2", status: m.status, ist: m.ist, soll: m.soll)
+            }
+            .buttonStyle(.plain)
 
             let z = viewModel.zaehler
             StatusKachel(titel: "Zähler",      symbol: "gauge",                 status: z.status,  ist: z.ist,  soll: z.soll)

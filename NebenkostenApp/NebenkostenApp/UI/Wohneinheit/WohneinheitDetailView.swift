@@ -19,7 +19,7 @@ struct WohneinheitDetailView: View {
                     wohneinheit: wohneinheit,
                     gesamtflaeche: viewModel.gesamtflaecheImmobilie
                 )
-                MieterBlock(mietverhaeltnis: viewModel.aktiverMieter)
+                MieterBlock(wohneinheit: wohneinheit, mietverhaeltnis: viewModel.aktiverMieter)
                 ZaehlerBlock(zaehler: viewModel.zaehler)
                 VorauszahlungBlock()
             }
