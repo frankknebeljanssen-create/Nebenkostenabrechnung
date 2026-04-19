@@ -20,6 +20,9 @@ struct ObjektTabRoot: View {
             inhalt
                 .navigationTitle("Objekt")
                 .toolbar { pickerToolbar }
+                .navigationDestination(for: Wohneinheit.self) { einheit in
+                    WohneinheitDetailView(wohneinheit: einheit)
+                }
                 .sheet(isPresented: $zeigeNeuesObjekt) {
                     NeuesObjektSheet { angelegt in
                         objektWahl.setze(angelegt.id)

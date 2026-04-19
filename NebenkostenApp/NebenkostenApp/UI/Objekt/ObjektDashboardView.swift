@@ -154,9 +154,7 @@ struct ObjektDashboardView: View {
                 .padding(.top, 8)
 
             ForEach(sortierteWohneinheiten) { einheit in
-                NavigationLink {
-                    WohneinheitDetailView(wohneinheit: einheit)
-                } label: {
+                NavigationLink(value: einheit) {
                     WohneinheitZeile(wohneinheit: einheit)
                 }
                 .buttonStyle(.plain)

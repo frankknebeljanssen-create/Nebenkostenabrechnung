@@ -130,7 +130,16 @@ final class Mietverhaeltnis {
     var mieterAnschrift: String = ""
     var mieterEmail: String = ""
 
-    var mieterTyp: MieterTyp = MieterTyp.wohnungsmieter
+    /// Gespeicherter Roh-String. Wir halten das enum-Feld NICHT direkt als
+    /// `@Model`-Property, damit bestehende SwiftData-Stores (aus älteren
+    /// Schemata ohne diese Spalte) nicht beim Lesen crashen — SwiftData
+    /// liefert in dem Fall nil, der String-Default hält den Typsicher.
+    private var mieterTypRoh: String = MieterTyp.wohnungsmieter.rawValue
+
+    var mieterTyp: MieterTyp {
+        get { MieterTyp(rawValue: mieterTypRoh) ?? .wohnungsmieter }
+        set { mieterTypRoh = newValue.rawValue }
+    }
 
     /// Einzugsdatum
     var einzugAm: Date = Date()
