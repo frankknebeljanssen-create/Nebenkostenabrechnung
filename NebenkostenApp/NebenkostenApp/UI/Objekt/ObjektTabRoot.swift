@@ -4,15 +4,19 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct ObjektTabRoot: View {
+    @Query(sort: \Immobilie.erstelltAm) private var immobilien: [Immobilie]
+
     var body: some View {
         NavigationStack {
-            TabPlatzhalterView(
-                titel: "Objekt",
-                symbol: "house"
-            )
-            .navigationTitle("Objekt")
+            if let immobilie = immobilien.first {
+                ObjektDashboardView(immobilie: immobilie)
+            } else {
+                TabPlatzhalterView(titel: "Objekt", symbol: "house")
+                    .navigationTitle("Objekt")
+            }
         }
     }
 }

@@ -183,7 +183,16 @@ optisch ähnlich zum User-Vorjahres-PDF aus.
 
 ## PHASE 0.B — Core UI
 
-### 0.10 Onboarding mit DSGVO-Zustimmung
+### 0.10 Tab-Bar Skeleton
+
+Vier Tabs: Objekt, Dokumente, Abrechnungen, Einstellungen — jeder mit
+NavigationStack und Platzhalter-Screen ("Noch nicht implementiert"). App
+startet direkt in die Tab-Bar. Onboarding-Gate kommt später (Task 0.13).
+
+**Akzeptanzkriterium:** App startet, alle vier Tabs antippbar, jeder zeigt
+den eigenen Platzhalter.
+
+### 0.13 Onboarding mit DSGVO-Zustimmung
 
 `Features/Onboarding/` mit Screen-Sequence:
 
@@ -206,30 +215,7 @@ Zustimmungen mit Zeitstempel in SwiftData (`User.datenschutzZustimmungAm`,
 **Akzeptanzkriterium:** User kann Bahnhofstr. 37 + 3 Einheiten komplett
 anlegen. Daten persistieren nach App-Neustart.
 
-### 0.11 Tab-Bar Navigation
-
-`App/RootView.swift` mit `TabView`:
-
-```swift
-TabView {
-    ObjektTabView()
-        .tabItem { Label("Objekt", systemImage: "house") }
-    DokumenteTabView()
-        .tabItem { Label("Dokumente", systemImage: "doc.text") }
-    AbrechnungenTabView()
-        .tabItem { Label("Abrechnungen", systemImage: "chart.bar.doc.horizontal") }
-    EinstellungenTabView()
-        .tabItem { Label("Einstellungen", systemImage: "gear") }
-}
-```
-
-Jeder Tab initial als Placeholder-View. Wenn Onboarding nicht
-abgeschlossen, stattdessen Onboarding-Flow zeigen.
-
-**Akzeptanzkriterium:** Vier Tabs navigierbar, Onboarding-Gate
-funktioniert.
-
-### 0.12 Objekt-Dashboard mit Kacheln
+### 0.11 Objekt-Dashboard mit Kacheln
 
 `Features/Objekt/ObjektDashboardView.swift`:
 
@@ -249,7 +235,7 @@ Jede Kachel ist `NavigationLink` auf die jeweilige Detail-View.
 
 **Akzeptanzkriterium:** Dashboard zeigt echte Zahlen, Tap öffnet Details.
 
-### 0.13 Multi-Objekt-Switcher
+### 0.12 Multi-Objekt-Switcher
 
 Im Objekt-Picker:
 - Liste aller Objekte mit Adresse

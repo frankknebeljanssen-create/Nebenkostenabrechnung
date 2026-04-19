@@ -11,6 +11,9 @@ struct NebenkostenAppApp: App {
         } catch {
             fatalError("ModelContainer konnte nicht erzeugt werden: \(error)")
         }
+        MainActor.assumeIsolated {
+            SeedData.seedeWennLeer(in: container.mainContext)
+        }
     }
 
     var body: some Scene {
