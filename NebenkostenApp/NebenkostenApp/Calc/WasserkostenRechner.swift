@@ -2,12 +2,18 @@
 //  WasserkostenRechner.swift
 //  NebenkostenApp — Calc-Layer
 //
-//  Verteilung der BWB-Kosten (Trinkwasser + Schmutzwasser) auf die
-//  Einheiten nach verbrauchtem m³ am jeweiligen Wohnungs-Kaltwasser-
-//  zähler. Warmwasser zählt als Trinkwasser (weil aus demselben
-//  Hauptzähler entnommen) und fließt in den Einheits-Verbrauch ein.
-//  Gartenzwischenzähler reduzieren ausschließlich den Abwasseranteil
-//  (Bewässerung verlässt die Liegenschaft, keine Schmutzwasser-Gebühr).
+//  Kombinierte Trinkwasser- + Schmutzwasser-Umlage (BWB). Der effektive
+//  €/m³-Preis wird NICHT vom User eingegeben, sondern dynamisch aus
+//  BWB-Gesamtkosten und Summe der Einzelverbräuche abgeleitet. So
+//  bleibt der Rechner jahresunabhängig und automatisch konsistent, wenn
+//  BWB-Preise oder Grundgebühren sich ändern.
+//
+//  Der Einheit-Verbrauch ist die Summe aus Kaltwasserzähler-Differenz
+//  und Warmwasserzähler (WW kommt aus demselben BWB-Hauptzähler).
+//  Gartenzwischenzähler werden in Σ mitgerechnet — dadurch trägt der
+//  Garten-Nutzer die anteiligen Kosten seines Garten-Wassers. Der
+//  rechtliche Abwasser-Abzug (keine Schmutzwasser-Gebühr auf
+//  Bewässerung) ist in den BWB-Gesamtkosten bereits berücksichtigt.
 //
 //  Einziger erlaubter Import: Foundation.
 //
@@ -15,105 +21,65 @@
 import Foundation
 
 struct WasserkostenInput: Equatable, Sendable {
-    /// Trinkwasser-Gesamtverbrauch der Liegenschaft in m³ (BWB-Hauptzähler).
-    let verbrauchGesamtM3: Verbrauch
-    /// Trinkwasserkosten brutto (Mengenpreis · m³ + Grundgebühr).
-    let trinkwasserKostenEuro: Euro
-    /// Schmutzwasserkosten brutto (Mengenpreis · m³ reduziert um Garten
-    /// + Grundgebühr).
-    let schmutzwasserKostenEuro: Euro
-    /// Einheit-Verbrauch in m³ (Kaltwasser-Wohnungszähler-Differenz plus
-    /// Warmwasser-Verbrauch, da Warmwasser aus demselben Hauptzähler
-    /// gezogen wird).
+    /// Gesamte BWB-Rechnung brutto (Trinkwasser + Schmutzwasser + alle
+    /// Grundgebühren), wie vom Versorger ausgewiesen.
+    let bwbGesamtkostenEuro: Euro
+
+    /// Jahres-Verbrauch pro Einheit in m³. Enthält Kaltwasser +
+    /// Warmwasser. Für Einheiten mit Garten ist der Gartenanteil im
+    /// Verbrauch enthalten.
     let verbrauchProEinheitM3: [String: Verbrauch]
-    /// Gartenzwischenzähler-Verbrauch pro Einheit. Wird NUR beim
-    /// Abwasser abgezogen — Trinkwasser wird trotzdem verrechnet.
-    /// Für Bahnhofstr. 37: `["EG": 191]`.
-    let gartenM3ProEinheit: [String: Verbrauch]
 
     init(
-        verbrauchGesamtM3: Verbrauch,
-        trinkwasserKostenEuro: Euro,
-        schmutzwasserKostenEuro: Euro,
-        verbrauchProEinheitM3: [String: Verbrauch],
-        gartenM3ProEinheit: [String: Verbrauch] = [:]
+        bwbGesamtkostenEuro: Euro,
+        verbrauchProEinheitM3: [String: Verbrauch]
     ) {
-        self.verbrauchGesamtM3 = verbrauchGesamtM3
-        self.trinkwasserKostenEuro = trinkwasserKostenEuro
-        self.schmutzwasserKostenEuro = schmutzwasserKostenEuro
+        self.bwbGesamtkostenEuro = bwbGesamtkostenEuro
         self.verbrauchProEinheitM3 = verbrauchProEinheitM3
-        self.gartenM3ProEinheit = gartenM3ProEinheit
     }
-}
-
-struct WasserkostenPosition: Equatable, Sendable {
-    let trinkwasserEuro: Euro
-    let schmutzwasserEuro: Euro
-    let gesamtEuro: Euro
 }
 
 struct WasserkostenErgebnisEinheit: Equatable, Sendable {
     let einheitID: String
-    /// Trinkwasser-Verbrauch der Einheit (inkl. Garten).
     let verbrauchM3: Verbrauch
-    /// Abwasser-relevanter Verbrauch (Trinkwasser − Gartenzwischen).
-    let schmutzwasserM3: Verbrauch
-    let position: WasserkostenPosition
+    let anteilEuro: Euro
 }
 
 struct WasserkostenErgebnis: Equatable, Sendable {
-    /// Kaltwasser gesamt in m³ (BWB-Hauptzähler).
-    let trinkwasserGesamtM3: Verbrauch
-    /// Abwasser-relevante Menge in m³ (Trinkwasser − Summe Garten).
-    let schmutzwasserGesamtM3: Verbrauch
-    /// Summe aller Gartenzwischenzähler in m³.
-    let gartenGesamtM3: Verbrauch
+    let bwbGesamtkostenEuro: Euro
+    /// Σ aller Einzelverbräuche in m³.
+    let summeEinzelverbrauchM3: Verbrauch
+    /// Dynamisch abgeleiteter Wasserpreis €/m³ = gesamt / Σ.
+    let kombiPreisEuroProM3: Euro
     let proEinheit: [WasserkostenErgebnisEinheit]
 }
 
 enum WasserkostenRechner {
 
-    /// Verteilt die BWB-Kosten proportional zum m³-Verbrauch:
-    ///   Trinkwasserkosten pro Einheit   = TK · einheitVerbrauch / Σ Verbrauch
-    ///   Schmutzwasserkosten pro Einheit = SK · (einheitVerbrauch − Garten)
-    ///                                        / (Σ Verbrauch − Σ Garten)
-    /// Intern Decimal voller Präzision; Cent-Rundung obliegt dem Aufrufer.
+    /// Berechnet den Wasserkostenanteil pro Einheit über den dynamisch
+    /// abgeleiteten Kombi-Preis:
+    ///   preis = bwbGesamt / Σ Einheit-Verbrauch
+    ///   anteil = verbrauch · preis
+    /// Bei Σ = 0 werden alle Einheit-Anteile 0 € (keine Division-by-
+    /// Zero-Panik).
     static func berechne(_ input: WasserkostenInput) -> WasserkostenErgebnis {
-        let gartenGesamt = input.gartenM3ProEinheit.values.reduce(0 as Decimal, +)
-        let schmutzwasserGesamt = input.verbrauchGesamtM3 - gartenGesamt
+        let summe = input.verbrauchProEinheitM3.values.reduce(0 as Decimal, +)
+        let preis: Euro = summe == 0 ? 0 : input.bwbGesamtkostenEuro / summe
 
-        let einheitIDs = Set(input.verbrauchProEinheitM3.keys)
-            .union(input.gartenM3ProEinheit.keys)
-            .sorted()
-
+        let einheitIDs = input.verbrauchProEinheitM3.keys.sorted()
         let proEinheit: [WasserkostenErgebnisEinheit] = einheitIDs.map { id in
             let verbrauch = input.verbrauchProEinheitM3[id] ?? 0
-            let garten = input.gartenM3ProEinheit[id] ?? 0
-            let schmutzwasserEinheit = verbrauch - garten
-
-            let trinkwasserAnteil = input.verbrauchGesamtM3 == 0
-                ? 0
-                : input.trinkwasserKostenEuro * verbrauch / input.verbrauchGesamtM3
-            let schmutzwasserAnteil = schmutzwasserGesamt == 0
-                ? 0
-                : input.schmutzwasserKostenEuro * schmutzwasserEinheit / schmutzwasserGesamt
-
             return WasserkostenErgebnisEinheit(
                 einheitID: id,
                 verbrauchM3: verbrauch,
-                schmutzwasserM3: schmutzwasserEinheit,
-                position: WasserkostenPosition(
-                    trinkwasserEuro: trinkwasserAnteil,
-                    schmutzwasserEuro: schmutzwasserAnteil,
-                    gesamtEuro: trinkwasserAnteil + schmutzwasserAnteil
-                )
+                anteilEuro: verbrauch * preis
             )
         }
 
         return WasserkostenErgebnis(
-            trinkwasserGesamtM3: input.verbrauchGesamtM3,
-            schmutzwasserGesamtM3: schmutzwasserGesamt,
-            gartenGesamtM3: gartenGesamt,
+            bwbGesamtkostenEuro: input.bwbGesamtkostenEuro,
+            summeEinzelverbrauchM3: summe,
+            kombiPreisEuroProM3: preis,
             proEinheit: proEinheit
         )
     }

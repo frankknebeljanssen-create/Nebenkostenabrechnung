@@ -170,8 +170,8 @@
         {"art": "Schmutzwasser", "menge_m3": 243, "preis_pro_m3": 2.155, "grundgebuehr": 37.42, "gesamt": 561.09, "hinweis": "Abwasser reduziert um 191 m³ Gartenzwischenzähler"}
       ],
       "gesamt_brutto": 1427.83,
-      "wasserpreis_kombiniert_pro_m3": 4.31,
-      "wasserpreis_anmerkung": "User verwendet in NK-Abrechnung 4.31 €/m³ kombiniert (aus _NK-Abrechnung_OG_2025.xlsx Sheet 'Dateneingabe'). Die 3.29 €/m³ in der fehlerhaften KG-Abrechnung war Tippfehler."
+      "wasserpreis_kombiniert_pro_m3": null,
+      "wasserpreis_anmerkung": "Nicht fest eintragen. Der kombinierte Wasserpreis wird dynamisch abgeleitet: gesamt_brutto / Σ aller Einzelverbräuche (kw + ww je Einheit). Für Bahnhofstr. 37 ergibt das ≈ 3,32 €/m³. Der zuvor eingetragene Wert 4,31 €/m³ aus dem Dateneingabe-Sheet stimmt rechnerisch nicht zur OG-Referenz 342,16 €."
     },
     {
       "id": "bsr_2025",
