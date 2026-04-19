@@ -4,6 +4,7 @@ import SwiftData
 @main
 struct NebenkostenAppApp: App {
     let container: ModelContainer
+    @State private var objektWahl = ObjektWahl()
 
     init() {
         do {
@@ -19,6 +20,7 @@ struct NebenkostenAppApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environment(objektWahl)
                 .modelContainer(container)
         }
     }

@@ -14,6 +14,22 @@ import SwiftData
 
 // MARK: - Immobilie
 
+enum Heizungsart: String, Codable, CaseIterable, Sendable {
+    case gasZentral       = "Gas-Zentralheizung"
+    case oelZentral       = "Öl-Zentralheizung"
+    case fernwaerme       = "Fernwärme"
+    case strom            = "Strom (Nachtspeicher)"
+    case waermepumpe      = "Wärmepumpe"
+    case etagenheizung    = "Etagenheizung"
+}
+
+enum Warmwasserbereitung: String, Codable, CaseIterable, Sendable {
+    case zentralMitHeizung = "Zentral mit Heizung"
+    case zentralSeparat    = "Zentral separat"
+    case elektroboiler     = "Elektro-Boiler"
+    case durchlauferhitzer = "Durchlauferhitzer"
+}
+
 @Model
 final class Immobilie {
     var id: UUID = UUID()
@@ -34,6 +50,9 @@ final class Immobilie {
 
     /// Tag im Monat (1-31) des Abrechnungsstarts. Meist 1.
     var abrechnungsstartTag: Int = 1
+
+    var heizungsart: Heizungsart = Heizungsart.gasZentral
+    var warmwasserbereitung: Warmwasserbereitung = Warmwasserbereitung.zentralMitHeizung
 
     // MARK: Relationships
 
