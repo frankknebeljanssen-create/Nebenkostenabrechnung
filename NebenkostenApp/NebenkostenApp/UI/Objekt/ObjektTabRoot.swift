@@ -26,6 +26,9 @@ struct ObjektTabRoot: View {
                 .navigationDestination(for: Zaehler.self) { zaehler in
                     ZaehlerDetailView(zaehler: zaehler)
                 }
+                .navigationDestination(for: KostenartenListenZiel.self) { ziel in
+                    KostenartListeView(immobilie: ziel.immobilie)
+                }
                 .sheet(isPresented: $zeigeNeuesObjekt) {
                     NeuesObjektSheet { angelegt in
                         objektWahl.setze(angelegt.id)

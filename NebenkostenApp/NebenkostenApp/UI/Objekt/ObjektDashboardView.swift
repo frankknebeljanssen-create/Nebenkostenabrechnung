@@ -141,7 +141,10 @@ struct ObjektDashboardView: View {
             StatusKachel(titel: "Rechnungen",  symbol: "doc.text",              status: r.status,  ist: r.ist,  soll: r.soll)
 
             let k = viewModel.kostenarten
-            StatusKachel(titel: "Kostenarten", symbol: "list.bullet.rectangle", status: k.status,  ist: k.ist,  soll: k.soll)
+            NavigationLink(value: KostenartenListenZiel(immobilie: immobilie)) {
+                StatusKachel(titel: "Kostenarten", symbol: "list.bullet.rectangle", status: k.status, ist: k.ist, soll: k.soll)
+            }
+            .buttonStyle(.plain)
         }
     }
 

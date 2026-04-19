@@ -77,6 +77,11 @@ enum SeedData {
             bauZaehlerstaende(ausJson: json, zaehlerNachID: zaehlerNachID, context: context)
         }
 
+        // Kostenarten: Standard-Set (BetrKV §2) anlegen, wenn noch keine.
+        if (immobilie.kostenarten ?? []).isEmpty {
+            bauKostenarten(fuer: immobilie, context: context)
+        }
+
         // Abrechnungsperioden: nur wenn noch keine vorhanden.
         if (immobilie.perioden ?? []).isEmpty {
             bauPeriode(ausJson: json, immobilie: immobilie, context: context)
@@ -253,6 +258,50 @@ enum SeedData {
         if let s = raw as? String { return Decimal(string: s) }
         if let n = raw as? NSNumber { return Decimal(string: "\(n.doubleValue)") }
         return nil
+    }
+
+    // MARK: - Kostenarten (BetrKV §2)
+
+    private struct KostenartEntwurf {
+        let bezeichnung: String
+        let betrKv: String
+        let schluessel: Umlageschluessel
+        let p35a: Bool
+        let nurLohn: Bool
+    }
+
+    /// Legt die für die Bahnhofstr. 37 typischen Kostenarten an.
+    /// Der User kann die Liste später per UI anpassen (aktivieren/deaktivieren,
+    /// weitere hinzufügen, löschen).
+    private static func bauKostenarten(
+        fuer immobilie: Immobilie,
+        context: ModelContext
+    ) {
+        let entwuerfe: [KostenartEntwurf] = [
+            .init(bezeichnung: "Grundsteuer",                 betrKv: "1",      schluessel: .flaeche,         p35a: false, nurLohn: false),
+            .init(bezeichnung: "Be- und Entwässerung",        betrKv: "2 + 3",  schluessel: .verbrauch,       p35a: false, nurLohn: false),
+            .init(bezeichnung: "Heizung und Warmwasser",      betrKv: "4a + 4b",schluessel: .heizkosten3070,  p35a: false, nurLohn: false),
+            .init(bezeichnung: "Müllabfuhr (BSR)",            betrKv: "8",      schluessel: .flaeche,         p35a: false, nurLohn: false),
+            .init(bezeichnung: "Gebäudeversicherung",         betrKv: "13",     schluessel: .flaeche,         p35a: false, nurLohn: false),
+            .init(bezeichnung: "Gartenpflege",                betrKv: "10",     schluessel: .flaeche,         p35a: true,  nurLohn: true),
+            .init(bezeichnung: "Gebäudereinigung",            betrKv: "9",      schluessel: .flaeche,         p35a: true,  nurLohn: false),
+            .init(bezeichnung: "Schnee- und Eisbeseitigung",  betrKv: "8",      schluessel: .flaeche,         p35a: true,  nurLohn: true),
+            .init(bezeichnung: "Schornsteinfeger",            betrKv: "4a",     schluessel: .flaeche,         p35a: true,  nurLohn: false),
+            .init(bezeichnung: "Allgemeinstrom",              betrKv: "11",     schluessel: .flaeche,         p35a: false, nurLohn: false)
+        ]
+
+        for (index, e) in entwuerfe.enumerated() {
+            let ka = Kostenart()
+            ka.bezeichnung = e.bezeichnung
+            ka.betrKvKategorie = e.betrKv
+            ka.umlageschluessel = e.schluessel
+            ka.paragraph35a = e.p35a
+            ka.paragraph35aNurLohnanteil = e.nurLohn
+            ka.aktiv = true
+            ka.sortierung = (index + 1) * 10
+            ka.immobilie = immobilie
+            context.insert(ka)
+        }
     }
 
     private static func medium(aus typRoh: String) -> Medium {

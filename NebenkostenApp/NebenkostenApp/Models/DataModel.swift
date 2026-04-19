@@ -292,6 +292,20 @@ enum Umlageschluessel: String, Codable, CaseIterable {
     case direkt
     /// Manuelle Festlegung pro Einheit
     case individuell
+
+    var anzeigeName: String {
+        switch self {
+        case .flaeche:        return "Nach m² Fläche"
+        case .personen:       return "Nach Personen"
+        case .verbrauch:      return "Nach Verbrauch"
+        case .einheiten:      return "Gleich pro Einheit"
+        case .heizkosten3070: return "HeizkostenV 30 / 70"
+        case .heizkosten5050: return "HeizkostenV 50 / 50"
+        case .warmwasser3070: return "Warmwasser 30 / 70"
+        case .direkt:         return "Direkt zugeordnet"
+        case .individuell:    return "Individuell"
+        }
+    }
 }
 
 @Model
