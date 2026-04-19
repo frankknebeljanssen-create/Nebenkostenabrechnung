@@ -1,7 +1,7 @@
 {
-  "schema_version": "1.1",
+  "schema_version": "1.2",
   "beschreibung": "Testdaten Bahnhofstr. 37, Berlin, Abrechnungsperiode 01.11.2024 - 31.10.2025. Quelle: User-Dokumente (GASAG, BWB, BSR, Grundsteuer, Allianz, Vattenfall, Zählerstand-Excel, Leske, Kirschnereit, Freter, Günther, Foto-OCR der Zähler, OG-Abrechnung 2024/2025). Wird von den Integrationstests im Calc-Layer verwendet.",
-  "changelog": "v1.1 (2026-04-19): WW-Verbräuche korrigiert (EG 39.95, OG 28.80, vorher vertauscht). EG-WMZ-Anfangsstand 10.600 MWh ergänzt. Wasserpreis korrigiert auf 4.31 €/m³ kombiniert. Brennwert 11.11 (2024/2025). §9-HeizkostenV-Formel mit WW-Faktor 12.9 dokumentiert. Heiz-Nebenkosten-Struktur eingebaut. Alle OG-Referenzwerte 2024/2025 aus _NK-Abrechnung_OG_2025.xlsx ergänzt. Zeitraumabgrenzungs-Modus .rechnungsdatum (MVP, auf .zeitanteilig umschalten ab 2025/2026).",
+  "changelog": "v1.2 (2026-04-19): Bereinigung - alle 2023/2024er Vergleichswerte entfernt. JSON enthält nur noch Werte für die aktuelle NK-Periode 2024/2025 sowie die allgemeingültigen Berechnungskonstanten (WW-Faktor 12.9, Brennwert 11.11, 30/70-Aufteilung, 3% Strom-Zuschlag).",
 
   "briefkopf": {
     "name": "Verena Janßen",
@@ -29,7 +29,7 @@
       "ww_gas_faktor_m3_pro_m3": 12.9,
       "ww_gas_faktor_anmerkung": "Faktor 12.9 m³ Gas pro m³ Warmwasser, individuell für dieses Haus (nicht §9-Default). Ergibt ~143 kWh/m³ WW (t_WW ≈ 60-63°C, c ≈ 0.92).",
       "brennwert_z_zahl_kwh_pro_m3": 11.11,
-      "brennwert_z_zahl_anmerkung": "Mittlerer Brennwert 11.548 × z-Zahl 0.9654 ≈ 11.11 kWh/m³ Gas für 2024/2025 (Vorjahr war 11.12).",
+      "brennwert_z_zahl_anmerkung": "Mittlerer Brennwert 11.548 × z-Zahl 0.9654 ≈ 11.11 kWh/m³ Gas für 2024/2025.",
       "strom_hilfsenergie_prozent": 3.0,
       "strom_hilfsenergie_anmerkung": "3% Zuschlag auf Gaskosten für Umwälzpumpen, Regelung etc.",
       "grundkosten_anteil_prozent": 30.0,
@@ -181,7 +181,7 @@
       "bescheid_nr": "220448697",
       "zeitraum_start": "2025-01-01",
       "zeitraum_ende": "2025-12-31",
-      "zeitraum_hinweis": "Kalenderjahr. Im MVP-Modus .rechnungsdatum voll auf 2024/2025 gebucht. Ab 2025/2026 zeitanteilig 10/12 + 2/12 aus Vorjahr.",
+      "zeitraum_hinweis": "Kalenderjahr. Im MVP-Modus .rechnungsdatum voll auf NK-Periode 2024/2025 gebucht. Ab Folgeperiode zeitanteilig (10 Monate aktuell + 2 Monate aus vorheriger BSR-Rechnung).",
       "positionen": [
         {"art": "Grundgebühr", "betrag": 72.72},
         {"art": "Hausmüll",    "betrag": 401.12},
@@ -222,9 +222,7 @@
         {"art": "Sturm/Hagel",              "betrag": 271.27},
         {"art": "Elementar (ohne Sturm/Hagel)", "betrag": 233.55}
       ],
-      "agentur": "Jäger und Schröder OHG",
-      "vorjahr_gesamt": 1984.68,
-      "folgejahr_2025_2026": 2591.29
+      "agentur": "Jäger und Schröder OHG"
     },
     {
       "id": "leske_wartung_2024_2025",
@@ -259,7 +257,7 @@
       "arbeitskosten_brutto": 138.94,
       "materialkosten": 0.00,
       "paragraph_35a_relevant": true,
-      "anmerkung": "Jahresbetrag 2025 laut Feuerstättenbescheid. Vorjahr: 208.71 € (enthielt vermutlich Emissionsmessung, die bei Gas nur alle 3 Jahre fällig)."
+      "anmerkung": "Jahresbetrag 2025 laut Feuerstättenbescheid. Keine Materialkosten."
     },
     {
       "id": "freter_treppenhaus_2025",
@@ -317,15 +315,12 @@
   ],
 
   "heiz_nebenkosten_zusammensetzung": {
-    "beschreibung": "Pool der Heiz-Nebenkosten wird als Summe gebildet und dann nach kWh-Verhältnis zwischen Heizung und Warmwasser aufgeteilt. Im Vorjahr war Verhältnis 67/33, 2024/2025 wird dynamisch berechnet.",
+    "beschreibung": "Pool der Heiz-Nebenkosten wird als Summe gebildet und dann nach kWh-Verhältnis zwischen Heizung und Warmwasser aufgeteilt (Methodik aus §7 HeizkostenV). Das Verhältnis wird pro Periode dynamisch berechnet.",
     "posten_2024_2025": [
-      {"posten": "Leske Wartung", "betrag": 279.91, "rechnung_id": "leske_wartung_2024_2025"},
-      {"posten": "Schornsteinfeger", "betrag": 138.94, "rechnung_id": "kirschnereit_schornsteinfeger_2025"},
-      {"posten": "Wartung Messgeräte", "betrag": null, "caveat": "Kommt vermutlich nur alle paar Jahre (Eichfrist 5 Jahre). Vorjahr 260.36 €. MVP: als null belassen = 0."},
-      {"posten": "Verbrauchsabrechnung 3×35", "betrag": null, "caveat": "Oft Teil der Messgeräte-Rechnung. Vorjahr 105.00 €. MVP: als null belassen = 0."}
+      {"posten": "Leske Wartung Gasheizung", "betrag": 279.91, "rechnung_id": "leske_wartung_2024_2025"},
+      {"posten": "Schornsteinfeger",         "betrag": 138.94, "rechnung_id": "kirschnereit_schornsteinfeger_2025"}
     ],
-    "summe_2024_2025_ohne_nullwerte": 418.85,
-    "summe_2023_2024_vergleich": 976.81
+    "summe_2024_2025": 418.85
   },
 
   "erwartete_ergebnisse": {
@@ -364,21 +359,6 @@
       "grundsteuer": {"KG": 1016.94, "EG": 1150.25, "OG": 1188.70, "summe": 3355.89, "basis": 3355.89},
       "versicherung": {"KG": 640.95, "EG": 725.40, "OG": 748.78, "summe": 2115.13, "basis": 2115.13}
     }
-  },
-
-  "historische_referenzen": {
-    "periode": "2023-11-01 bis 2024-10-31",
-    "quelle": "2024_2_Nkabrechnung_Bahnhofstr_1_11_-31_10_24_OG.docx",
-    "og_gesamt": 4965.10,
-    "og_vorauszahlung": 5640.00,
-    "og_erstattung": 674.90,
-    "og_paragraph_35a": 481.00,
-    "heiz_nebenkosten_summe": 976.81,
-    "heiz_nebenkosten_aufteilung": {"heizung_prozent": 67, "warmwasser_prozent": 33},
-    "gaspreis_brutto_pro_kwh": 0.102326,
-    "brennwert_z_zahl": 11.12,
-    "wasserpreis_kombiniert_pro_m3": 4.29,
-    "hinweis": "Methodik und Formeln konsistent mit 2024/2025 (gleicher Faktor 12.9, gleiches 30/70-Schema, gleicher 3%-Strom-Zuschlag). Preise und Verbräuche differieren natürlich."
   },
 
   "offene_fragen": [

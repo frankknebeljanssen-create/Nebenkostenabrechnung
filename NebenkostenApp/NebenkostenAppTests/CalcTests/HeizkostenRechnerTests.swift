@@ -162,12 +162,139 @@ struct HeizkostenRechnerTests {
 
     // MARK: - Bahnhofstr. 37 — blockiert bis heizNK/wwNK/EG-WMZ geklärt
 
-    @Test(
-        "Bahnhofstr. 37 KG+OG (blocked: heizNK, wwNK, EG-WMZ offen)",
-        .disabled("Input-Werte heizNebenkosten, wwNebenkosten und wmz_eg_kwh fehlen in Testdaten-JSON bzw. sind unklar.")
-    )
-    func bahnhofstr37_kgOg() throws {
-        // Wird aktiviert, sobald User Heizungs-Nebenkosten, Warmwasser-
-        // Nebenkosten und EG-WMZ-Anfangsstand liefert.
+    // MARK: - Bahnhofstr. 37 — Integration mit JSON v1.2
+
+    @Test("Bahnhofstr. 37 — §9-Split Zwischenwerte matchen OG-Excel-Referenz")
+    func bahnhofstr37_neunParagrafSplit() throws {
+        let daten = try Bahnhofstr37.laden()
+        let gasag = daten.rechnung("gasag_2024_2025")
+        let heizung = daten.objekt.heizung!
+        let v = daten.zaehlerstaende.verbraeuche_berechnet
+
+        let parameter = HeizkostenParameter(
+            wwGasFaktor:             heizung.ww_gas_faktor_m3_pro_m3!,
+            brennwertKwhProM3:       heizung.brennwert_z_zahl_kwh_pro_m3!,
+            stromZuschlagProzent:    heizung.strom_hilfsenergie_prozent! / 100,
+            aufteilungHeizungProzent: heizung.grundkosten_anteil_prozent! / 100,
+            internerArbeitspreisEuroProKwh: NSDecimalNumber(decimal: gasag.interner_arbeitspreis_berechnung!).doubleValue
+        )
+        let input = HeizkostenInput(
+            gesamtGasVerbrauchKwh: NSDecimalNumber(decimal: gasag.verbrauch_kwh!).doubleValue,
+            gesamtGasKostenBrutto: gasag.gesamt_brutto,
+            heizNebenkosten: daten.heiz_nebenkosten_zusammensetzung!.summe_2024_2025,
+            wwNebenkosten: 0,
+            wmzProEinheit: [
+                "KG": NSDecimalNumber(decimal: v.wmz_kg_kwh!).doubleValue,
+                "EG": NSDecimalNumber(decimal: v.wmz_eg_kwh!).doubleValue,
+                "OG": NSDecimalNumber(decimal: v.wmz_og_kwh!).doubleValue
+            ],
+            wwM3ProEinheit: [
+                "KG": NSDecimalNumber(decimal: v.ww_kg_m3!).doubleValue,
+                "EG": NSDecimalNumber(decimal: v.ww_eg_m3!).doubleValue,
+                "OG": NSDecimalNumber(decimal: v.ww_og_m3!).doubleValue
+            ],
+            flaechenProEinheit: [
+                "KG": NSDecimalNumber(decimal: daten.einheit("KG").flaeche_qm).doubleValue,
+                "EG": NSDecimalNumber(decimal: daten.einheit("EG").flaeche_qm).doubleValue,
+                "OG": NSDecimalNumber(decimal: daten.einheit("OG").flaeche_qm).doubleValue
+            ],
+            parameter: parameter
+        )
+
+        let e = HeizkostenRechner.berechne(input)
+
+        print("""
+
+        ── Bahnhofstr. 37 §9-HeizkostenV-Diagnostik (JSON v1.2) ──
+          WW-Gesamt-m³:              \(input.wwM3ProEinheit.values.reduce(0, +)) m³
+          WW-Gas-kWh (qWwKwh):       \(e.qWarmwasserGesamtKwh) kWh  (Ref OG-Excel: 9906,21)
+          Heizungs-kWh (qHeizungKwh): \(e.qHeizungKwh) kWh           (Ref: 32257 − 9906,21)
+
+          Gas-Kosten brutto:         \(input.gesamtGasKostenBrutto) €
+          Interner Arbeitspreis:     \(parameter.internerArbeitspreisEuroProKwh!) €/kWh
+
+          gasKostenWw = 9906,21 · 0,104255:
+          → WW-Topf (vor Strom/NK):  \(e.warmwasserkostenTopfEuro.gerundet(auf: 2, modus: .bankers).magnitude) €
+                                     ... + 3 % Strom  + wwNebenkosten 0 €
+          → WW-Topf (fertig):        \(e.warmwasserkostenTopfEuro.gerundet(auf: 2, modus: .bankers)) €
+                                     (Ref OG-Excel ww_gaskosten_brutto: 1032,77 € · 1,03 = 1063,75 €)
+
+          → Heiz-Topf (fertig, inkl. 418,85 € NK):
+                                     \(e.heizkostenTopfEuro.gerundet(auf: 2, modus: .bankers)) €
+
+          30 % Grundkosten (m²) / 70 % Verbrauch (WMZ für Heizung, WW-m³ für Warmwasser):
+        """)
+        for einheit in e.proEinheit.sorted(by: { $0.einheitID < $1.einheitID }) {
+            let hg = einheit.heizung.gesamtEuro.gerundet(auf: 2, modus: .bankers)
+            let wg = einheit.warmwasser.gesamtEuro.gerundet(auf: 2, modus: .bankers)
+            let gs = (einheit.heizung.gesamtEuro + einheit.warmwasser.gesamtEuro).gerundet(auf: 2, modus: .bankers)
+            print("    \(einheit.einheitID): Heizung \(hg) €  +  Warmwasser \(wg) €  =  \(gs) €")
+        }
+        print("""
+          (Ref OG-Excel og_gesamtabrechnung.ww_heizung: 1997,06 €  —
+           weicht ab, solange wwNebenkosten und exakte Strom-Zuordnung offen.)
+        ────────────────────────────────────────────────────────
+        """)
+
+        // OG-Excel-Referenz-Matches (entspricht §9-Split):
+        //   WW-Gas-kWh sollte 9906,21 kWh entsprechen.
+        let qWwGerundet = Decimal(e.qWarmwasserGesamtKwh).gerundet(auf: 2, modus: .bankers)
+        let qWwAbweichung = (qWwGerundet - Decimal(string: "9906.21")!).magnitude
+        #expect(qWwAbweichung < Decimal(string: "0.01")!)
+
+        //   WW-Gaskosten brutto (VOR Strom/NK) sollte 1032,77 € entsprechen.
+        //   Wir rekonstruieren den Wert aus dem Topf (1063,75 − 30,98 Strom = 1032,77).
+        let stromZuschlag = Decimal(parameter.stromZuschlagProzent)
+        let gasKostenWwRekonstruiert = e.warmwasserkostenTopfEuro / (1 + stromZuschlag)
+        let gaskostenGerundet = gasKostenWwRekonstruiert.gerundet(auf: 2, modus: .bankers)
+        let gaskostenAbweichung = (gaskostenGerundet - Decimal(string: "1032.77")!).magnitude
+        #expect(gaskostenAbweichung < Decimal(string: "0.02")!)
+    }
+
+    @Test("Bahnhofstr. 37 — Summen-Erhaltung pro Einheit = Topf-Summe")
+    func bahnhofstr37_summenErhaltung() throws {
+        let daten = try Bahnhofstr37.laden()
+        let gasag = daten.rechnung("gasag_2024_2025")
+        let heizung = daten.objekt.heizung!
+        let v = daten.zaehlerstaende.verbraeuche_berechnet
+
+        let parameter = HeizkostenParameter(
+            wwGasFaktor:             heizung.ww_gas_faktor_m3_pro_m3!,
+            brennwertKwhProM3:       heizung.brennwert_z_zahl_kwh_pro_m3!,
+            stromZuschlagProzent:    heizung.strom_hilfsenergie_prozent! / 100,
+            aufteilungHeizungProzent: heizung.grundkosten_anteil_prozent! / 100,
+            internerArbeitspreisEuroProKwh: NSDecimalNumber(decimal: gasag.interner_arbeitspreis_berechnung!).doubleValue
+        )
+        let input = HeizkostenInput(
+            gesamtGasVerbrauchKwh: NSDecimalNumber(decimal: gasag.verbrauch_kwh!).doubleValue,
+            gesamtGasKostenBrutto: gasag.gesamt_brutto,
+            heizNebenkosten: daten.heiz_nebenkosten_zusammensetzung!.summe_2024_2025,
+            wwNebenkosten: 0,
+            wmzProEinheit: [
+                "KG": NSDecimalNumber(decimal: v.wmz_kg_kwh!).doubleValue,
+                "EG": NSDecimalNumber(decimal: v.wmz_eg_kwh!).doubleValue,
+                "OG": NSDecimalNumber(decimal: v.wmz_og_kwh!).doubleValue
+            ],
+            wwM3ProEinheit: [
+                "KG": NSDecimalNumber(decimal: v.ww_kg_m3!).doubleValue,
+                "EG": NSDecimalNumber(decimal: v.ww_eg_m3!).doubleValue,
+                "OG": NSDecimalNumber(decimal: v.ww_og_m3!).doubleValue
+            ],
+            flaechenProEinheit: [
+                "KG": NSDecimalNumber(decimal: daten.einheit("KG").flaeche_qm).doubleValue,
+                "EG": NSDecimalNumber(decimal: daten.einheit("EG").flaeche_qm).doubleValue,
+                "OG": NSDecimalNumber(decimal: daten.einheit("OG").flaeche_qm).doubleValue
+            ],
+            parameter: parameter
+        )
+        let e = HeizkostenRechner.berechne(input)
+
+        let heizSumme = e.proEinheit.reduce(Decimal(0)) { $0 + $1.heizung.gesamtEuro }
+        let wwSumme   = e.proEinheit.reduce(Decimal(0)) { $0 + $1.warmwasser.gesamtEuro }
+
+        #expect(heizSumme.gerundet(auf: 2, modus: .bankers)
+             == e.heizkostenTopfEuro.gerundet(auf: 2, modus: .bankers))
+        #expect(wwSumme.gerundet(auf: 2, modus: .bankers)
+             == e.warmwasserkostenTopfEuro.gerundet(auf: 2, modus: .bankers))
     }
 }

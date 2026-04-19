@@ -14,9 +14,18 @@ struct Bahnhofstr37: Decodable {
     let wohneinheiten: [WohneinheitDaten]
     let rechnungen: [RechnungDaten]
     let zaehlerstaende: Zaehlerstaende
+    let heiz_nebenkosten_zusammensetzung: HeizNebenkostenZusammensetzung?
 
     struct Objekt: Decodable {
         let gesamtflaeche_qm: Decimal
+        let heizung: HeizungParameter?
+
+        struct HeizungParameter: Decodable {
+            let ww_gas_faktor_m3_pro_m3: Double?
+            let brennwert_z_zahl_kwh_pro_m3: Double?
+            let strom_hilfsenergie_prozent: Double?
+            let grundkosten_anteil_prozent: Double?
+        }
     }
 
     struct WohneinheitDaten: Decodable {
@@ -31,19 +40,46 @@ struct Bahnhofstr37: Decodable {
         let gesamt_brutto: Decimal
         /// Nur bei GASAG: Heizgas-Verbrauch in kWh über die Jahresperiode.
         let verbrauch_kwh: Decimal?
+        /// Nur bei GASAG: In der User-Excel-Berechnung verwendeter
+        /// interner Arbeitspreis (vs. offizielle GASAG-Brutto-Preis).
+        /// Wenn gesetzt, werden WW- und Heizgaskosten daraus abgeleitet.
+        let interner_arbeitspreis_berechnung: Decimal?
+        /// Nur bei BWB: aufgeschlüsselte Positionen (Trinkwasser,
+        /// Schmutzwasser inkl. Grundgebühr).
+        let positionen: [RechnungPosition]?
+        /// Nur bei BWB: kombinierter Mischpreis aus User-Excel (€/m³).
+        let wasserpreis_kombiniert_pro_m3: Decimal?
+
+        struct RechnungPosition: Decodable {
+            let art: String
+            let menge_m3: Decimal?
+            let gesamt: Decimal?
+        }
     }
 
     struct Zaehlerstaende: Decodable {
         let verbraeuche_berechnet: VerbraucheBerechnet
 
         struct VerbraucheBerechnet: Decodable {
+            // Heiz-/Warmwasser
             let wmz_kg_kwh: Decimal?
             let wmz_og_kwh: Decimal?
-            let wmz_eg_kwh: Decimal?   // null in der Testdaten-JSON
+            let wmz_eg_kwh: Decimal?
+            let wmz_total_kwh: Decimal?
             let ww_kg_m3: Decimal?
             let ww_eg_m3: Decimal?
             let ww_og_m3: Decimal?
+            let ww_total_m3: Decimal?
+            // Kaltwasser (neu in v1.1)
+            let kw_kg_m3: Decimal?
+            let kw_eg_m3: Decimal?
+            let kw_eg_garten_m3: Decimal?
+            let kw_og_m3: Decimal?
         }
+    }
+
+    struct HeizNebenkostenZusammensetzung: Decodable {
+        let summe_2024_2025: Decimal
     }
 
     // MARK: - Laden
@@ -70,6 +106,15 @@ struct Bahnhofstr37: Decodable {
             fatalError("Rechnung \(id) nicht in Testdaten.")
         }
         return treffer
+    }
+
+    /// Liefert den Gesamtbetrag einer einzelnen Position (nach art).
+    func rechnungsposition(_ rechnungID: String, art: String) -> Decimal {
+        let r = rechnung(rechnungID)
+        guard let pos = r.positionen?.first(where: { $0.art == art }) else {
+            fatalError("Position \"\(art)\" in Rechnung \(rechnungID) nicht gefunden.")
+        }
+        return pos.gesamt ?? 0
     }
 }
 

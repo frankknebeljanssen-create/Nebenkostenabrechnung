@@ -29,16 +29,26 @@ struct HeizkostenParameter: Equatable, Sendable {
     /// 30–50 %. Default 0,30.
     let aufteilungHeizungProzent: Double
 
+    /// Interner Arbeitspreis €/kWh für die WW/Heiz-Kostenaufteilung.
+    /// Wenn gesetzt: ww_gaskosten = ww_gas_kwh · internerArbeitspreis,
+    /// und heiz_gaskosten = gesamtGasKostenBrutto − ww_gaskosten.
+    /// Wenn nil: reiner Pro-Rata-Split nach kWh-Verhältnis.
+    /// Für Bahnhofstr. 37 liegt er bei 0,104255 €/kWh (vs. offizieller
+    /// GASAG-Brutto-Preis 0,110207).
+    let internerArbeitspreisEuroProKwh: Double?
+
     init(
         wwGasFaktor: Double = 12.9,
         brennwertKwhProM3: Double = 11.14,
         stromZuschlagProzent: Double = 0.03,
-        aufteilungHeizungProzent: Double = 0.30
+        aufteilungHeizungProzent: Double = 0.30,
+        internerArbeitspreisEuroProKwh: Double? = nil
     ) {
         self.wwGasFaktor = wwGasFaktor
         self.brennwertKwhProM3 = brennwertKwhProM3
         self.stromZuschlagProzent = stromZuschlagProzent
         self.aufteilungHeizungProzent = aufteilungHeizungProzent
+        self.internerArbeitspreisEuroProKwh = internerArbeitspreisEuroProKwh
     }
 }
 
@@ -121,10 +131,19 @@ enum HeizkostenRechner {
         // Step 2: Heizungs-Wärmemenge.
         let qHeizungKwh = input.gesamtGasVerbrauchKwh - qWwKwh
 
-        // Step 3: Gas-Kosten anteilig auf Heizung und Warmwasser.
-        let qGesamt = Decimal(input.gesamtGasVerbrauchKwh)
-        let gasKostenWw      = input.gesamtGasKostenBrutto * Decimal(qWwKwh)     / qGesamt
-        let gasKostenHeizung = input.gesamtGasKostenBrutto * Decimal(qHeizungKwh) / qGesamt
+        // Step 3: Gas-Kosten auf Heizung und Warmwasser splitten.
+        let gasKostenWw: Euro
+        let gasKostenHeizung: Euro
+        if let preis = p.internerArbeitspreisEuroProKwh {
+            // User-Excel-Logik: WW direkt am kWh-Preis, Rest ist Heizung.
+            gasKostenWw      = Decimal(qWwKwh) * Decimal(preis)
+            gasKostenHeizung = input.gesamtGasKostenBrutto - gasKostenWw
+        } else {
+            // Pro-rata nach kWh-Verhältnis.
+            let qGesamt = Decimal(input.gesamtGasVerbrauchKwh)
+            gasKostenWw      = input.gesamtGasKostenBrutto * Decimal(qWwKwh)     / qGesamt
+            gasKostenHeizung = input.gesamtGasKostenBrutto * Decimal(qHeizungKwh) / qGesamt
+        }
 
         // Step 4: Stromzuschlag auf beide Gas-Kosten-Anteile.
         let stromFaktor = Decimal(1.0 + p.stromZuschlagProzent)

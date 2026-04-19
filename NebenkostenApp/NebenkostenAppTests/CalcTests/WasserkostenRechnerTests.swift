@@ -110,14 +110,76 @@ struct WasserkostenRechnerTests {
         #expect(b.position.gesamtEuro        == 0)
     }
 
-    // MARK: - Bahnhofstr. 37 — blockiert bis Kaltwasser-Anfangsstände geklärt
+    // MARK: - Bahnhofstr. 37 — JSON v1.1 mit allen Kaltwasser-Anfangsständen
 
-    @Test(
-        "Bahnhofstr. 37 (blocked: Kaltwasser-Anfangsstände fehlen)",
-        .disabled("Testdaten-JSON enthält nur Endstände der Kaltwasserzähler kw_kg/kw_eg/kw_og — ohne Anfangsstände kein Periodenverbrauch pro Einheit.")
-    )
+    @Test("Bahnhofstr. 37 BWB 2024/2025 — Verteilung inkl. Gartenzwischenzähler")
     func bahnhofstr37_verteilung() throws {
-        // Aktivieren, sobald Kaltwasser-Anfangsstände (01.11.2024) in
-        // Testdaten/Bahnhofstr37_2025.json nachgetragen sind.
+        let daten = try Bahnhofstr37.laden()
+        let v = daten.zaehlerstaende.verbraeuche_berechnet
+        let trinkwasserKosten   = daten.rechnungsposition("bwb_2024_2025", art: "Trinkwasser")
+        let schmutzwasserKosten = daten.rechnungsposition("bwb_2024_2025", art: "Schmutzwasser")
+
+        // Einheit-Verbrauch = Kaltwasserzähler + Warmwasserzähler (WW aus
+        // demselben BWB-Hauptzähler gezogen).
+        let kgVerbrauch = (v.kw_kg_m3 ?? 0) + (v.ww_kg_m3 ?? 0)   // 4,88 + 0,37 = 5,25
+        let egVerbrauch = (v.kw_eg_m3 ?? 0) + (v.ww_eg_m3 ?? 0)   // 281 + 39,95 = 320,95 (inkl. 192 Garten)
+        let ogVerbrauch = (v.kw_og_m3 ?? 0) + (v.ww_og_m3 ?? 0)   // 75,74 + 28,80 = 104,54
+
+        let input = WasserkostenInput(
+            verbrauchGesamtM3: 434,   // BWB-Hauptzähler (siehe bwb_2024_2025.positionen[0].menge_m3)
+            trinkwasserKostenEuro: trinkwasserKosten,
+            schmutzwasserKostenEuro: schmutzwasserKosten,
+            verbrauchProEinheitM3: ["KG": kgVerbrauch, "EG": egVerbrauch, "OG": ogVerbrauch],
+            gartenM3ProEinheit: ["EG": v.kw_eg_garten_m3 ?? 0]
+        )
+        let e = WasserkostenRechner.berechne(input)
+
+        let summeEinheit = kgVerbrauch + egVerbrauch + ogVerbrauch
+        let kombinierterPreis: Decimal = summeEinheit == 0 ? 0
+            : (trinkwasserKosten + schmutzwasserKosten) / summeEinheit
+
+        print("""
+
+        ── Bahnhofstr. 37 BWB-Diagnostik (JSON v1.1) ──
+          Trinkwasserkosten:         \(trinkwasserKosten) €
+          Schmutzwasserkosten:       \(schmutzwasserKosten) €
+          Σ Einheit-Verbrauch:       \(summeEinheit) m³ (Haupt 434 m³, Delta ≈ Leckage)
+          Σ Schmutzwasser-relevant:  \(e.schmutzwasserGesamtM3) m³
+          Kombi-Preis (1427,83/Σ):   \(kombinierterPreis.gerundet(auf: 4, modus: .bankers)) €/m³
+                                     (JSON-Referenz 4,31 €/m³ — Herleitung offen)
+
+          Pro Einheit (Trinkwasser / Schmutzwasser / Summe):
+        """)
+
+        for einheit in e.proEinheit {
+            let tw = einheit.position.trinkwasserEuro.gerundet(auf: 2, modus: .bankers)
+            let sw = einheit.position.schmutzwasserEuro.gerundet(auf: 2, modus: .bankers)
+            let gs = einheit.position.gesamtEuro.gerundet(auf: 2, modus: .bankers)
+            print("    \(einheit.einheitID): \(tw) € / \(sw) € / \(gs) €")
+        }
+        print("""
+          (OG-Excel-Referenz be_entwaesserung: 342,16 € — weicht von
+           aktueller Formel ab; Ursache offen, siehe Status-Report.)
+        ─────────────────────────────────────────────────
+        """)
+
+        // Konsistenz-Checks:
+        //   Schmutzwasser-Basis-Reduktion: 434 − 192 = 242 (JSON-Hinweis nennt
+        //   191 Garten-Abzug; v1.1 hat 192 aus Zählerstands-Differenz).
+        #expect(e.schmutzwasserGesamtM3 == 242)
+
+        // Formel-Verifikation auf Cent-Ebene gegen eigene Rechnung
+        // (Trinkwasser: Kosten · einheitVerbrauch / 434;
+        //  Schmutzwasser: Kosten · (einheitVerbrauch − Garten) / 242).
+        let kg = e.proEinheit.first { $0.einheitID == "KG" }!
+        let eg = e.proEinheit.first { $0.einheitID == "EG" }!
+        let og = e.proEinheit.first { $0.einheitID == "OG" }!
+
+        #expect(kg.position.trinkwasserEuro.gerundet(auf: 2, modus: .bankers)   == Decimal(string: "10.48"))
+        #expect(kg.position.schmutzwasserEuro.gerundet(auf: 2, modus: .bankers) == Decimal(string: "12.17"))
+        #expect(eg.position.trinkwasserEuro.gerundet(auf: 2, modus: .bankers)   == Decimal(string: "640.97"))
+        #expect(eg.position.schmutzwasserEuro.gerundet(auf: 2, modus: .bankers) == Decimal(string: "298.98"))
+        #expect(og.position.trinkwasserEuro.gerundet(auf: 2, modus: .bankers)   == Decimal(string: "208.78"))
+        #expect(og.position.schmutzwasserEuro.gerundet(auf: 2, modus: .bankers) == Decimal(string: "242.38"))
     }
 }
