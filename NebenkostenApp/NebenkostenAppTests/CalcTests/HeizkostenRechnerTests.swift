@@ -2,8 +2,7 @@
 //  HeizkostenRechnerTests.swift
 //  NebenkostenAppTests — CalcTests
 //
-//  Formel-Verifikation (synthetische Werte) + Bahnhofstr.-37-Integration
-//  gegen Testdaten/Bahnhofstr37_2025.json (Source of Truth).
+//  Testet §9-Split + 30/70-Verteilung nach §7 HeizkostenV.
 //
 
 import Foundation
@@ -12,168 +11,163 @@ import Testing
 
 struct HeizkostenRechnerTests {
 
-    // MARK: - Formel-Sanity-Checks (pure Rechenbeispiele, keine Real-Daten)
+    // MARK: - Synthetische Immobilie: §9-Split + Verteilung sauber isoliert
 
-    @Test("Formel: 10 % Flächen- und 10 % Verbrauchsquote → 10 % der Gesamtkosten")
-    func formel_gleichgewichtig() {
+    /// Referenz-Szenario, Zahlen absichtlich "rund":
+    ///   2 Einheiten, Flächen 100 und 200 m² (Gesamt 300).
+    ///   GAS: 10 000 kWh, 1000 € brutto.
+    ///   WW-Verbrauch: 10 und 20 m³ (Summe 30).
+    ///   WW-Gas-Faktor 10, Brennwert 10 → Q_WW = 30·10·10 = 3000 kWh.
+    ///   → Heizung 7000 kWh, Gas-Kosten splitten 30/70.
+    ///   Nach §9: gasKostenWw = 300, gasKostenHeizung = 700.
+    ///   +Stromzuschlag 0 (deaktiviert): unverändert.
+    ///   Nebenkosten: heiz 100, ww 50.
+    ///   → heizkostenTopf = 800, warmwasserkostenTopf = 350.
+    ///
+    ///   §7 30/70 auf Einheit "A" (100 m², WMZ 3000 kWh, WW 10 m³):
+    ///     Heizung A: Flächenanteil  = 800·0,30·100/300 = 80
+    ///                Verbrauch      = 800·0,70·3000/7000 = 240
+    ///                                  (da Σ WMZ = 7000 = Q_Heizung)
+    ///                Gesamt         = 320
+    ///     WW      A: Flächenanteil  = 350·0,30·100/300 = 35
+    ///                Verbrauch      = 350·0,70·10/30   = 81,666…
+    ///                Gesamt         = 116,666…  → 116,67 (bankers)
+    ///
+    ///   Einheit "B" analog mit 200 m², WMZ 4000, WW 20 m³.
+    @Test("Referenz-Szenario: §9-Split + §7-Verteilung, 2 Einheiten, runde Zahlen")
+    func referenz_zweiEinheiten() {
+        let parameter = HeizkostenParameter(
+            wwGasFaktor: 10,
+            brennwertKwhProM3: 10,
+            stromZuschlagProzent: 0,
+            aufteilungHeizungProzent: 0.30
+        )
         let input = HeizkostenInput(
-            gesamtflaecheM2: 1_000,
-            wohneinheitFlaecheM2: 100,
-            wmzGesamt: 10_000,
-            wmzWohneinheit: 1_000,
-            gesamtkostenEuro: 1_000
+            gesamtGasVerbrauchKwh: 10_000,
+            gesamtGasKostenBrutto: 1_000,
+            heizNebenkosten: 100,
+            wwNebenkosten: 50,
+            wmzProEinheit:    ["A": 3_000, "B": 4_000],
+            wwM3ProEinheit:   ["A": 10,    "B": 20],
+            flaechenProEinheit: ["A": 100, "B": 200],
+            parameter: parameter
         )
+
         let e = HeizkostenRechner.berechne(input)
-        #expect(e.flaechenanteilEuro.gerundet(auf: 2, modus: .bankers) == 30)
-        #expect(e.verbrauchsanteilEuro.gerundet(auf: 2, modus: .bankers) == 70)
-        #expect(e.gesamtEuro.gerundet(auf: 2, modus: .bankers) == 100)
+
+        // §9-Split
+        #expect(e.qWarmwasserGesamtKwh == 3_000)
+        #expect(e.qHeizungKwh          == 7_000)
+        #expect(e.heizkostenTopfEuro.gerundet(auf: 2, modus: .bankers)       == 800)
+        #expect(e.warmwasserkostenTopfEuro.gerundet(auf: 2, modus: .bankers) == 350)
+
+        // Einheit A
+        let a = e.proEinheit.first { $0.einheitID == "A" }!
+        #expect(a.heizung.flaechenanteilEuro.gerundet(auf: 2, modus: .bankers)   == 80)
+        #expect(a.heizung.verbrauchsanteilEuro.gerundet(auf: 2, modus: .bankers) == 240)
+        #expect(a.heizung.gesamtEuro.gerundet(auf: 2, modus: .bankers)            == 320)
+        #expect(a.warmwasser.flaechenanteilEuro.gerundet(auf: 2, modus: .bankers) == 35)
+        #expect(a.warmwasser.verbrauchsanteilEuro.gerundet(auf: 2, modus: .bankers) == Decimal(string: "81.67"))
+        #expect(a.warmwasser.gesamtEuro.gerundet(auf: 2, modus: .bankers)         == Decimal(string: "116.67"))
+
+        // Einheit B
+        let b = e.proEinheit.first { $0.einheitID == "B" }!
+        #expect(b.heizung.flaechenanteilEuro.gerundet(auf: 2, modus: .bankers)    == 160)
+        #expect(b.heizung.verbrauchsanteilEuro.gerundet(auf: 2, modus: .bankers)  == 320)
+        #expect(b.heizung.gesamtEuro.gerundet(auf: 2, modus: .bankers)             == 480)
+        #expect(b.warmwasser.flaechenanteilEuro.gerundet(auf: 2, modus: .bankers)  == 70)
+        #expect(b.warmwasser.verbrauchsanteilEuro.gerundet(auf: 2, modus: .bankers) == Decimal(string: "163.33"))
+        #expect(b.warmwasser.gesamtEuro.gerundet(auf: 2, modus: .bankers)          == Decimal(string: "233.33"))
     }
 
-    @Test("Formel: asymmetrisch — 5 % Fläche, 15 % Verbrauch, 1000 € Kosten")
-    func formel_asymmetrisch() {
+    // MARK: - Stromzuschlag separat geprüft
+
+    @Test("Stromzuschlag 3 % erhöht beide Töpfe um denselben Faktor")
+    func stromZuschlag() {
+        let parameter = HeizkostenParameter(
+            wwGasFaktor: 10,
+            brennwertKwhProM3: 10,
+            stromZuschlagProzent: 0.03,
+            aufteilungHeizungProzent: 0.30
+        )
         let input = HeizkostenInput(
-            gesamtflaecheM2: 1_000,
-            wohneinheitFlaecheM2: 50,
-            wmzGesamt: 10_000,
-            wmzWohneinheit: 1_500,
-            gesamtkostenEuro: 1_000
+            gesamtGasVerbrauchKwh: 10_000,
+            gesamtGasKostenBrutto: 1_000,
+            heizNebenkosten: 0,
+            wwNebenkosten: 0,
+            wmzProEinheit:    ["A": 7_000],
+            wwM3ProEinheit:   ["A": 30],
+            flaechenProEinheit: ["A": 100],
+            parameter: parameter
         )
         let e = HeizkostenRechner.berechne(input)
-        // 0,30 · 0,05 · 1000 = 15,00  |  0,70 · 0,15 · 1000 = 105,00
-        #expect(e.flaechenanteilEuro.gerundet(auf: 2, modus: .bankers) == 15)
-        #expect(e.verbrauchsanteilEuro.gerundet(auf: 2, modus: .bankers) == 105)
-        #expect(e.gesamtEuro.gerundet(auf: 2, modus: .bankers) == 120)
+
+        // Ohne Strom: 700/300. Mit 3 %: 721,00 / 309,00. Summe: 1030,00.
+        #expect(e.heizkostenTopfEuro.gerundet(auf: 2, modus: .bankers)       == 721)
+        #expect(e.warmwasserkostenTopfEuro.gerundet(auf: 2, modus: .bankers) == 309)
     }
 
-    @Test("Formel: abweichender Flächenanteil 50 % (HeizkostenV-Maximum)")
-    func formel_fuenfzigProzent() {
+    // MARK: - Nebenkosten fließen in getrennte Töpfe
+
+    @Test("Heizungs- und Warmwasser-Nebenkosten fließen in getrennte Töpfe")
+    func getrennteNebenkosten() {
+        let parameter = HeizkostenParameter(
+            wwGasFaktor: 10, brennwertKwhProM3: 10,
+            stromZuschlagProzent: 0, aufteilungHeizungProzent: 0.30
+        )
         let input = HeizkostenInput(
-            gesamtflaecheM2: 1_000,
-            wohneinheitFlaecheM2: 200,
-            wmzGesamt: 10_000,
-            wmzWohneinheit: 2_000,
-            gesamtkostenEuro: 1_000,
-            flaechenanteilProzent: 50
+            gesamtGasVerbrauchKwh: 10_000,
+            gesamtGasKostenBrutto: 1_000,
+            heizNebenkosten: 200,  // z.B. Schornsteinfeger + Wartung
+            wwNebenkosten:   80,  // z.B. Legionellenprüfung
+            wmzProEinheit:    ["A": 7_000],
+            wwM3ProEinheit:   ["A": 30],
+            flaechenProEinheit: ["A": 100],
+            parameter: parameter
         )
         let e = HeizkostenRechner.berechne(input)
-        #expect(e.flaechenanteilEuro.gerundet(auf: 2, modus: .bankers) == 100)
-        #expect(e.verbrauchsanteilEuro.gerundet(auf: 2, modus: .bankers) == 100)
-        #expect(e.gesamtEuro.gerundet(auf: 2, modus: .bankers) == 200)
+        // 700 + 200 = 900 | 300 + 80 = 380
+        #expect(e.heizkostenTopfEuro.gerundet(auf: 2, modus: .bankers)       == 900)
+        #expect(e.warmwasserkostenTopfEuro.gerundet(auf: 2, modus: .bankers) == 380)
     }
 
-    @Test("Verteilerschlüssel-Text reflektiert Prozentsätze")
-    func verteilerschluesselText() {
+    // MARK: - Summen-Erhaltung: Σ proEinheit == Topf
+
+    @Test("Summe der Einheits-Positionen ergibt die Topf-Beträge")
+    func summenErhaltung() {
+        let parameter = HeizkostenParameter(
+            wwGasFaktor: 10, brennwertKwhProM3: 10,
+            stromZuschlagProzent: 0.03, aufteilungHeizungProzent: 0.30
+        )
         let input = HeizkostenInput(
-            gesamtflaecheM2: 100,
-            wohneinheitFlaecheM2: 10,
-            wmzGesamt: 100,
-            wmzWohneinheit: 10,
-            gesamtkostenEuro: 100
+            gesamtGasVerbrauchKwh: 32_257,
+            gesamtGasKostenBrutto: Decimal(string: "3554.95")!,
+            heizNebenkosten: Decimal(string: "150")!,
+            wwNebenkosten:   Decimal(string: "40")!,
+            wmzProEinheit:    ["KG": 8_319, "EG": 8_100, "OG": 9_499],
+            wwM3ProEinheit:   ["KG": 0.37,  "EG": 28.45, "OG": 29.25],
+            flaechenProEinheit: ["KG": 160, "EG": 181,   "OG": 187],
+            parameter: parameter
         )
         let e = HeizkostenRechner.berechne(input)
-        #expect(e.verteilerschluesselText == "30 % Fläche + 70 % Verbrauch")
+
+        let heizungsSumme = e.proEinheit.reduce(Decimal(0)) { $0 + $1.heizung.gesamtEuro }
+        let wwSumme       = e.proEinheit.reduce(Decimal(0)) { $0 + $1.warmwasser.gesamtEuro }
+
+        #expect(heizungsSumme.gerundet(auf: 2, modus: .bankers)
+             == e.heizkostenTopfEuro.gerundet(auf: 2, modus: .bankers))
+        #expect(wwSumme.gerundet(auf: 2, modus: .bankers)
+             == e.warmwasserkostenTopfEuro.gerundet(auf: 2, modus: .bankers))
     }
 
-    // MARK: - Bahnhofstr. 37 — Integration gegen JSON-Testdaten
-
-    /// Baut einen HeizkostenInput aus den geladenen Testdaten für eine
-    /// Einheit. Gibt nil zurück, wenn der WMZ-Verbrauch fehlt (z.B. EG).
-    private func input(
-        fuer einheitID: String,
-        aus daten: Bahnhofstr37,
-        wmzWohneinheit: Decimal
-    ) -> HeizkostenInput {
-        let einheit = daten.einheit(einheitID)
-        let gasag = daten.rechnung("gasag_2024_2025")
-        return HeizkostenInput(
-            gesamtflaecheM2: daten.objekt.gesamtflaeche_qm,
-            wohneinheitFlaecheM2: einheit.flaeche_qm,
-            wmzGesamt: gasag.verbrauch_kwh!,
-            wmzWohneinheit: wmzWohneinheit,
-            gesamtkostenEuro: gasag.gesamt_brutto
-        )
-    }
-
-    @Test("Bahnhofstr. 37 KG — WMZ 8319 kWh (Diagnostik der 0,47-€-Diskrepanz)")
-    func bahnhofstr37_kg() throws {
-        let daten = try Bahnhofstr37.laden()
-        let wmzKg = daten.zaehlerstaende.verbraeuche_berechnet.wmz_kg_kwh!
-        let input = input(fuer: "KG", aus: daten, wmzWohneinheit: wmzKg)
-        let e = HeizkostenRechner.berechne(input)
-
-        // Zwischenschritte loggen — zum Einordnen der CLAUDE.md-Referenz (652,27 €)
-        // gegen unsere reine 30/70-Rechnung.
-        let kosten = input.gesamtkostenEuro
-        let grundkostenGesamt    = kosten * Decimal(string: "0.30")!
-        let verbrauchskostenGesamt = kosten * Decimal(string: "0.70")!
-        print("""
-
-        ── KG Heizkosten-Diagnostik (Testdaten-JSON) ──
-          Kosten (GASAG-Rechnung): \(kosten) €
-          Grundkosten 30 %:        \(grundkostenGesamt.gerundet(auf: 2, modus: .bankers)) €
-          Verbrauchskosten 70 %:   \(verbrauchskostenGesamt.gerundet(auf: 2, modus: .bankers)) €
-
-          Fläche KG / gesamt:      \(input.wohneinheitFlaecheM2) / \(input.gesamtflaecheM2) m²
-          WMZ  KG / gesamt:        \(input.wmzWohneinheit) / \(input.wmzGesamt) kWh
-
-          → Flächenanteil   KG:    \(e.flaechenanteilEuro.gerundet(auf: 4, modus: .bankers)) €
-          → Verbrauchsanteil KG:   \(e.verbrauchsanteilEuro.gerundet(auf: 4, modus: .bankers)) €
-          → Gesamt           KG:   \(e.gesamtEuro.gerundet(auf: 2, modus: .bankers)) €
-
-          (CLAUDE.md-Referenz mit wmzKg = 8450: 323,18 + 652,27 = 975,45 €)
-        ────────────────────────────────────────────────
-        """)
-
-        // Konkrete Referenzwerte nach reiner 30/70-HeizkostenV-Rechnung,
-        // gerundet auf 2 Nachkommastellen (Projekt-Konvention bankers):
-        //   Flächenanteil   = 0,30 · 3554,95 · 160/528   = 323,18 €
-        //   Verbrauchsanteil = 0,70 · 3554,95 · 8319/32257 = 641,77 €
-        //   Gesamt                                        = 964,95 €
-        //
-        // Abweichung zur CLAUDE.md-Tabelle (323,18 / 652,27 / 975,45 mit wmz=8450):
-        //   Δ Verbrauch ≈ +10,50 €, Δ Gesamt ≈ +10,50 €.
-        #expect(e.flaechenanteilEuro.gerundet(auf: 2, modus: .bankers)    == Decimal(string: "323.18"))
-        #expect(e.verbrauchsanteilEuro.gerundet(auf: 2, modus: .bankers)  == Decimal(string: "641.77"))
-        #expect(e.gesamtEuro.gerundet(auf: 2, modus: .bankers)            == Decimal(string: "964.95"))
-    }
-
-    @Test("Bahnhofstr. 37 OG — WMZ 9499 kWh (sollte ohne Diskrepanz rechnen)")
-    func bahnhofstr37_og() throws {
-        let daten = try Bahnhofstr37.laden()
-        let wmzOg = daten.zaehlerstaende.verbraeuche_berechnet.wmz_og_kwh!
-        let input = input(fuer: "OG", aus: daten, wmzWohneinheit: wmzOg)
-        let e = HeizkostenRechner.berechne(input)
-
-        let kosten = input.gesamtkostenEuro
-        let grundkostenGesamt    = kosten * Decimal(string: "0.30")!
-        let verbrauchskostenGesamt = kosten * Decimal(string: "0.70")!
-        print("""
-
-        ── OG Heizkosten-Diagnostik (Testdaten-JSON) ──
-          Fläche OG / gesamt:      \(input.wohneinheitFlaecheM2) / \(input.gesamtflaecheM2) m²
-          WMZ  OG / gesamt:        \(input.wmzWohneinheit) / \(input.wmzGesamt) kWh
-
-          → Flächenanteil   OG:    \(e.flaechenanteilEuro.gerundet(auf: 4, modus: .bankers)) €
-          → Verbrauchsanteil OG:   \(e.verbrauchsanteilEuro.gerundet(auf: 4, modus: .bankers)) €
-          → Gesamt           OG:   \(e.gesamtEuro.gerundet(auf: 2, modus: .bankers)) €
-        ────────────────────────────────────────────────
-        """)
-
-        // Konkrete Referenzwerte nach reiner 30/70-HeizkostenV-Rechnung,
-        // gerundet auf 2 Nachkommastellen:
-        //   Flächenanteil   = 0,30 · 3554,95 · 187/528   = 377,71 €
-        //   Verbrauchsanteil = 0,70 · 3554,95 · 9499/32257 = 732,80 €
-        //   Gesamt                                        = 1110,51 €
-        #expect(e.flaechenanteilEuro.gerundet(auf: 2, modus: .bankers)    == Decimal(string: "377.71"))
-        #expect(e.verbrauchsanteilEuro.gerundet(auf: 2, modus: .bankers)  == Decimal(string: "732.80"))
-        #expect(e.gesamtEuro.gerundet(auf: 2, modus: .bankers)            == Decimal(string: "1110.51"))
-    }
+    // MARK: - Bahnhofstr. 37 — blockiert bis heizNK/wwNK/EG-WMZ geklärt
 
     @Test(
-        "Bahnhofstr. 37 EG — WMZ-Anfangsstand offen (blocked)",
-        .disabled("Testdaten offene_fragen.wmz_eg_anfangsstand: Anfangsstand nicht dokumentiert.")
+        "Bahnhofstr. 37 KG+OG (blocked: heizNK, wwNK, EG-WMZ offen)",
+        .disabled("Input-Werte heizNebenkosten, wwNebenkosten und wmz_eg_kwh fehlen in Testdaten-JSON bzw. sind unklar.")
     )
-    func bahnhofstr37_eg() throws {
-        // Wird aktiviert, sobald wmz_eg_kwh in Testdaten-JSON belegt ist.
+    func bahnhofstr37_kgOg() throws {
+        // Wird aktiviert, sobald User Heizungs-Nebenkosten, Warmwasser-
+        // Nebenkosten und EG-WMZ-Anfangsstand liefert.
     }
 }

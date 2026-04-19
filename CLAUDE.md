@@ -273,23 +273,32 @@ Alle Calc-Logik muss Swift-Testing-Coverage haben. Tests verwenden reale
 Zahlen aus Bahnhofstr. 37.
 
 ```swift
+// Skizziertes Beispiel mit ALTER naiver 30/70-API (vor §9-Split-Umbau).
+// Die konkreten Zahlen stammen aus der Bahnhofstr. 37, Periode 11/2024–
+// 10/2025. wmzWohneinheit = 8_319 kWh ist aus Testdaten-JSON abgeleitet
+// (Zählerstand-Differenz 24,741 MWh − 16,422 MWh).
+//
+// Aktueller Rechner (Task 0.4 v3): konfigurierbarer §9-HeizkostenV-Split
+// auf Heizungs- und Warmwasser-Topf, Stromzuschlag, getrennte Neben-
+// kosten-Töpfe. Siehe Calc/HeizkostenRechner.swift.
+
 import Testing
 @testable import NebenkostenApp
 
 struct HeizkostenRechnerTests {
-    @Test("Heizkosten 30/70: realer Fall Bahnhofstr 37 KG")
+    @Test("Heizkosten 30/70: realer Fall Bahnhofstr 37 KG (skizziert)")
     func bahnhofstr37_kg() {
         let input = HeizkostenInput(
             gesamtflaecheM2: 528,
             wohneinheitFlaecheM2: 160,
             wmzGesamt: 32_257,
-            wmzWohneinheit: 8_450,
+            wmzWohneinheit: 8_319,   // aus Testdaten-JSON abgeleitet
             gesamtkostenEuro: 3_554.95
         )
         let ergebnis = HeizkostenRechner.berechne(input)
         #expect(ergebnis.flaechenanteilEuro.gerundet(auf: 2) == 323.18)
-        #expect(ergebnis.verbrauchsanteilEuro.gerundet(auf: 2) == 652.27)
-        #expect(ergebnis.gesamtEuro.gerundet(auf: 2) == 975.45)
+        #expect(ergebnis.verbrauchsanteilEuro.gerundet(auf: 2) == 641.77)
+        #expect(ergebnis.gesamtEuro.gerundet(auf: 2) == 964.95)
     }
 }
 ```
