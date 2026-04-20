@@ -85,15 +85,22 @@ struct ObjektDashboardView: View {
     }
 
     private var periodePicker: some View {
-        HStack {
+        VStack(alignment: .leading, spacing: 8) {
             Text("Abrechnungszeitraum")
                 .font(.callout)
-                .foregroundStyle(.quaternary)
-            Spacer()
+
             if perioden.isEmpty {
-                Text("keine Periode")
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.secondary)
+                HStack {
+                    Text("keine Periode")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color(.tertiarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             } else {
                 Menu {
                     ForEach(perioden) { periode in
@@ -109,22 +116,25 @@ struct ObjektDashboardView: View {
                         }
                     }
                 } label: {
-                    HStack(spacing: 4) {
+                    HStack {
                         Text(viewModel.periodeBezeichnung)
                             .font(.subheadline.weight(.medium))
+                            .lineLimit(1)
+                        Spacer()
                         Image(systemName: "chevron.down")
                             .font(.caption)
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity)
                     .background(Color(.tertiarySystemBackground))
-                    .clipShape(Capsule())
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
             }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
