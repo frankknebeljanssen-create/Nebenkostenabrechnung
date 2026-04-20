@@ -144,21 +144,13 @@ struct BelegeView: View {
     // MARK: - Monatsgruppe
 
     private func monatsCard(_ gruppe: Monatsgruppe) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Text(gruppe.ueberschrift)
-                    .appFont(AppFont.bodySemi())
-                    .foregroundStyle(DesignTokens.text)
-                Spacer()
-                Text("\(gruppe.dokumente.count) Beleg\(gruppe.dokumente.count == 1 ? "" : "e")")
-                    .appFont(AppFont.monoCaption())
-                    .foregroundStyle(DesignTokens.textTertiary)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-
-            DividerLine()
-
+        CollapsibleSection(
+            titel: gruppe.ueberschrift,
+            summary: nil,
+            count: gruppe.dokumente.count,
+            persistKey: "belege.monat.\(gruppe.schluessel).open",
+            defaultOffen: gruppe.schluessel == Self.aktuellerMonatsSchluessel
+        ) {
             VStack(spacing: 0) {
                 ForEach(Array(gruppe.dokumente.enumerated()), id: \.element.id) { idx, d in
                     Button {
@@ -193,13 +185,10 @@ struct BelegeView: View {
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(DesignTokens.bgSurface)
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(DesignTokens.separator, lineWidth: 0.5)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private static var aktuellerMonatsSchluessel: String {
+        monatsSchluesselFormatter.string(from: Date())
     }
 
     private func zeile(_ d: GespeichertesDokument) -> some View {
