@@ -100,16 +100,16 @@ struct AppShellChrome: ViewModifier {
         HStack(spacing: 10) {
             Rectangle()
                 .fill(scope.farbe(einheiten))
-                .frame(width: 8, height: 8)
+                .frame(width: 10, height: 10)
                 .clipShape(RoundedRectangle(cornerRadius: 2))
             Text(scope.beschriftung(einheiten))
-                .appFont(AppFont.uppercaseLabel())
+                .appFont(AppFont.scopeStripLabel())
                 .foregroundStyle(scope.farbe(einheiten))
                 .lineLimit(1)
             Spacer()
             if let flaechenLabel {
                 Text(flaechenLabel)
-                    .appFont(AppFont.monoSmall())
+                    .appFont(AppFont.monoCaption())
                     .foregroundStyle(scope.farbe(einheiten).opacity(0.85))
             }
             Image(systemName: "arrow.triangle.swap")
@@ -117,7 +117,7 @@ struct AppShellChrome: ViewModifier {
                 .foregroundStyle(scope.farbe(einheiten).opacity(0.6))
         }
         .padding(.horizontal, 20)
-        .frame(height: 32)
+        .frame(height: 36)
         .frame(maxWidth: .infinity)
         .background(scope.softFarbe(einheiten))
         .overlay(alignment: .top)    { trenner }
