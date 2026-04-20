@@ -26,7 +26,6 @@ struct RechnungenView: View {
     @State private var zeigeEinstellungen = false
     @State private var zeigeNeu = false
     @State private var auswahl: Rechnung?
-    @State private var aufgeklappt: Set<String> = []
     @State private var suchtext: String = ""
 
     private var immobilie: Immobilie? { immobilien.first }
@@ -129,73 +128,41 @@ struct RechnungenView: View {
     // MARK: - Gruppen-Card
 
     private func gruppenCard(_ gruppe: Gruppe) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            sektionHeader(gruppe)
-            if aufgeklappt.contains(gruppe.schluessel) {
-                DividerLine()
-                VStack(spacing: 0) {
-                    ForEach(Array(gruppe.rechnungen.enumerated()), id: \.element.id) { idx, r in
-                        Row(
-                            label: r.lieferant.isEmpty ? "Ohne Lieferant" : r.lieferant,
-                            subtitel: zeilenSubtitel(r),
-                            chevron: true,
-                            action: { auswahl = r },
-                            leading: {
-                                StatusDot(status: statusDot(r))
-                                    .frame(width: 24, height: 24, alignment: .center)
-                            },
-                            trailing: {
+        CollapsibleSection(
+            titel: gruppe.schluessel == "ohne" ? "Ohne Kostenart" : gruppe.schluessel,
+            summary: Formatting.euro(gruppe.summe),
+            count: gruppe.rechnungen.count,
+            persistKey: "rechnungen.kostenart.\(gruppe.schluessel).open",
+            defaultOffen: Self.betrKvRang(gruppe.schluessel) == 2
+        ) {
+            VStack(spacing: 0) {
+                ForEach(Array(gruppe.rechnungen.enumerated()), id: \.element.id) { idx, r in
+                    Row(
+                        label: r.lieferant.isEmpty ? "Ohne Lieferant" : r.lieferant,
+                        subtitel: zeilenSubtitel(r),
+                        chevron: true,
+                        action: { auswahl = r },
+                        leading: {
+                            Image(systemName: Self.symbolFuer(gruppe.schluessel))
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(DesignTokens.accent)
+                                .frame(width: 24, height: 24, alignment: .center)
+                        },
+                        trailing: {
+                            HStack(spacing: 8) {
                                 Text(Formatting.euro(r.betragBruttoEuro))
                                     .appFont(AppFont.monoBody())
                                     .foregroundStyle(DesignTokens.text)
+                                StatusDot(status: statusDot(r))
                             }
-                        )
-                        if idx < gruppe.rechnungen.count - 1 {
-                            DividerLine().padding(.leading, 14)
                         }
+                    )
+                    if idx < gruppe.rechnungen.count - 1 {
+                        DividerLine().padding(.leading, 14)
                     }
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(DesignTokens.bgSurface)
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(DesignTokens.separator, lineWidth: 0.5)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-    }
-
-    private func sektionHeader(_ gruppe: Gruppe) -> some View {
-        Button {
-            toggle(gruppe.schluessel)
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: Self.symbolFuer(gruppe.schluessel))
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(DesignTokens.accent)
-                    .frame(width: 24, height: 24, alignment: .center)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(gruppe.schluessel == "ohne" ? "Ohne Kostenart" : gruppe.schluessel)
-                        .appFont(AppFont.bodySemi())
-                        .foregroundStyle(DesignTokens.text)
-                    Text("\(gruppe.rechnungen.count) Rechnung\(gruppe.rechnungen.count == 1 ? "" : "en")")
-                        .appFont(AppFont.caption())
-                        .foregroundStyle(DesignTokens.textSecondary)
-                }
-                Spacer(minLength: 8)
-                Text(Formatting.euro(gruppe.summe))
-                    .appFont(AppFont.monoBody())
-                    .foregroundStyle(DesignTokens.text)
-                Image(systemName: aufgeklappt.contains(gruppe.schluessel) ? "chevron.up" : "chevron.down")
-                    .font(.caption)
-                    .foregroundStyle(DesignTokens.textTertiary)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
     }
 
     private func zeilenSubtitel(_ r: Rechnung) -> String {
@@ -350,17 +317,9 @@ struct RechnungenView: View {
         return false
     }
 
-    private func toggle(_ s: String) {
-        if aufgeklappt.contains(s) {
-            aufgeklappt.remove(s)
-        } else {
-            aufgeklappt.insert(s)
-        }
-    }
-
     // MARK: - BetrKV-Reihenfolge + Icons
 
-    private static func betrKvRang(_ name: String) -> Int {
+    static func betrKvRang(_ name: String) -> Int {
         let n = name.lowercased()
         if n == "ohne"                                               { return 99 }
         if n.contains("entwäss") || (n.contains("wasser") && !n.contains("heiz") && !n.contains("warm")) { return 1 }
