@@ -205,8 +205,18 @@ final class Mietverhaeltnis {
     /// Auszugsdatum, nil bei aktivem Mietverhältnis
     var auszugAm: Date?
 
-    /// Monatliche Betriebskostenvorauszahlung in €
+    /// Monatliche Betriebskostenvorauszahlung in €.
+    /// Strikte-Daten-Regel: nur als erfasst gewertet, wenn
+    /// `vorauszahlungErfasst == true`. Ein Default-0 ohne Flag
+    /// signalisiert „nicht erfasst", nicht „gezielt 0 €".
     var vorauszahlungMonatEuro: Decimal = 0
+
+    /// Strikte-Daten-Marker: `true`, wenn der User die Vorauszahlung
+    /// aktiv gesetzt hat (auch auf 0 €). Default `false` für
+    /// Bestandsdaten — wird durch die StrikteDatenMigration auf
+    /// `true` gesetzt, wenn bereits ein Betrag vorhanden ist. Bei
+    /// `false` blockiert der PreFlight-Check die Berechnung.
+    var vorauszahlungErfasst: Bool = false
 
     /// Anzahl Personen im Haushalt (für personenbezogene Umlagen)
     var anzahlPersonen: Int = 1
@@ -303,6 +313,14 @@ final class Zaehlerstand {
 
     var ablesedatum: Date = Date()
     var stand: Decimal = 0
+
+    /// Strikte-Daten-Marker: Zeitpunkt der aktiven Eingabe durch den
+    /// User. Ein Stand gilt nur dann als „erfasst", wenn
+    /// `erfasstAm != nil`. Default `nil` schützt vor stillen 0-Werten,
+    /// die bei neuen Zählerstand-Einträgen ohne User-Input entstehen.
+    /// Die StrikteDatenMigration setzt für Bestandsdaten
+    /// `erfasstAm = ablesedatum`.
+    var erfasstAm: Date?
 
     var quelle: Ablesequelle = Ablesequelle.manuell
 
