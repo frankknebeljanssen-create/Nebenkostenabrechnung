@@ -2,14 +2,21 @@
 //  UebersichtView.swift
 //  NebenkostenApp — UI/Uebersicht
 //
-//  Placeholder für UI-0. Der Inhalt kommt in UI-1.
+//  Router zwischen Objekt- und Einheit-Scope-Ansicht. Keine eigene
+//  Logik — delegiert je nach ScopeManager.current.
 //
 
 import SwiftUI
 
 struct UebersichtView: View {
+    @Environment(ScopeManager.self) private var scope
+
     var body: some View {
-        PlatzhalterInhalt(titel: "Übersicht",
-                          subtitel: "Haus-Uebersicht · kommt in UI-1")
+        switch scope.current {
+        case .objekt:
+            UebersichtObjektView()
+        case .einheit(let id):
+            UebersichtEinheitView(einheitId: id)
+        }
     }
 }

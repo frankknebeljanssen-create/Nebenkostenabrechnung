@@ -73,6 +73,34 @@ enum Formatting {
         "\(datum(start)) \u{2013} \(datum(ende))"
     }
 
+    // MARK: - Fläche
+
+    /// Formatiert eine Fläche als "<zahl> m²" — de-DE-Komma, bis zu 2
+    /// Dezimalstellen, aber ohne unnötige Nullen.
+    ///
+    /// Beispiele:
+    ///   79      → "79 m²"
+    ///   79.5    → "79,5 m²"
+    ///   79.45   → "79,45 m²"
+    static func m2(_ value: Decimal) -> String {
+        let zahl = flaecheFormatter.string(
+            from: NSDecimalNumber(decimal: value)
+        ) ?? "0"
+        return "\(zahl) m²"
+    }
+
+    private static let flaecheFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.locale = locale
+        f.numberStyle = .decimal
+        f.minimumFractionDigits = 0
+        f.maximumFractionDigits = 2
+        f.groupingSeparator = "."
+        f.decimalSeparator = ","
+        f.usesGroupingSeparator = true
+        return f
+    }()
+
     // MARK: - Prozent
 
     /// Formatiert einen Anteil 0…1 als Prozent-Text. `dezimal` ist
