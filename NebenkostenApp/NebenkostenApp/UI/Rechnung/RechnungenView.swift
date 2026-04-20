@@ -131,7 +131,7 @@ struct RechnungenView: View {
                 ForEach(Array(g.rechnungen.enumerated()), id: \.element.id) { idx, r in
                     rechnungZeile(r)
                     if idx < g.rechnungen.count - 1 {
-                        DividerLine().padding(.leading, 14)
+                        DividerLine()
                     }
                 }
             }

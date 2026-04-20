@@ -2,18 +2,22 @@
 //  CollapsibleSection.swift
 //  NebenkostenApp — UI/Components
 //
-//  Standard-Pattern für lange Listen: Card mit Tap-Header, der
-//  Inhalt ein-/ausklappt. Der Zustand persistiert optional in
-//  UserDefaults per `persistKey`, damit die App über Neustarts
-//  hinweg die User-Präferenz hält (z.B. "Heizung default offen,
-//  Reinigung hatte ich zugemacht").
+//  Standard-Pattern für lange Listen nach UI-Fix-2a.
+//
+//  Layout-Prinzip (aus meters-bills.jsx BillsScreen):
+//    - Header ist ein eigenständiger Button auf dem App-
+//      Background (bgApp). KEIN Card-Container, kein Rahmen.
+//    - Card erscheint NUR wenn `istOffen` — sie umschließt
+//      ausschließlich den Content (die Rows).
+//    - Collapsed = Header bleibt, Card komplett weg.
 //
 //  Header-Layout:
-//    [Chevron] [Titel] ····· [Summary]  [Count]
-//                                       micro darunter
+//    [Chevron] TITEL (uppercase)       Summary (mono)
+//       12pt   12pt/600 tracking 0.6   17pt/600
 //
-//  Animation: easeOut 0.2 s, asymmetric — Einblenden mit Slide-
-//  Down + Fade, Ausblenden nur Fade.
+//  Card-Styling: bgSurface + 0.5pt separator-Border (Overlay) +
+//  clipShape RoundedRectangle(14). Kein inneres Padding — die
+//  Rows bringen ihr eigenes Padding mit.
 //
 
 import SwiftUI
@@ -21,7 +25,6 @@ import SwiftUI
 struct CollapsibleSection<Content: View>: View {
     let titel: String
     let summary: String?
-    let count: Int?
     let persistKey: String?
     let defaultOffen: Bool
     @ViewBuilder let content: () -> Content
@@ -37,8 +40,11 @@ struct CollapsibleSection<Content: View>: View {
         @ViewBuilder content: @escaping () -> Content
     ) {
         self.titel = titel
+        // count wird im neuen Layout (UI-Fix-2a) nicht mehr
+        // gerendert — die Row-Anzahl zeigt sich in der Card.
+        // Der Init-Parameter bleibt erhalten für Kompatibilität.
+        _ = count
         self.summary = summary
-        self.count = count
         self.persistKey = persistKey
         self.defaultOffen = defaultOffen
         let initial: Bool
@@ -52,23 +58,51 @@ struct CollapsibleSection<Content: View>: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            Button {
-                toggle()
-            } label: {
-                headerRow
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-
+        VStack(alignment: .leading, spacing: 8) {
+            headerButton
             if lokalOffen {
-                DividerLine()
-                content()
+                card
                     .transition(.asymmetric(
                         insertion: .opacity.combined(with: .move(edge: .top)),
                         removal: .opacity
                     ))
             }
+        }
+        .animation(.easeOut(duration: 0.2), value: lokalOffen)
+    }
+
+    // MARK: - Header-Button (auf bgApp, kein Card)
+
+    private var headerButton: some View {
+        Button {
+            toggle()
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: lokalOffen ? "chevron.down" : "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(DesignTokens.textTertiary)
+                Text(titel)
+                    .appFont(AppFont.uppercaseLabel())
+                    .foregroundStyle(DesignTokens.textSecondary)
+                Spacer(minLength: 8)
+                if let summary {
+                    Text(summary)
+                        .appFont(AppFont.monoBetrag17())
+                        .foregroundStyle(DesignTokens.text)
+                }
+            }
+            .padding(.horizontal, 4)
+            .padding(.vertical, 8)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Card (nur wenn offen)
+
+    private var card: some View {
+        VStack(spacing: 0) {
+            content()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(DesignTokens.bgSurface)
@@ -77,43 +111,6 @@ struct CollapsibleSection<Content: View>: View {
                 .stroke(DesignTokens.separator, lineWidth: 0.5)
         )
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .animation(.easeOut(duration: 0.2), value: lokalOffen)
-    }
-
-    // MARK: - Header
-
-    private var headerRow: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(DesignTokens.textTertiary)
-                .rotationEffect(.degrees(lokalOffen ? 90 : 0))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(titel)
-                    .appFont(AppFont.bodySemi())
-                    .foregroundStyle(DesignTokens.text)
-                if let count {
-                    Text(countText(count))
-                        .appFont(AppFont.caption())
-                        .foregroundStyle(DesignTokens.textSecondary)
-                }
-            }
-            Spacer(minLength: 8)
-            if let summary {
-                Text(summary)
-                    .appFont(AppFont.monoBody())
-                    .foregroundStyle(DesignTokens.text)
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-    }
-
-    private func countText(_ n: Int) -> String {
-        switch n {
-        case 1: return "1 Eintrag"
-        default: return "\(n) Einträge"
-        }
     }
 
     // MARK: - Toggle

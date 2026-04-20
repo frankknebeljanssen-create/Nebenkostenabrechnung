@@ -180,7 +180,7 @@ struct BelegeView: View {
                         }
                     }
                     if idx < gruppe.dokumente.count - 1 {
-                        DividerLine().padding(.leading, 14)
+                        DividerLine()
                     }
                 }
             }

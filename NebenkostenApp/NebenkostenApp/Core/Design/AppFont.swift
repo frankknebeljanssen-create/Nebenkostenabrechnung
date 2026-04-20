@@ -75,6 +75,11 @@ enum AppFont {
     static func captionMedium() -> AppFontStyle {
         .init(font: plexSans(.medium, 12), tracking: 0, uppercase: false)
     }
+    /// 12pt / 600 — für StatusPill-Labels (UI-Fix-2a), damit
+    /// "Validiert" / "KI-Vorschlag" ins Auge springt.
+    static func captionSemi() -> AppFontStyle {
+        .init(font: plexSans(.semibold, 12), tracking: 0, uppercase: false)
+    }
     static func smallCaption() -> AppFontStyle {
         .init(font: plexSans(.regular, 11), tracking: 0, uppercase: false)
     }

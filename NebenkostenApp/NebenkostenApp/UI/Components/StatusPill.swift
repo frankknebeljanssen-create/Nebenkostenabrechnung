@@ -39,7 +39,7 @@ struct StatusPill: View {
 
     var body: some View {
         Text(text)
-            .appFont(AppFont.smallCaptionSemi())
+            .appFont(AppFont.captionSemi())
             .foregroundStyle(style.fg)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
