@@ -31,6 +31,7 @@ import SwiftData
 
 struct ZaehlerView: View {
     @Environment(ScopeManager.self) private var scope
+    @Environment(AppShellRouter.self) private var router
     @Query(sort: \Immobilie.erstelltAm) private var immobilien: [Immobilie]
 
     @State private var zeigeScopePicker = false
@@ -84,6 +85,36 @@ struct ZaehlerView: View {
         .sheet(item: $erfassenZaehler) { z in
             NavigationStack { ZaehlerstandErfassenView(zaehler: z) }
         }
+        .onChange(of: router.aktuellesSprungziel) { _, neu in
+            reagiereAufSprungziel(neu)
+        }
+    }
+
+    /// Antwort auf ein Sprungziel, das den Zähler-Tab adressiert.
+    /// - `.zaehlerstandErfassen(id)`: Zähler-Suche + Sheet öffnen.
+    /// - `.wmzPlausi`: aktuell nur Quittieren (alle Medium-Sections
+    ///   sind default offen — Fokus würde via scrollTo in einer
+    ///   späteren Iteration ergänzt).
+    private func reagiereAufSprungziel(_ ziel: Sprungziel?) {
+        switch ziel {
+        case .zaehlerstandErfassen(let id):
+            if let z = findeZaehler(id: id) {
+                erfassenZaehler = z
+            }
+            router.quittiere()
+        case .wmzPlausi:
+            // Wärme-Medium ist in der aktuellen Implementierung
+            // immer sichtbar. Kein Expand-Handling nötig.
+            router.quittiere()
+        default:
+            break
+        }
+    }
+
+    private func findeZaehler(id: UUID) -> Zaehler? {
+        let haupt = immobilie?.hauptzaehler ?? []
+        let wohnung = (immobilie?.wohneinheiten ?? []).flatMap { $0.zaehler ?? [] }
+        return (haupt + wohnung).first { $0.id == id }
     }
 
     // MARK: - Daten-Logik

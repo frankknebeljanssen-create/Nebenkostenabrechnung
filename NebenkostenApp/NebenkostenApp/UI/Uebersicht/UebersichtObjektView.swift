@@ -15,6 +15,7 @@ import SwiftData
 
 struct UebersichtObjektView: View {
     @Environment(ScopeManager.self) private var scope
+    @Environment(AppShellRouter.self) private var router
     @Query(sort: \Immobilie.erstelltAm) private var immobilien: [Immobilie]
     @State private var zeigeScopePicker = false
     @State private var zeigeEinstellungen = false
@@ -59,6 +60,23 @@ struct UebersichtObjektView: View {
         .sheet(isPresented: $zeigeScopePicker) { ScopePickerSheet() }
         .sheet(isPresented: $zeigeEinstellungen) { EinstellungenSheet() }
         .sheet(isPresented: $zeigeInspektor) { InspektorPlatzhalter() }
+        .onChange(of: router.aktuellesSprungziel) { _, neu in
+            reagiereAufSprungziel(neu)
+        }
+    }
+
+    /// Antwort auf Sprungziele, die den Übersicht-Tab adressieren
+    /// (Einstellungen-Sections). Öffnet das Einstellungen-Sheet.
+    private func reagiereAufSprungziel(_ ziel: Sprungziel?) {
+        switch ziel {
+        case .einstellungenObjekt,
+             .einstellungenPeriode,
+             .mieterVorauszahlung:
+            zeigeEinstellungen = true
+            router.quittiere()
+        default:
+            break
+        }
     }
 
     // MARK: - Perioden-Karte
