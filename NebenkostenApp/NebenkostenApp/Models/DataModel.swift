@@ -509,6 +509,52 @@ final class Abrechnung {
     init() {}
 }
 
+// MARK: - GespeichertesDokument
+
+enum DokumentQuelle: String, Codable, CaseIterable, Sendable {
+    case kamera
+    case galerie
+    case datei
+}
+
+/// Gescanntes oder importiertes Dokument (PDF oder Bild). Liegt als
+/// Datei im App-Documents unter /Scans/, verwaltet über
+/// `DokumentAblageService`. Ein Dokument kann (muss nicht) einer
+/// Rechnung ODER einem Zählerstand zugeordnet werden.
+@Model
+final class GespeichertesDokument {
+    var id: UUID = UUID()
+    var erfasstAm: Date = Date()
+
+    /// Relativer Pfad unter App-Documents, z.B. "Scans/scan-20260420-194530.pdf".
+    var dateiname: String = ""
+    /// Relativer Pfad zum Thumbnail, z.B. "Scans/Thumbnails/....jpg".
+    var thumbnailPfad: String = ""
+
+    var dateigroesseBytes: Int = 0
+    var seitenAnzahl: Int = 1
+
+    /// String-Backing (CloudKit-Robustheit, Enum-Evolution).
+    private var quelleRoh: String = DokumentQuelle.datei.rawValue
+    var quelle: DokumentQuelle {
+        get { DokumentQuelle(rawValue: quelleRoh) ?? .datei }
+        set { quelleRoh = newValue.rawValue }
+    }
+
+    /// Optionaler Typ-Hinweis, wird in Task 1.2 via KI-Klassifikation
+    /// gesetzt (z.B. "rechnung-gas", "zaehlerstand-foto", "sonstiges").
+    /// Leer = noch unklassifiziert.
+    var typ: String = ""
+
+    /// Zuordnung zu genau EINER Entität — Rechnung oder Zählerstand
+    /// oder nichts. Die Gegenrichtung hängt Rechnung/Zählerstand an,
+    /// siehe @Relationship-Inverse unten.
+    var rechnung: Rechnung?
+    var zaehlerstand: Zaehlerstand?
+
+    init() {}
+}
+
 // MARK: - WarnungsAudit
 
 /// Protokoll über vom User ignorierte Validierungs-Warnungen vor der
