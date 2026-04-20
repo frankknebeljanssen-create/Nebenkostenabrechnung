@@ -2,64 +2,85 @@
 //  CompletionRing.swift
 //  NebenkostenApp — UI/Objekt/Components
 //
-//  Fortschrittsanzeige der Abrechnungs-Vorbereitung für die aktuelle
-//  Periode. Ursprünglich als 180×180-Ring gebaut; seit v0.22 als
-//  Querbalken, weil das Dashboard sonst zu viel vertikalen Platz
-//  verbraucht (~196pt → ~44pt).
+//  Vollständigkeits-Balken: dreifarbiger Stack (grün erledigt /
+//  orange in Arbeit / grau offen) mit Live-Counts und Klartext-
+//  Bereitschaftsaussage. Ursprünglich als 180×180-Ring gebaut,
+//  seit v0.22 als schlanker Querbalken, seit v1.0 dreifarbig.
 //
 
 import SwiftUI
 
 struct CompletionBalken: View {
-    /// 0.0 … 1.0
-    let prozent: Double
+    let erledigt: Int
+    let inArbeit: Int
+    let offen: Int
+    let headerText: String
+    let fussText: String
+    let bereit: Bool
 
-    private var geklammert: Double { max(0, min(1, prozent)) }
-    private var prozentText: String { "\(Int((geklammert * 100).rounded())) %" }
+    private var total: Int { erledigt + inArbeit + offen }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(prozentText)
-                    .font(.system(size: 24, weight: .semibold))
-                    .monospacedDigit()
-                    .foregroundStyle(balkenFarbe)
-                Text("vollständig")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                if bereit {
+                    Image(systemName: "checkmark.seal.fill")
+                        .foregroundStyle(.green)
+                        .font(.callout)
+                }
+                Text(headerText)
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(bereit ? .green : .primary)
                 Spacer()
             }
 
             GeometryReader { proxy in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(Color.gray.opacity(0.15))
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(balkenFarbe)
-                        .frame(width: proxy.size.width * geklammert)
-                        .animation(.easeInOut(duration: 0.4), value: geklammert)
+                HStack(spacing: 0) {
+                    Rectangle()
+                        .fill(Color.green)
+                        .frame(width: proxy.size.width * anteil(erledigt))
+                    Rectangle()
+                        .fill(Color.orange)
+                        .frame(width: proxy.size.width * anteil(inArbeit))
+                    Rectangle()
+                        .fill(Color.gray.opacity(0.22))
+                        .frame(width: proxy.size.width * anteil(offen))
                 }
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .animation(.easeInOut(duration: 0.3), value: erledigt + inArbeit + offen)
             }
             .frame(height: 16)
+
+            Text(fussText)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Abrechnung zu \(Int((geklammert * 100).rounded())) Prozent vollständig.")
+        .accessibilityLabel(
+            "\(erledigt) erledigt, \(inArbeit) in Arbeit, \(offen) offen. \(fussText)"
+        )
     }
 
-    private var balkenFarbe: Color {
-        switch geklammert {
-        case ..<0.34: return .red
-        case ..<0.67: return .orange
-        default:      return .green
-        }
+    private func anteil(_ n: Int) -> CGFloat {
+        guard total > 0 else { return 0 }
+        return CGFloat(n) / CGFloat(total)
     }
 }
 
 #Preview {
     VStack(spacing: 20) {
-        CompletionBalken(prozent: 0.25)
-        CompletionBalken(prozent: 0.6)
-        CompletionBalken(prozent: 0.95)
+        CompletionBalken(
+            erledigt: 23, inArbeit: 3, offen: 15,
+            headerText: "23 von 41 Einträgen vollständig, 3 in Arbeit, 15 offen",
+            fussText: "Abrechnung kann noch nicht erstellt werden. 18 Einträge fehlen noch.",
+            bereit: false
+        )
+        CompletionBalken(
+            erledigt: 41, inArbeit: 0, offen: 0,
+            headerText: "Alle 41 Einträge vollständig",
+            fussText: "Bereit zur Abrechnung.",
+            bereit: true
+        )
     }
     .padding()
 }

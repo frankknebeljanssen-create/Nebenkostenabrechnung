@@ -210,34 +210,46 @@ struct ObjektDashboardView: View {
     }
 
     private var ring: some View {
-        CompletionBalken(prozent: viewModel.completionProzent)
-            .padding(.top, -8)
-            .padding(.bottom, 16)
+        let z = viewModel.zusammenfassung
+        return CompletionBalken(
+            erledigt: z.erfuellt,
+            inArbeit: z.teilweise,
+            offen: z.offen,
+            headerText: viewModel.fortschrittsText,
+            fussText: viewModel.bereitschaftsText,
+            bereit: z.bereit
+        )
+        .padding(.top, -8)
+        .padding(.bottom, 16)
     }
 
     private var kachelGrid: some View {
         LazyVGrid(columns: spalten, spacing: 12) {
             let m = viewModel.mieter
             NavigationLink(value: MieterListenZiel(immobilie: immobilie)) {
-                StatusKachel(titel: "Mieter", symbol: "person.2", status: m.status, ist: m.ist, soll: m.soll)
+                StatusKachel(titel: "Mieter", symbol: "person.2", status: m.status,
+                             erledigt: m.erledigt, inArbeit: m.inArbeit, offen: m.offen)
             }
             .buttonStyle(.plain)
 
             let z = viewModel.zaehler
             NavigationLink(value: ZaehlerUebersichtsZiel(immobilie: immobilie)) {
-                StatusKachel(titel: "Zähler", symbol: "gauge", status: z.status, ist: z.ist, soll: z.soll)
+                StatusKachel(titel: "Zähler", symbol: "gauge", status: z.status,
+                             erledigt: z.erledigt, inArbeit: z.inArbeit, offen: z.offen)
             }
             .buttonStyle(.plain)
 
             let r = viewModel.rechnungen
             NavigationLink(value: RechnungenListenZiel(immobilie: immobilie)) {
-                StatusKachel(titel: "Rechnungen", symbol: "doc.text", status: r.status, ist: r.ist, soll: r.soll)
+                StatusKachel(titel: "Rechnungen", symbol: "doc.text", status: r.status,
+                             erledigt: r.erledigt, inArbeit: r.inArbeit, offen: r.offen)
             }
             .buttonStyle(.plain)
 
             let k = viewModel.kostenarten
             NavigationLink(value: KostenartenListenZiel(immobilie: immobilie)) {
-                StatusKachel(titel: "Kostenarten", symbol: "list.bullet.rectangle", status: k.status, ist: k.ist, soll: k.soll)
+                StatusKachel(titel: "Kostenarten", symbol: "list.bullet.rectangle", status: k.status,
+                             erledigt: k.erledigt, inArbeit: k.inArbeit, offen: k.offen)
             }
             .buttonStyle(.plain)
         }

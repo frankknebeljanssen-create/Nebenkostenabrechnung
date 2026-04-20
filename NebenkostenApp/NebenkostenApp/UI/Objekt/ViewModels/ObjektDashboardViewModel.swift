@@ -2,13 +2,9 @@
 //  ObjektDashboardViewModel.swift
 //  NebenkostenApp — UI/Objekt/ViewModels
 //
-//  Leitet aus einer Immobilie und einer aktiven Abrechnungsperiode die
-//  Anzeigewerte für das Dashboard ab: 4 Kachel-Status und den
-//  Completion-Ring-Prozent. Pure Value-Logik, kein State.
-//
-//  Zähler und Rechnungen werden periodenabhängig gezählt (Stände bzw.
-//  Rechnungsdatum innerhalb der Periode). Mieter und Kostenarten sind
-//  im MVP periodenunabhängig.
+//  Übersetzt Immobilie + Periode in Dashboard-Anzeigewerte. Greift auf
+//  VollstaendigkeitsPruefung zurück — dieselbe Quelle wie Inspektor-
+//  Sheet und AbrechnungsService-Pre-Flight.
 //
 
 import Foundation
@@ -17,64 +13,99 @@ import Foundation
 struct ObjektDashboardViewModel {
     let immobilie: Immobilie
     let aktivePeriode: Abrechnungsperiode?
+    let anforderungen: [AnforderungMitStatus]
 
     init(immobilie: Immobilie, aktivePeriode: Abrechnungsperiode? = nil) {
         self.immobilie = immobilie
         self.aktivePeriode = aktivePeriode
+        if let p = aktivePeriode {
+            self.anforderungen = VollstaendigkeitsPruefung.pruefe(
+                immobilie: immobilie, periode: p
+            )
+        } else {
+            self.anforderungen = []
+        }
     }
 
-    // MARK: - Kachel-Werte
+    // MARK: - Kacheln
 
-    struct KachelDaten {
-        let status: KachelStatus
-        let ist: Int
-        let soll: Int
+    struct KachelDaten: Sendable {
+        let erledigt: Int
+        let inArbeit: Int
+        let offen: Int
+
+        var total: Int { erledigt + inArbeit + offen }
+
+        var status: KachelStatus {
+            if total == 0 { return .gelb }
+            if offen == 0 && inArbeit == 0 { return .gruen }
+            if erledigt == 0 && inArbeit == 0 { return .rot }
+            return .gelb
+        }
     }
 
+    /// Mieter: pro aktiver Einheit ein "Mieter vorhanden"-Check.
     var mieter: KachelDaten {
-        let einheiten = immobilie.wohneinheiten ?? []
-        let aktiveEinheiten = einheiten.filter { $0.nutzungsart != .leerstand }
-        let aktiveMieter = einheiten
-            .flatMap { $0.mietverhaeltnisse ?? [] }
-            .filter { $0.auszugAm == nil }
-        let soll = max(aktiveEinheiten.count, 1)
-        let ist = aktiveMieter.count
-        return KachelDaten(status: status(ist: ist, soll: soll), ist: ist, soll: soll)
+        let einheiten = (immobilie.wohneinheiten ?? [])
+            .filter { $0.nutzungsart != .leerstand }
+        let mit = einheiten.filter { e in
+            (e.mietverhaeltnisse ?? []).contains { $0.auszugAm == nil }
+        }.count
+        let ohne = einheiten.count - mit
+        return KachelDaten(erledigt: mit, inArbeit: 0, offen: ohne)
     }
 
     var zaehler: KachelDaten {
-        // MVP-Scope: nur Wohnungs-Zähler, Hauptzähler der Liegenschaft
-        // werden separat behandelt (Task später). Pro Zähler zwei Stände
-        // erwartet (Anfangs- + Endstand in der aktiven Periode).
-        let einheitZaehler = (immobilie.wohneinheiten ?? []).flatMap { $0.zaehler ?? [] }
-        let ist = einheitZaehler
-            .flatMap { $0.staende ?? [] }
-            .filter { istInPeriode($0.ablesedatum) }
-            .count
-        let soll = max(einheitZaehler.count * 2, 1)
-        return KachelDaten(status: status(ist: ist, soll: soll), ist: ist, soll: soll)
+        anforderungen
+            .filter { $0.anforderung.kategorie == .zaehlerstand }
+            .kachelCounts
     }
 
     var rechnungen: KachelDaten {
-        let ist = (immobilie.rechnungen ?? [])
-            .filter { istInPeriode($0.rechnungsdatum) }
-            .count
-        let soll = 5
-        return KachelDaten(status: status(ist: ist, soll: soll), ist: ist, soll: soll)
+        anforderungen
+            .filter { $0.anforderung.kategorie == .rechnung }
+            .kachelCounts
     }
 
+    /// Kostenarten: rein informativ, kein "offen/erledigt" sondern die
+    /// Anzahl aktiver Kostenarten — Stammdaten-Konfig.
     var kostenarten: KachelDaten {
-        let ist = (immobilie.kostenarten ?? []).filter { $0.aktiv }.count
-        let soll = 5
-        return KachelDaten(status: status(ist: ist, soll: soll), ist: ist, soll: soll)
+        let aktiv = (immobilie.kostenarten ?? []).filter(\.aktiv).count
+        return KachelDaten(erledigt: aktiv, inArbeit: 0, offen: 0)
     }
 
-    // MARK: - Completion-Ring
+    // MARK: - Fortschritt / Zusammenfassung
 
-    var completionProzent: Double {
-        let werte = [mieter.status, zaehler.status, rechnungen.status, kostenarten.status]
-            .map(\.prozent)
-        return werte.reduce(0, +) / Double(werte.count)
+    var zusammenfassung: VollstaendigkeitsPruefung.Zusammenfassung {
+        VollstaendigkeitsPruefung.zusammenfassung(fuer: anforderungen)
+    }
+
+    /// Sind alle Anforderungen erledigt? Basis für den Pre-Flight-Check
+    /// vor PDF-Erzeugung.
+    var bereitZurAbrechnung: Bool { zusammenfassung.bereit }
+
+    /// Der Schreibkommentar unter dem Fortschrittsbalken.
+    var bereitschaftsText: String {
+        let z = zusammenfassung
+        if z.total == 0 { return "Keine Periode gewählt." }
+        if z.bereit {
+            return "Bereit zur Abrechnung."
+        }
+        let fehlt = z.offen + z.teilweise
+        return "Abrechnung kann noch nicht erstellt werden. "
+            + "\(fehlt) Eintrag\(fehlt == 1 ? "" : "e") \(fehlt == 1 ? "fehlt" : "fehlen") noch."
+    }
+
+    var fortschrittsText: String {
+        let z = zusammenfassung
+        var teile: [String] = ["\(z.erfuellt) von \(z.total - z.nichtErwartet) Einträgen vollständig"]
+        if z.teilweise > 0 {
+            teile.append("\(z.teilweise) in Arbeit")
+        }
+        if z.offen > 0 {
+            teile.append("\(z.offen) offen")
+        }
+        return teile.joined(separator: ", ")
     }
 
     // MARK: - Perioden-Formatierung
@@ -91,17 +122,21 @@ struct ObjektDashboardViewModel {
         formatter.locale = Locale(identifier: "de_DE")
         return "\(formatter.string(from: periode.von)) – \(formatter.string(from: periode.bis))"
     }
+}
 
-    // MARK: - Helfer
+// MARK: - Array-Helper
 
-    private func istInPeriode(_ datum: Date) -> Bool {
-        guard let aktivePeriode else { return false }
-        return datum >= aktivePeriode.von && datum <= aktivePeriode.bis
-    }
-
-    private func status(ist: Int, soll: Int) -> KachelStatus {
-        if soll <= 0 || ist >= soll { return .gruen }
-        if ist == 0                 { return .rot }
-        return .gelb
+private extension Array where Element == AnforderungMitStatus {
+    var kachelCounts: ObjektDashboardViewModel.KachelDaten {
+        var e = 0, a = 0, o = 0
+        for item in self {
+            switch item.status {
+            case .erfuellt:       e += 1
+            case .teilweise:      a += 1
+            case .offen:          o += 1
+            case .nichtErwartet:  break
+            }
+        }
+        return ObjektDashboardViewModel.KachelDaten(erledigt: e, inArbeit: a, offen: o)
     }
 }
