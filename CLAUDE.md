@@ -504,6 +504,131 @@ interpretiert — das darf nicht mehr passieren.
 
 ---
 
+## Strikte Daten
+
+Die App rechnet nur, wenn alle Pflichtdaten **aktiv bestätigt**
+sind. Kein stilles 0-Fallback, keine Schätzung, keine Vorjahres-
+übernahme. Die Regel ist hart im Code zementiert und nicht per
+Config abschaltbar.
+
+### Architektur-Entscheidung: kein eigener PreFlightService
+
+Der ursprüngliche Task-Brief schlug einen dedizierten
+`PreFlightService` neben `VollstaendigkeitsPruefung` vor. Die
+Umsetzung bleibt bei **einer Klasse** — `Services/Vollstaendigkeits
+Pruefung.swift`. Begründung:
+
+- Die bestehende `AnforderungMitStatus`-Struktur liefert bereits
+  `status`, `hinweis`, `id`, `kategorie`. Das ist semantisch 90 %
+  von „DatenLücke".
+- Der `AbrechnungsService.aggregiere` wirft bei offenen Pflicht-
+  daten schon `AbrechnungsBlocker.fehlendeDaten` — der Mechanismus
+  existiert.
+- Fehlte: ein **Sprungziel** + eine **Schwere-Klassifikation**
+  (Blocker vs. Warnung). Beides ist additiv an
+  `AnforderungMitStatus` angehängt.
+
+Zwei parallele Services hätten identische Datenmodelle und würden
+nur Doppel-Arbeit + Drift-Risiko erzeugen.
+
+### Felder-Garantien im Datenmodell
+
+Drei additive Marker auf den @Model-Klassen halten die strikten
+Invarianten CloudKit-safe (Default-Werte brechen keine bestehenden
+Records):
+
+- `Rechnung.validierungsStatus: ValidierungsStatus`
+  — Default `.importiert` (Bestandsdaten + Seed). Nur die Cases
+  `.manuell`, `.validiert`, `.importiert` sind berechnungs­tauglich.
+  `.aiVorschlag` blockiert — eine einzige unvalidierte Rechnung
+  stoppt die gesamte Kostenart.
+- `Mietverhaeltnis.vorauszahlungErfasst: Bool = false`
+  — Ein Default-0 ohne Flag blockiert. Nur aktiv gesetztes 0 €
+  (Selbstnutzer-Fall) wird akzeptiert.
+- `Zaehlerstand.erfasstAm: Date? = nil`
+  — Ein Stand zählt nur bei `erfasstAm != nil`. Schützt vor still
+  angelegten 0-Werten in neu initialisierten Zählerstand-Objekten.
+
+Die einmalige `StrikteDatenMigration` (`Core/Migration/`) läuft
+beim App-Start nach Seed und markiert Bestandsdaten als erfasst
+(MV mit VZ > 0, Stände mit `stand != 0`). `SeedData` selbst setzt
+die Marker direkt beim JSON-Import, damit die Tests ohne Migrations-
+Round-Trip grün sind.
+
+### Sprungziel + uiRoute
+
+`Calc/Sprungziel.swift` (6 Cases): `einstellungenObjekt`,
+`mieterVorauszahlung(einheitId:)`, `zaehlerstandErfassen(zaehlerId:)`,
+`rechnungKostenart(kostenartId:)`, `einstellungenPeriode`,
+`wmzPlausi`. Jedes Sprungziel liefert via computed
+`var uiRoute: UIRoute` einen `(tab: AppTabKey, kontext: Kontext?)`-
+Paar. Der Calc-Layer bleibt SwiftUI-frei — der `AppShellRouter`
+(Core/App) mappt `AppTabKey` auf das UI-`AppTab`-Enum.
+
+### AppShellRouter
+
+Ersetzt das bisherige `@AppStorage("activeTab")` in `AppShell`
+durch eine zentrale `@Observable @MainActor`-Instanz. Drei
+Aufgaben:
+
+1. **Tab-State** + Persistenz (selber UserDefaults-Key "activeTab",
+   damit bestehende App-States übernommen werden).
+2. **Sprungziel-Vermittlung**: `router.springe(zu: ziel)` setzt
+   den Tab und hinterlegt `aktuellesSprungziel`. Die Tab-Views
+   beobachten per `.onChange(of: router.aktuellesSprungziel)` und
+   öffnen ihre passende Reaktion (Erfassen-Sheet, Kostenart-
+   CollapsibleSection, Einstellungen-Section, Medium-Fokus). Nach
+   der Reaktion ruft die Ziel-View `router.quittiere()` auf.
+3. **Fallback**: unbekannter UserDefaults-rawValue → `.uebersicht`
+   (ersetzt die alte `validateActiveTab()`-Absicherung).
+
+### Schwere + Berechnungs-Block
+
+`AnforderungMitStatus.schwere` hat zwei Cases:
+- `.blocker` (Default) — bei `status == .offen` blockiert die
+  Berechnung. Alle Pflicht-Regeln tragen `.blocker`.
+- `.warnung` — zeigt sich in der UI als Warn-Card / Soft-Pill,
+  blockiert **nie**. Aktuell einziger Nutzer: die WMZ-Plausi-Regel.
+
+Die Convenience-Property `blockiertBerechnung` vereint beides:
+`schwere == .blocker && status == .offen`. `AbrechnungsService.
+aggregiere` filtert darüber vor dem Throw.
+
+### WMZ-Plausi-Regel
+
+`plausi-wmz` prüft, ob die Summe der Wärmemengenzähler-Deltas in
+der Periode im erwarteten Bereich des Gas-Wärmeanteils liegt.
+Heuristik nach §9 HeizkostenV: Warmwasser-Anteil ≈ 18 % bei
+zentraler Anlage, Rest ≈ 82 % = Heizung. Toleranz: **85 %–115 %**
+des erwarteten Heizanteils. Außerhalb → `.teilweise` mit Hinweis
+(„WMZ-Summe bei 49 % des Gas-Heizanteils …"), `schwere: .warnung`.
+Regel wird übersprungen, wenn keine WMZ-Zähler oder keine Gas-
+Rechnung mit `verbrauchMenge` vorhanden ist.
+
+### UI-Integration
+
+- `AbrechnungenView` zeigt pro Periode eine `StatusPill` mit
+  `.error`-Style („Daten fehlen") bei Blockern und rendert bis
+  zu 4 Datenlücken als sprungfähige Rows (Tap → Router).
+- `AbrechnungDetailView` bekommt pro Periode eine
+  `warnungen: [AnforderungMitStatus]`-Liste. Bei nicht-leer:
+  Warnungs-Card oben mit sprungfähigen Rows. Bei Blockern
+  (defensive Absicherung): Saldo-Hero versteckt,
+  PDF/Mail/Drucken-Buttons disabled.
+- `InspektorPlatzhalter` wird erst in UI-2 durch den echten
+  Inspektor ersetzt — der nutzt dann denselben Router-Mechanismus.
+
+### Verboten im Code
+
+- `?? 0`-Fallbacks auf Werte, die für die Berechnung zählen
+  (Rechnungs-Betrag, Zählerstand, Mieter-Vorauszahlung,
+  Einheit-Fläche). Wenn ein Wert fehlt, **muss** die Regel das
+  als offen melden — nicht stillschweigend 0 annehmen.
+- Default-Decimal-Konstruktoren in Services (`Decimal(0)` als
+  Placeholder statt `nil`) sind zu vermeiden. Wo das Datenmodell
+  `Decimal` ohne Optional hat, muss ein Marker-Flag (wie
+  `vorauszahlungErfasst`) die Semantik differenzieren.
+
 ## Scope-Konzept
 
 Die App kennt zwei Scopes — Anzeigeperspektiven, zwischen denen der User
