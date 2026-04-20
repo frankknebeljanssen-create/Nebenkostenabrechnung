@@ -45,7 +45,8 @@ enum VollstaendigkeitsPruefung {
         ergebnis.append(.init(
             anforderung: flaeche,
             status: immobilie.gesamtflaecheM2 > 0 ? .erfuellt : .offen,
-            hinweis: nil
+            hinweis: nil,
+            sprungZiel: .einstellungenObjekt
         ))
 
         // 2. Mindestens 1 Wohneinheit mit Fläche
@@ -74,7 +75,8 @@ enum VollstaendigkeitsPruefung {
         ergebnis.append(.init(
             anforderung: einheitAnf,
             status: einheitStatus,
-            hinweis: einheitHinweis
+            hinweis: einheitHinweis,
+            sprungZiel: .einstellungenObjekt
         ))
 
         // 3. Aktives Mietverhältnis pro Einheit (außer Leerstand)
@@ -102,10 +104,20 @@ enum VollstaendigkeitsPruefung {
             mieterStatus = .erfuellt
             mieterHinweis = nil
         }
+        // Sprungziel für "Mieter je Einheit": erste Einheit ohne Mieter
+        // als Fokus; falls alle erfüllt, springen wir trotzdem in die
+        // Mieter-Section.
+        let einheitOhneMieter = aktiveEinheiten.first(where: { e in
+            !(e.mietverhaeltnisse ?? []).contains(where: { $0.auszugAm == nil })
+        })
+        let mieterSprungZiel: Sprungziel = einheitOhneMieter.map {
+            .mieterVorauszahlung(einheitId: $0.bezeichnung)
+        } ?? .einstellungenObjekt
         ergebnis.append(.init(
             anforderung: mieterAnf,
             status: mieterStatus,
-            hinweis: mieterHinweis
+            hinweis: mieterHinweis,
+            sprungZiel: mieterSprungZiel
         ))
 
         // 4. Vorauszahlung je aktivem Mietverhältnis explizit erfasst.
@@ -138,10 +150,21 @@ enum VollstaendigkeitsPruefung {
                 vzHinweis = "\(n) Mieter ohne bestätigte Vorauszahlung (Defaultwert blockiert die Abrechnung)"
             }
         }
+        // Sprungziel: erste Einheit ohne bestätigte VZ, sonst erste
+        // aktive überhaupt. Das gibt dem User einen konkreten
+        // Korrektur-Punkt.
+        let vzEinheitId: String? = aktiveMietverhaeltnisse
+            .first(where: { !$0.vorauszahlungErfasst })?
+            .wohneinheit?.bezeichnung
+            ?? aktiveMietverhaeltnisse.first?.wohneinheit?.bezeichnung
+        let vzSprungZiel: Sprungziel? = vzEinheitId.map {
+            .mieterVorauszahlung(einheitId: $0)
+        }
         ergebnis.append(.init(
             anforderung: vzAnf,
             status: vzStatus,
-            hinweis: vzHinweis
+            hinweis: vzHinweis,
+            sprungZiel: vzSprungZiel
         ))
 
         // 5. Periode-Validität: von < bis.
@@ -166,7 +189,8 @@ enum VollstaendigkeitsPruefung {
         ergebnis.append(.init(
             anforderung: periodeAnf,
             status: periodeStatus,
-            hinweis: periodeHinweis
+            hinweis: periodeHinweis,
+            sprungZiel: .einstellungenPeriode
         ))
 
         return ergebnis
@@ -203,7 +227,12 @@ enum VollstaendigkeitsPruefung {
                 erforderlich: true
             )
             let (status, hinweis) = zaehlerStatus(z, periode: periode)
-            return .init(anforderung: anf, status: status, hinweis: hinweis)
+            return .init(
+                anforderung: anf,
+                status: status,
+                hinweis: hinweis,
+                sprungZiel: .zaehlerstandErfassen(zaehlerId: z.id)
+            )
         }
     }
 
@@ -286,7 +315,12 @@ enum VollstaendigkeitsPruefung {
                 let (status, hinweis) = rechnungStatus(
                     kostenart: ka, rechnungen: relevante
                 )
-                return .init(anforderung: anf, status: status, hinweis: hinweis)
+                return .init(
+                    anforderung: anf,
+                    status: status,
+                    hinweis: hinweis,
+                    sprungZiel: .rechnungKostenart(kostenartId: ka.id)
+                )
             }
     }
 
