@@ -67,15 +67,15 @@ struct AppShellChrome: ViewModifier {
                 Button(action: onAdresse) {
                     HStack(spacing: 6) {
                         Image(systemName: "building.2")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.system(size: 12, weight: .regular))
                         Text(adresseText)
-                            .appFont(AppFont.navAddress())
+                            .appFont(AppFont.Rechnungen.adresseBtn())
                             .lineLimit(1)
                         Image(systemName: "chevron.down")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.system(size: 11, weight: .regular))
                     }
-                    .foregroundStyle(DesignTokens.text)
-                    .padding(.vertical, 6)
+                    .foregroundStyle(DesignTokens.textSecondary)
+                    .padding(.vertical, 4)
                 }
                 .accessibilityLabel("Bereich wählen, aktuell \(scope.beschriftung(einheiten))")
                 Spacer()
@@ -96,14 +96,14 @@ struct AppShellChrome: ViewModifier {
                 .accessibilityLabel("Einstellungen")
             }
             Text(titel)
-                .appFont(AppFont.navTitle())
+                .appFont(AppFont.Basis.displayTitle())
                 .foregroundStyle(DesignTokens.text)
                 .padding(.top, 2)
             if let subtitel {
                 Text(subtitel)
-                    .appFont(AppFont.navSubtitle())
+                    .appFont(AppFont.Rechnungen.subZeile())
                     .foregroundStyle(DesignTokens.textSecondary)
-                    .padding(.top, 4)
+                    .padding(.top, 2)
             }
         }
         .padding(.horizontal, 20)
@@ -124,16 +124,16 @@ struct AppShellChrome: ViewModifier {
         HStack(spacing: 10) {
             Rectangle()
                 .fill(scope.farbe(einheiten))
-                .frame(width: 11, height: 11)
+                .frame(width: 8, height: 8)
                 .clipShape(RoundedRectangle(cornerRadius: 2))
             Text(scope.beschriftung(einheiten))
-                .appFont(AppFont.scopeStripLabel())
+                .appFont(AppFont.Chrome.scopeStreifen())
                 .foregroundStyle(scope.farbe(einheiten))
                 .lineLimit(1)
             Spacer()
         }
         .padding(.horizontal, 20)
-        .frame(height: 40)
+        .frame(height: 32)
         .frame(maxWidth: .infinity)
         .background(scope.softFarbe(einheiten))
         .overlay(alignment: .top)    { trenner }
