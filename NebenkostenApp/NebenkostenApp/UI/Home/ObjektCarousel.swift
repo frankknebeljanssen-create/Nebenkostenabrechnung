@@ -30,7 +30,7 @@ struct ObjektCarousel: View {
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: 150)
+            .frame(height: 120)
 
             if immobilien.count > 1 {
                 PaginationDots(
@@ -54,30 +54,30 @@ struct ObjektCard: View {
 
     var body: some View {
         Button(action: onTap) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(adresse)
                         .appFont(AppFont.Abrechnung.kopfName())
                         .foregroundStyle(DesignTokens.text)
                         .multilineTextAlignment(.leading)
-                        .lineLimit(2)
+                        .lineLimit(1)
                     if !ortZeile.isEmpty {
                         Text(ortZeile)
                             .appFont(AppFont.Rechnungen.subZeile())
                             .foregroundStyle(DesignTokens.textSecondary)
+                            .lineLimit(1)
                     }
-                    Spacer()
                     footerZeile
+                        .padding(.top, 2)
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
                     .font(.system(size: 16, weight: .regular))
                     .foregroundStyle(DesignTokens.textTertiary)
-                    .padding(.top, 4)
             }
-            .padding(.vertical, 20)
-            .padding(.horizontal, 22)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .padding(.vertical, 14)
+            .padding(.horizontal, 20)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             .background(DesignTokens.bgSurface)
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)

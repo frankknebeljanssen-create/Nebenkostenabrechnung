@@ -91,7 +91,9 @@ struct HomeView: View {
             titel: nil,                       // kein "Start"
             subtitel: nil,
             onAdresse: { zeigeScopePicker = true },
-            onEinstellungen: { zeigeEinstellungen = true }
+            onEinstellungen: { zeigeEinstellungen = true },
+            zeigeAdresseOben: false,          // Adresse lebt in der Carousel-Card
+            zeigeScopeStrip: false            // Scope lebt im WohneinheitCarousel
         )
         .sheet(isPresented: $zeigeScopePicker) { ScopePickerSheet() }
         .sheet(isPresented: $zeigeEinstellungen) { EinstellungenSheet() }

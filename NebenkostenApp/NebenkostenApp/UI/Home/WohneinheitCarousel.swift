@@ -40,7 +40,7 @@ struct WohneinheitCarousel: View {
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: 150)
+            .frame(height: 120)
 
             if scopeOptionen.count > 1 {
                 PaginationDots(anzahl: scopeOptionen.count, aktiv: index)
@@ -146,10 +146,10 @@ fileprivate struct WohneinheitCard: View {
 
     var body: some View {
         Button(action: onTap) {
-            HStack(alignment: .top, spacing: 14) {
+            HStack(alignment: .center, spacing: 12) {
                 UnitBalken(farbe: option.farbe)
                     .frame(maxHeight: .infinity)
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text("Wohneinheit")
                         .appFont(AppFont.Dashboard.kartenKicker())
                         .foregroundStyle(DesignTokens.textTertiary)
@@ -168,11 +168,10 @@ fileprivate struct WohneinheitCard: View {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 16, weight: .regular))
                     .foregroundStyle(DesignTokens.textTertiary)
-                    .padding(.top, 4)
             }
-            .padding(.vertical, 20)
-            .padding(.horizontal, 22)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .padding(.vertical, 14)
+            .padding(.horizontal, 20)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             .background(DesignTokens.bgSurface)
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)

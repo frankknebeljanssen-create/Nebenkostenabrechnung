@@ -38,17 +38,19 @@ enum AppFont {
         static func displayTitle() -> AppFontStyle {
             .init(font: plexSans(.semibold, 30), tracking: -0.6, uppercase: false)
         }
-        /// 26pt / 600 / tracking −0.4 — Perioden-Header im HomeScreen.
-        /// Haupt-Orientierung oben, bewusst kleiner als displayTitle,
-        /// damit die Objekt-Cards darunter genug Platz bekommen.
+        /// 22pt / 600 / tracking −0.3 — Perioden-Header im HomeScreen.
+        /// Iterativ kleiner geworden (ursprünglich 40, dann 26,
+        /// jetzt 22) — der Zeitraum bleibt Orientierung oben, aber
+        /// die Objekt-Cards übernehmen die visuelle Führung.
         static func periodenHeader() -> AppFontStyle {
-            .init(font: plexSans(.semibold, 26), tracking: -0.4, uppercase: false)
+            .init(font: plexSans(.semibold, 22), tracking: -0.3, uppercase: false)
         }
-        /// Mono 13pt / 400 — Datum unter dem Perioden-Header.
-        /// Zwei Punkt größer als die Rechnungen-Meta (11 pt), damit
-        /// der Zeitraum als Sub-Orientierung klar lesbar bleibt.
+        /// Mono 14pt / 400 — Datum unter dem Perioden-Header.
+        /// Nochmal +1 pt gegenüber der ersten Feedback-Iteration,
+        /// damit das Zeitraum-Label als Sub-Orientierung klar
+        /// ablesbar bleibt (Gerätetest 50+).
         static func periodenDatum() -> AppFontStyle {
-            .init(font: plexMono(.regular, 13), tracking: 0, uppercase: false)
+            .init(font: plexMono(.regular, 14), tracking: 0, uppercase: false)
         }
         /// 12pt / 600 / tracking 0.6 UPPER — Sektions-Kicker
         /// ("ABRECHNUNGSPERIODE", "WÄRME" usw.).

@@ -22,6 +22,17 @@ struct AppShellChrome: ViewModifier {
     let subtitel: String?
     let onAdresse: () -> Void
     let onEinstellungen: () -> Void
+    /// Steuert, ob der Adress-Button („Bahnhofstr. 37 ▾") oben
+    /// in der NavBar gerendert wird. `false` blendet ihn für
+    /// Screens aus, auf denen die Adresse schon anderswo
+    /// prominent erscheint (z.B. der HomeScreen mit seinem
+    /// Objekt-Carousel).
+    let zeigeAdresseOben: Bool
+    /// Steuert, ob der ScopeStrip (farbiges Band „OBJEKT · GESAMTES
+    /// HAUS") unter der NavBar gerendert wird. `false` blendet ihn
+    /// für Screens aus, auf denen der Scope bereits im Content
+    /// sichtbar ist (z.B. HomeScreen-WohneinheitCarousel).
+    let zeigeScopeStrip: Bool
     /// Optionale zusätzliche Primary-Action rechts neben dem
     /// Einstellungen-Button (z.B. "+" für neue Rechnung).
     let primaryAction: PrimaryAction?
@@ -49,7 +60,9 @@ struct AppShellChrome: ViewModifier {
             .safeAreaInset(edge: .top, spacing: 0) {
                 VStack(spacing: 0) {
                     navBar
-                    scopeStrip
+                    if zeigeScopeStrip {
+                        scopeStrip
+                    }
                 }
                 .background(DesignTokens.bgApp)
             }
@@ -67,20 +80,22 @@ struct AppShellChrome: ViewModifier {
     private var navBar: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 10) {
-                Button(action: onAdresse) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "building.2")
-                            .font(.system(size: 12, weight: .regular))
-                        Text(adresseText)
-                            .appFont(AppFont.Rechnungen.adresseBtn())
-                            .lineLimit(1)
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 11, weight: .regular))
+                if zeigeAdresseOben {
+                    Button(action: onAdresse) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "building.2")
+                                .font(.system(size: 12, weight: .regular))
+                            Text(adresseText)
+                                .appFont(AppFont.Rechnungen.adresseBtn())
+                                .lineLimit(1)
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 11, weight: .regular))
+                        }
+                        .foregroundStyle(DesignTokens.textSecondary)
+                        .padding(.vertical, 4)
                     }
-                    .foregroundStyle(DesignTokens.textSecondary)
-                    .padding(.vertical, 4)
+                    .accessibilityLabel("Bereich wählen, aktuell \(scope.beschriftung(einheiten))")
                 }
-                .accessibilityLabel("Bereich wählen, aktuell \(scope.beschriftung(einheiten))")
                 Spacer()
                 if let primary = primaryAction {
                     Button(action: primary.handler) {
@@ -156,20 +171,26 @@ struct AppShellChrome: ViewModifier {
 
 extension View {
     /// Hängt Navigation-Bar + ScopeStrip an eine Tab-Content-View.
-    /// `titel == nil` lässt den 30pt-Titel-Block weg (für Screens,
-    /// die eine eigene Hauptorientierung im Content haben).
+    /// `titel == nil` lässt den 30pt-Titel-Block weg; die Flags
+    /// `zeigeAdresseOben` / `zeigeScopeStrip` blenden den Adress-
+    /// Button bzw. das farbige Scope-Band aus — sinnvoll für
+    /// reduzierte Screens wie den HomeScreen.
     func appShellChrome(
         titel: String?,
         subtitel: String? = nil,
         onAdresse: @escaping () -> Void,
         onEinstellungen: @escaping () -> Void,
-        primaryAction: AppShellChrome.PrimaryAction? = nil
+        primaryAction: AppShellChrome.PrimaryAction? = nil,
+        zeigeAdresseOben: Bool = true,
+        zeigeScopeStrip: Bool = true
     ) -> some View {
         modifier(AppShellChrome(
             titel: titel,
             subtitel: subtitel,
             onAdresse: onAdresse,
             onEinstellungen: onEinstellungen,
+            zeigeAdresseOben: zeigeAdresseOben,
+            zeigeScopeStrip: zeigeScopeStrip,
             primaryAction: primaryAction
         ))
     }
