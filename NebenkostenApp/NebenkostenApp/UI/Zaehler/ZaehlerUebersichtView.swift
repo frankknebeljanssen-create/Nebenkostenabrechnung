@@ -60,19 +60,9 @@ struct ZaehlerUebersichtView: View {
         return einheit + haupt
     }
 
-    /// Scope-gefilterte Sicht: bei Einheit-Scope nur die Einheit-Zähler +
-    /// Hauptzähler (Hauptzähler bleiben als Info-Zeile, sind objektweit).
+    /// Scope-gefilterte Sicht — siehe `ScopeFilter.sichtbareZaehler`.
     private var sichtbareZaehler: [Zaehler] {
-        switch scopeManager.scope {
-        case .objekt:
-            return alleZaehler
-        case .einheit(let id):
-            let einheitZaehler = (immobilie.wohneinheiten ?? [])
-                .first(where: { $0.bezeichnung == id })?
-                .zaehler ?? []
-            let haupt = immobilie.hauptzaehler ?? []
-            return einheitZaehler + haupt
-        }
+        ScopeFilter.sichtbareZaehler(immobilie: immobilie, scope: scopeManager.scope)
     }
 
     private var perioden: [Abrechnungsperiode] {

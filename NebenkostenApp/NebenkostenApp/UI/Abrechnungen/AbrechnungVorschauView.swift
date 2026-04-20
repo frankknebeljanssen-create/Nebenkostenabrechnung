@@ -42,15 +42,10 @@ struct AbrechnungVorschauView: View {
         }
     }
 
-    /// Einheit-Scope → nur die Abrechnung dieser Einheit. Objekt-Scope
-    /// → alle.
+    /// Einheit-Scope → nur die Abrechnung dieser Einheit. Siehe
+    /// `ScopeFilter.sichtbareAbrechnungen`.
     private func scopeGefiltert(_ alle: [Mieterabrechnung]) -> [Mieterabrechnung] {
-        switch scopeManager.scope {
-        case .objekt:
-            return alle
-        case .einheit(let id):
-            return alle.filter { $0.einheitBezeichnung == id }
-        }
+        ScopeFilter.sichtbareAbrechnungen(alle: alle, scope: scopeManager.scope)
     }
 
     var body: some View {

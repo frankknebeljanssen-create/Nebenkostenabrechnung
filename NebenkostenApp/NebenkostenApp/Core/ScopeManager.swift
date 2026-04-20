@@ -21,12 +21,17 @@ enum AbrechnungsScope: Equatable, Hashable, Sendable {
 @MainActor
 final class ScopeManager {
     private let storageKey = "currentScope.v1"
+    private let defaults: UserDefaults
 
     var scope: AbrechnungsScope = .objekt {
         didSet { persist() }
     }
 
-    init() {
+    /// Default-Init nutzt `.standard`. Tests können eine eigene
+    /// UserDefaults-Suite übergeben, damit der persistierte Scope
+    /// nicht mit Runtime-Daten kollidiert.
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
         scope = geladeneScope() ?? .objekt
     }
 
@@ -59,17 +64,16 @@ final class ScopeManager {
     // MARK: - Persistenz
 
     private func persist() {
-        let ud = UserDefaults.standard
         switch scope {
         case .objekt:
-            ud.set("objekt", forKey: storageKey)
+            defaults.set("objekt", forKey: storageKey)
         case .einheit(let id):
-            ud.set("einheit:\(id)", forKey: storageKey)
+            defaults.set("einheit:\(id)", forKey: storageKey)
         }
     }
 
     private func geladeneScope() -> AbrechnungsScope? {
-        guard let raw = UserDefaults.standard.string(forKey: storageKey) else {
+        guard let raw = defaults.string(forKey: storageKey) else {
             return nil
         }
         if raw == "objekt" { return .objekt }
