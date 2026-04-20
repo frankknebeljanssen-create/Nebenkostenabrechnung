@@ -26,12 +26,13 @@ struct ObjektDashboardView: View {
             VStack(alignment: .leading, spacing: 24) {
                 kopf
                 periodePicker
-                    .padding(.top, -12)
+                    .padding(.top, -16)
                 ring
                 kachelGrid
                 wohneinheitenSektion
             }
-            .padding(.vertical, 16)
+            .padding(.top, 6)
+            .padding(.bottom, 16)
             .padding(.horizontal, 16)
         }
         .background(Color(.systemGroupedBackground))
