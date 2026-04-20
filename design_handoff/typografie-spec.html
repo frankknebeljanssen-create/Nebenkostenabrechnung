@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Nebenkosten App — Design Spec</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F5F1E8;
+    --surface: #FBF8F1;
+    --ink: #1F2937;
+    --ink2: #5B6472;
+    --ink3: #8A8578;
+    --ink4: #B8B0A0;
+    --sep: rgba(60,50,40,0.14);
+    --sepStrong: rgba(60,50,40,0.28);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); }
+  body {
+    font-family: 'IBM Plex Sans', -apple-system, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    padding: 48px 56px 80px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 40px; font-weight: 600; letter-spacing: -0.8px;
+    margin: 0 0 6px; line-height: 1.05;
+  }
+  .kicker {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; letter-spacing: 0.6px; text-transform: uppercase;
+    color: var(--ink3); margin-bottom: 8px;
+  }
+  .lede {
+    font-size: 15px; color: var(--ink2); line-height: 1.55;
+    max-width: 640px; margin-bottom: 40px;
+  }
+  h2 {
+    font-size: 22px; font-weight: 600; letter-spacing: -0.3px;
+    margin: 56px 0 4px; padding-top: 28px;
+    border-top: 0.5px solid var(--sepStrong);
+  }
+  h2 + .section-lede {
+    font-size: 13px; color: var(--ink2); margin-bottom: 20px;
+  }
+  h3 {
+    font-size: 13px; font-weight: 600; letter-spacing: 0.5px;
+    text-transform: uppercase; color: var(--ink3);
+    margin: 28px 0 10px;
+  }
+
+  /* Color swatch grid */
+  .swatches {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+  .swatch {
+    background: var(--surface);
+    border: 0.5px solid var(--sep);
+    border-radius: 10px;
+    padding: 12px;
+  }
+  .swatch .chip {
+    height: 56px; border-radius: 6px; margin-bottom: 10px;
+    border: 0.5px solid rgba(0,0,0,0.06);
+  }
+  .swatch .name {
+    font-size: 13px; font-weight: 600; color: var(--ink);
+    margin-bottom: 2px;
+  }
+  .swatch .hex {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; color: var(--ink3);
+  }
+  .swatch .role {
+    font-size: 11px; color: var(--ink2);
+    margin-top: 4px; line-height: 1.45;
+  }
+
+  /* Dual-column dark comparison */
+  .swatches.dual {
+    grid-template-columns: repeat(6, 1fr);
+  }
+
+  /* Typography spec table */
+  table.typespec {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 8px;
+    background: var(--surface);
+    border: 0.5px solid var(--sep);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  table.typespec th, table.typespec td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 0.5px solid var(--sep);
+    vertical-align: top;
+  }
+  table.typespec tr:last-child td { border-bottom: none; }
+  table.typespec th {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.4px;
+    text-transform: uppercase; color: var(--ink3);
+    background: #F1ECDF;
+  }
+  table.typespec td { font-size: 13px; color: var(--ink); }
+  table.typespec td.element { font-weight: 500; }
+  table.typespec td.font {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px; color: var(--ink2);
+  }
+  table.typespec td.sizes {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px; color: var(--ink);
+    white-space: nowrap;
+  }
+  table.typespec td.notes {
+    font-size: 12px; color: var(--ink2);
+  }
+  table.typespec td.sample { padding: 14px 12px; }
+
+  /* Live samples in "sample" column */
+  .s { display: inline-block; color: var(--ink); }
+
+  /* Semantic tokens */
+  dl.tokens {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 6px 20px;
+    margin: 12px 0 0;
+    padding: 16px 20px;
+    background: var(--surface);
+    border: 0.5px solid var(--sep);
+    border-radius: 10px;
+  }
+  dl.tokens dt {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px; color: var(--ink2);
+  }
+  dl.tokens dd {
+    margin: 0;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px; color: var(--ink);
+    display: flex; align-items: center; gap: 8px;
+  }
+  dl.tokens dd .dot {
+    display: inline-block;
+    width: 14px; height: 14px; border-radius: 3px;
+    border: 0.5px solid rgba(0,0,0,0.08);
+  }
+
+  /* Principles list */
+  ul.principles {
+    margin: 12px 0 0; padding: 0; list-style: none;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+  }
+  ul.principles li {
+    padding: 14px 16px;
+    background: var(--surface);
+    border: 0.5px solid var(--sep);
+    border-radius: 10px;
+  }
+  ul.principles .label {
+    font-size: 11px; font-weight: 600; color: var(--ink3);
+    letter-spacing: 0.4px; text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  ul.principles .body {
+    font-size: 13px; color: var(--ink); line-height: 1.5;
+  }
+
+  .meta {
+    margin-top: 60px; padding-top: 20px;
+    border-top: 0.5px solid var(--sep);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; color: var(--ink3);
+  }
+
+  @media print {
+    body { padding: 24px 32px; }
+    h2 { page-break-after: avoid; }
+    table.typespec, .swatches, ul.principles, dl.tokens {
+      page-break-inside: avoid;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="kicker">Design Spec · v1</div>
+<h1>Nebenkosten App</h1>
+<p class="lede">Warm-professionelle, behördliche iOS-Ästhetik für deutsche Kleinvermieter. Papier-Ton statt weiß, IBM Plex Sans für Text, IBM Plex Mono für alle Zahlen, dezente Einheit-Kennfarben (Ocker / Salbei / Taubenblau) auf gedecktem Slate.</p>
+
+<!-- ============ FARBEN ============ -->
+<h2>Farben · Light</h2>
+<p class="section-lede">Warmes Off-White als App-Hintergrund, Karten minimal heller; gedecktes Slate als Primär-Akzent.</p>
+
+<h3>Flächen</h3>
+<div class="swatches">
+  <div class="swatch"><div class="chip" style="background:#F5F1E8"></div><div class="name">bgApp</div><div class="hex">#F5F1E8</div><div class="role">App-Hintergrund · warm paper</div></div>
+  <div class="swatch"><div class="chip" style="background:#EFEAE0"></div><div class="name">bgAppCompact</div><div class="hex">#EFEAE0</div><div class="role">App-Hintergrund · dichte Variante</div></div>
+  <div class="swatch"><div class="chip" style="background:#FBF8F1"></div><div class="name">bgSurface</div><div class="hex">#FBF8F1</div><div class="role">Karte / Listenzeile</div></div>
+  <div class="swatch"><div class="chip" style="background:#F1ECDF"></div><div class="name">bgSurfaceAlt</div><div class="hex">#F1ECDF</div><div class="role">Sekundäre Fläche · Sektionskopf</div></div>
+</div>
+
+<h3>Text</h3>
+<div class="swatches">
+  <div class="swatch"><div class="chip" style="background:#1F2937"></div><div class="name">text</div><div class="hex">#1F2937</div><div class="role">Primärer Fließtext</div></div>
+  <div class="swatch"><div class="chip" style="background:#5B6472"></div><div class="name">textSecondary</div><div class="hex">#5B6472</div><div class="role">Labels, Untertitel</div></div>
+  <div class="swatch"><div class="chip" style="background:#8A8578"></div><div class="name">textTertiary</div><div class="hex">#8A8578</div><div class="role">Meta, Timestamps</div></div>
+  <div class="swatch"><div class="chip" style="background:#B8B0A0"></div><div class="name">textQuaternary</div><div class="hex">#B8B0A0</div><div class="role">Platzhalter, Icon-Hint</div></div>
+</div>
+
+<h3>Akzent</h3>
+<div class="swatches">
+  <div class="swatch"><div class="chip" style="background:#4B5563"></div><div class="name">accent · slate</div><div class="hex">#4B5563</div><div class="role">Primär (Default)</div></div>
+  <div class="swatch"><div class="chip" style="background:#3A5578"></div><div class="name">accent · blue</div><div class="hex">#3A5578</div><div class="role">Variante „Blau"</div></div>
+  <div class="swatch"><div class="chip" style="background:#1F2937"></div><div class="name">accent · ink</div><div class="hex">#1F2937</div><div class="role">Variante „Ink"</div></div>
+  <div class="swatch"><div class="chip" style="background:#3F4852"></div><div class="name">accentHover</div><div class="hex">#3F4852</div><div class="role">Hover-State Slate</div></div>
+</div>
+
+<h3>Einheit-Kennfarben</h3>
+<div class="swatches">
+  <div class="swatch"><div class="chip" style="background:#4B5563"></div><div class="name">unitObjekt</div><div class="hex">#4B5563</div><div class="role">Objekt · Slate (Gesamtscope)</div></div>
+  <div class="swatch"><div class="chip" style="background:#B08968"></div><div class="name">unitKG</div><div class="hex">#B08968</div><div class="role">KG Gewerbe · Ocker</div></div>
+  <div class="swatch"><div class="chip" style="background:#7A9070"></div><div class="name">unitEG</div><div class="hex">#7A9070</div><div class="role">EG Wohnung · Salbei</div></div>
+  <div class="swatch"><div class="chip" style="background:#506E8C"></div><div class="name">unitOG</div><div class="hex">#506E8C</div><div class="role">OG Wohnung · Taubenblau</div></div>
+</div>
+
+<h3>Status</h3>
+<div class="swatches">
+  <div class="swatch"><div class="chip" style="background:#3F7A5B"></div><div class="name">statusOk</div><div class="hex">#3F7A5B</div><div class="role">Validiert / fertig · Moosgrün</div></div>
+  <div class="swatch"><div class="chip" style="background:#B8841F"></div><div class="name">statusWarn</div><div class="hex">#B8841F</div><div class="role">KI-Vorschlag / in Arbeit · Honig</div></div>
+  <div class="swatch"><div class="chip" style="background:#A63D2A"></div><div class="name">statusError</div><div class="hex">#A63D2A</div><div class="role">Fehlt / prüfen · Terrakotta</div></div>
+  <div class="swatch"><div class="chip" style="background:#8A8578"></div><div class="name">statusMuted</div><div class="hex">#8A8578</div><div class="role">Nicht relevant / roh · Stein</div></div>
+</div>
+
+<h3>Soft-Backgrounds (für Pills, Highlights)</h3>
+<dl class="tokens">
+  <dt>unitKGSoft</dt><dd><span class="dot" style="background:rgba(176,137,104,0.12); background-color: rgba(176,137,104,0.12); box-shadow: inset 0 0 0 20px rgba(176,137,104,0.12);"></span>rgba(176,137,104,0.12) · #B08968 @ 12%</dd>
+  <dt>unitEGSoft</dt><dd><span class="dot" style="background-color: rgba(122,144,112,0.12); box-shadow: inset 0 0 0 20px rgba(122,144,112,0.12);"></span>rgba(122,144,112,0.12)</dd>
+  <dt>unitOGSoft</dt><dd><span class="dot" style="background-color: rgba(80,110,140,0.12); box-shadow: inset 0 0 0 20px rgba(80,110,140,0.12);"></span>rgba(80,110,140,0.12)</dd>
+  <dt>unitObjektSoft</dt><dd><span class="dot" style="background-color: rgba(75,85,99,0.10); box-shadow: inset 0 0 0 20px rgba(75,85,99,0.10);"></span>rgba(75,85,99,0.10)</dd>
+  <dt>statusOkSoft</dt><dd><span class="dot" style="background-color: rgba(63,122,91,0.14); box-shadow: inset 0 0 0 20px rgba(63,122,91,0.14);"></span>rgba(63,122,91,0.14) · Pill „Validiert"</dd>
+  <dt>statusWarnSoft</dt><dd><span class="dot" style="background-color: rgba(184,132,31,0.15); box-shadow: inset 0 0 0 20px rgba(184,132,31,0.15);"></span>rgba(184,132,31,0.15) · Pill „KI-Vorschlag"</dd>
+  <dt>statusErrorSoft</dt><dd><span class="dot" style="background-color: rgba(166,61,42,0.12); box-shadow: inset 0 0 0 20px rgba(166,61,42,0.12);"></span>rgba(166,61,42,0.12) · Pill „Fehlt"</dd>
+  <dt>accentSoft · slate</dt><dd><span class="dot" style="background-color: rgba(75,85,99,0.12); box-shadow: inset 0 0 0 20px rgba(75,85,99,0.12);"></span>rgba(75,85,99,0.12)</dd>
+  <dt>separator</dt><dd><span class="dot" style="background-color: rgba(60,50,40,0.12); box-shadow: inset 0 0 0 20px rgba(60,50,40,0.12);"></span>rgba(60,50,40,0.12) · 0.5 px Hairline</dd>
+  <dt>separatorStrong</dt><dd><span class="dot" style="background-color: rgba(60,50,40,0.22); box-shadow: inset 0 0 0 20px rgba(60,50,40,0.22);"></span>rgba(60,50,40,0.22)</dd>
+</dl>
+
+<h2>Farben · Dark</h2>
+<p class="section-lede">Warmes Dark — keine kalten Blau-Schwarz. Flächen heben sich über wärmere Tonwerte ab, Einheitsfarben sind für Lesbarkeit angehoben.</p>
+
+<h3>Flächen · Dark</h3>
+<div class="swatches">
+  <div class="swatch" style="background:#25211B; border-color: rgba(240,230,210,0.10);"><div class="chip" style="background:#1A1713"></div><div class="name" style="color:#F0E9DA">bgApp</div><div class="hex" style="color:#85806E">#1A1713</div><div class="role" style="color:#B5AE9E">App-Hintergrund · warm near-black</div></div>
+  <div class="swatch" style="background:#25211B; border-color: rgba(240,230,210,0.10);"><div class="chip" style="background:#14110E"></div><div class="name" style="color:#F0E9DA">bgAppCompact</div><div class="hex" style="color:#85806E">#14110E</div><div class="role" style="color:#B5AE9E">Dichte Variante</div></div>
+  <div class="swatch" style="background:#25211B; border-color: rgba(240,230,210,0.10);"><div class="chip" style="background:#25211B"></div><div class="name" style="color:#F0E9DA">bgSurface</div><div class="hex" style="color:#85806E">#25211B</div><div class="role" style="color:#B5AE9E">Karte (gelifted)</div></div>
+  <div class="swatch" style="background:#25211B; border-color: rgba(240,230,210,0.10);"><div class="chip" style="background:#2E2923"></div><div class="name" style="color:#F0E9DA">bgSurfaceAlt</div><div class="hex" style="color:#85806E">#2E2923</div><div class="role" style="color:#B5AE9E">Sekundäre Fläche</div></div>
+</div>
+
+<h3>Text · Dark</h3>
+<div class="swatches">
+  <div class="swatch" style="background:#25211B; border-color: rgba(240,230,210,0.10);"><div class="chip" style="background:#F0E9DA"></div><div class="name" style="color:#F0E9DA">text</div><div class="hex" style="color:#85806E">#F0E9DA</div><div class="role" style="color:#B5AE9E">Warm off-white</div></div>
+  <div class="swatch" style="background:#25211B; border-color: rgba(240,230,210,0.10);"><div class="chip" style="background:#B5AE9E"></div><div class="name" style="color:#F0E9DA">textSecondary</div><div class="hex" style="color:#85806E">#B5AE9E</div><div class="role" style="color:#B5AE9E">Labels</div></div>
+  <div class="swatch" style="background:#25211B; border-color: rgba(240,230,210,0.10);"><div class="chip" style="background:#85806E"></div><div class="name" style="color:#F0E9DA">textTertiary</div><div class="hex" style="color:#85806E">#85806E</div><div class="role" style="color:#B5AE9E">Meta</div></div>
+  <div class="swatch" style="background:#25211B; border-color: rgba(240,230,210,0.10);"><div class="chip" style="background:#5A564B"></div><div class="name" style="color:#F0E9DA">textQuaternary</div><div class="hex" style="color:#85806E">#5A564B</div><div class="role" style="color:#B5AE9E">Platzhalter</div></div>
+</div>
+
+<h3>Einheit-Kennfarben · Dark (angehoben)</h3>
+<div class="swatches">
+  <div class="swatch" style="background:#25211B; border-color: rgba(240,230,210,0.10);"><div class="chip" style="background:#A9B5C7"></div><div class="name" style="color:#F0E9DA">unitObjekt</div><div class="hex" style="color:#85806E">#A9B5C7</div><div class="role" style="color:#B5AE9E">Light Slate</div></div>
+  <div class="swatch" style="background:#25211B; border-color: rgba(240,230,210,0.10);"><div class="chip" style="background:#D4A57D"></div><div class="name" style="color:#F0E9DA">unitKG</div><div class="hex" style="color:#85806E">#D4A57D</div><div class="role" style="color:#B5AE9E">Ocker hell</div></div>
+  <div class="swatch" style="background:#25211B; border-color: rgba(240,230,210,0.10);"><div class="chip" style="background:#9CB090"></div><div class="name" style="color:#F0E9DA">unitEG</div><div class="hex" style="color:#85806E">#9CB090</div><div class="role" style="color:#B5AE9E">Salbei hell</div></div>
+  <div class="swatch" style="background:#25211B; border-color: rgba(240,230,210,0.10);"><div class="chip" style="background:#7FA3C4"></div><div class="name" style="color:#F0E9DA">unitOG</div><div class="hex" style="color:#85806E">#7FA3C4</div><div class="role" style="color:#B5AE9E">Taubenblau hell</div></div>
+</div>
+
+<h3>Status · Dark</h3>
+<div class="swatches">
+  <div class="swatch" style="background:#25211B; border-color: rgba(240,230,210,0.10);"><div class="chip" style="background:#6FB48A"></div><div class="name" style="color:#F0E9DA">statusOk</div><div class="hex" style="color:#85806E">#6FB48A</div><div class="role" style="color:#B5AE9E">Validiert</div></div>
+  <div class="swatch" style="background:#25211B; border-color: rgba(240,230,210,0.10);"><div class="chip" style="background:#E3B757"></div><div class="name" style="color:#F0E9DA">statusWarn</div><div class="hex" style="color:#85806E">#E3B757</div><div class="role" style="color:#B5AE9E">KI-Vorschlag</div></div>
+  <div class="swatch" style="background:#25211B; border-color: rgba(240,230,210,0.10);"><div class="chip" style="background:#D97761"></div><div class="name" style="color:#F0E9DA">statusError</div><div class="hex" style="color:#85806E">#D97761</div><div class="role" style="color:#B5AE9E">Fehlt</div></div>
+  <div class="swatch" style="background:#25211B; border-color: rgba(240,230,210,0.10);"><div class="chip" style="background:#85806E"></div><div class="name" style="color:#F0E9DA">statusMuted</div><div class="hex" style="color:#85806E">#85806E</div><div class="role" style="color:#B5AE9E">Nicht relevant</div></div>
+</div>
+
+<!-- ============ TYPOGRAFIE ============ -->
+<h2>Typografie · System</h2>
+<p class="section-lede">Zwei Schriften mit klarer Rollenaufteilung: Plex Sans für alles Textuelle, Plex Mono für alles Numerische (Beträge, Datum, Perioden, m²) — damit Stellen vertikal fluchten.</p>
+
+<table class="typespec">
+  <thead><tr><th style="width:26%">Rolle</th><th style="width:20%">Font</th><th style="width:22%">Eigenschaften</th><th>Sample</th></tr></thead>
+  <tbody>
+    <tr>
+      <td class="element">Textschrift</td>
+      <td class="font">IBM Plex Sans<br><span style="color:#8A8578">Gewichte 400 / 500 / 600 / 700</span></td>
+      <td class="notes">Fallback: -apple-system, system-ui, sans-serif</td>
+      <td class="sample"><span class="s" style="font-family:'IBM Plex Sans'; font-size:24px; font-weight:600; letter-spacing:-0.4px;">Nebenkosten</span></td>
+    </tr>
+    <tr>
+      <td class="element">Zahlenschrift</td>
+      <td class="font">IBM Plex Mono<br><span style="color:#8A8578">Gewichte 400 / 500 / 600</span></td>
+      <td class="notes">Tabular figures, für Beträge/Datum/Mengen</td>
+      <td class="sample"><span class="s" style="font-family:'IBM Plex Mono'; font-size:22px; font-weight:600;">13.576,12 €</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Typografie · Rechnungen-Screen</h2>
+<p class="section-lede">Vollständige Spec für den von dir angefragten Screen.</p>
+
+<table class="typespec">
+  <thead><tr><th style="width:28%">Element</th><th style="width:18%">Font</th><th style="width:22%">Size · Weight · LS</th><th>Sample</th></tr></thead>
+  <tbody>
+    <tr>
+      <td class="element">Screen-Titel „Rechnungen"</td>
+      <td class="font">Plex Sans</td>
+      <td class="sizes">30 px · 600 · −0.6</td>
+      <td class="sample"><span class="s" style="font-family:'IBM Plex Sans'; font-size:30px; font-weight:600; letter-spacing:-0.6px; line-height:1;">Rechnungen</span></td>
+    </tr>
+    <tr>
+      <td class="element">Sub-Zeile „11 Rechnungen · 2025"</td>
+      <td class="font">Plex Sans</td>
+      <td class="sizes">13 px · 400</td>
+      <td class="sample"><span class="s" style="font-family:'IBM Plex Sans'; font-size:13px; color:#5B6472;">11 Rechnungen · 2025</span></td>
+    </tr>
+    <tr>
+      <td class="element">Adresse („Bahnhofstr. 37 ▾")</td>
+      <td class="font">Plex Sans</td>
+      <td class="sizes">14 px · 500</td>
+      <td class="sample"><span class="s" style="font-family:'IBM Plex Sans'; font-size:14px; font-weight:500; color:#5B6472;">Bahnhofstr. 37 ▾</span></td>
+    </tr>
+    <tr>
+      <td class="element">Scope-Streifen („OBJEKT · GESAMTES HAUS")</td>
+      <td class="font">Plex Sans</td>
+      <td class="sizes">12 px · 500 · 0.2 upper</td>
+      <td class="sample"><span class="s" style="font-family:'IBM Plex Sans'; font-size:12px; font-weight:500; letter-spacing:0.2px; color:#4B5563;">OBJEKT · GESAMTES HAUS</span></td>
+    </tr>
+    <tr>
+      <td class="element">m²-Zahl im Scope-Streifen</td>
+      <td class="font">Plex Mono</td>
+      <td class="sizes">11 px · 400</td>
+      <td class="sample"><span class="s" style="font-family:'IBM Plex Mono'; font-size:11px; color:#5B6472;">284 m²</span></td>
+    </tr>
+    <tr>
+      <td class="element">Suchfeld-Input</td>
+      <td class="font">Plex Sans</td>
+      <td class="sizes">14 px · 400</td>
+      <td class="sample"><span class="s" style="font-family:'IBM Plex Sans'; font-size:14px; color:#1F2937;">Rechnung oder Versorger suchen…</span></td>
+    </tr>
+    <tr>
+      <td class="element">Sektionsüberschrift (Kategorie)</td>
+      <td class="font">Plex Sans</td>
+      <td class="sizes">12 px · 600 · 0.5 upper</td>
+      <td class="sample"><span class="s" style="font-family:'IBM Plex Sans'; font-size:12px; font-weight:600; letter-spacing:0.5px; text-transform:uppercase; color:#5B6472;">Heizung & Warmwasser</span></td>
+    </tr>
+    <tr>
+      <td class="element">Kategorie-Summe</td>
+      <td class="font">Plex Mono</td>
+      <td class="sizes">12 px · 600</td>
+      <td class="sample"><span class="s" style="font-family:'IBM Plex Mono'; font-size:12px; font-weight:600; color:#1F2937;">4.127,84 €</span></td>
+    </tr>
+    <tr>
+      <td class="element">Aussteller („GASAG AG")</td>
+      <td class="font">Plex Sans</td>
+      <td class="sizes">15 px · 500</td>
+      <td class="sample"><span class="s" style="font-family:'IBM Plex Sans'; font-size:15px; font-weight:500; color:#1F2937;">GASAG AG</span></td>
+    </tr>
+    <tr>
+      <td class="element">Betrag der Rechnung</td>
+      <td class="font">Plex Mono</td>
+      <td class="sizes">15 px · 600</td>
+      <td class="sample"><span class="s" style="font-family:'IBM Plex Mono'; font-size:15px; font-weight:600; color:#1F2937;">4.127,84 €</span></td>
+    </tr>
+    <tr>
+      <td class="element">Datum · Periode</td>
+      <td class="font">Plex Mono</td>
+      <td class="sizes">11 px · 400</td>
+      <td class="sample"><span class="s" style="font-family:'IBM Plex Mono'; font-size:11px; color:#8A8578;">18.01.2026 · 01.01.2025 – 31.12.2025</span></td>
+    </tr>
+    <tr>
+      <td class="element">Status-Pill („Validiert")</td>
+      <td class="font">Plex Sans</td>
+      <td class="sizes">11 px · 600 · 0.1</td>
+      <td class="sample"><span class="s" style="display:inline-block; padding: 2px 8px; border-radius: 10px; background: rgba(63,122,91,0.14); color:#3F7A5B; font-family:'IBM Plex Sans'; font-size:11px; font-weight:600; letter-spacing:0.1px;">Validiert</span></td>
+    </tr>
+    <tr>
+      <td class="element">Status-Pill („KI-Vorschlag")</td>
+      <td class="font">Plex Sans</td>
+      <td class="sizes">11 px · 600 · 0.1</td>
+      <td class="sample"><span class="s" style="display:inline-block; padding: 2px 8px; border-radius: 10px; background: rgba(184,132,31,0.15); color:#B8841F; font-family:'IBM Plex Sans'; font-size:11px; font-weight:600; letter-spacing:0.1px;">KI-Vorschlag</span></td>
+    </tr>
+    <tr>
+      <td class="element">„+ Rechnung manuell hinzufügen"</td>
+      <td class="font">Plex Sans</td>
+      <td class="sizes">14 px · 500</td>
+      <td class="sample"><span class="s" style="font-family:'IBM Plex Sans'; font-size:14px; font-weight:500; color:#4B5563;">+ Rechnung manuell hinzufügen</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Typografie · Dashboard / Übersicht</h2>
+<table class="typespec">
+  <thead><tr><th style="width:28%">Element</th><th style="width:18%">Font</th><th style="width:22%">Size · Weight · LS</th><th>Sample</th></tr></thead>
+  <tbody>
+    <tr><td class="element">Screen-Titel „Haus-Übersicht"</td><td class="font">Plex Sans</td><td class="sizes">30 px · 600 · −0.6</td><td class="sample"><span style="font-family:'IBM Plex Sans'; font-size:30px; font-weight:600; letter-spacing:-0.6px;">Haus-Übersicht</span></td></tr>
+    <tr><td class="element">Periodenkarte — Kicker</td><td class="font">Plex Sans</td><td class="sizes">12 px · 600 · 0.6 upper</td><td class="sample"><span style="font-family:'IBM Plex Sans'; font-size:12px; font-weight:600; letter-spacing:0.6px; text-transform:uppercase; color:#8A8578;">Abrechnungsperiode</span></td></tr>
+    <tr><td class="element">KPI-Label („Umlagefähige Kosten")</td><td class="font">Plex Sans</td><td class="sizes">11 px · 400 · 0.2</td><td class="sample"><span style="font-family:'IBM Plex Sans'; font-size:11px; letter-spacing:0.2px; color:#8A8578;">Umlagefähige Kosten</span></td></tr>
+    <tr><td class="element">KPI-Wert</td><td class="font">Plex Mono</td><td class="sizes">19 px · 600 · −0.3</td><td class="sample"><span style="font-family:'IBM Plex Mono'; font-size:19px; font-weight:600; letter-spacing:-0.3px;">13.576,12 €</span></td></tr>
+    <tr><td class="element">Fortschritts-Prozent</td><td class="font">Plex Mono</td><td class="sizes">22 px · 600</td><td class="sample"><span style="font-family:'IBM Plex Mono'; font-size:22px; font-weight:600;">93%</span></td></tr>
+    <tr><td class="element">Offene Punkte · Titel</td><td class="font">Plex Sans</td><td class="sizes">15 px · 500</td><td class="sample"><span style="font-family:'IBM Plex Sans'; font-size:15px; font-weight:500;">Endstände aller Zähler erfasst</span></td></tr>
+    <tr><td class="element">Offene Punkte · Detail</td><td class="font">Plex Sans</td><td class="sizes">12 px · 400</td><td class="sample"><span style="font-family:'IBM Plex Sans'; font-size:12px; color:#5B6472;">7 von 9 — Warmwasser OG und Kaltwasser OG fehlen</span></td></tr>
+    <tr><td class="element">Einheits-Karte · Titel („KG Gewerbe")</td><td class="font">Plex Sans</td><td class="sizes">15 px · 600</td><td class="sample"><span style="font-family:'IBM Plex Sans'; font-size:15px; font-weight:600;">KG Gewerbe</span></td></tr>
+    <tr><td class="element">Einheits-Karte · Mieter</td><td class="font">Plex Sans</td><td class="sizes">13 px · 400</td><td class="sample"><span style="font-family:'IBM Plex Sans'; font-size:13px; color:#5B6472;">Wagner GmbH</span></td></tr>
+    <tr><td class="element">Einheits-Karte · Vorauszahlung</td><td class="font">Plex Mono</td><td class="sizes">14 px · 600</td><td class="sample"><span style="font-family:'IBM Plex Mono'; font-size:14px; font-weight:600;">180,00 €</span></td></tr>
+    <tr><td class="element">Nachzahlung Mieter (Haupt-Saldo)</td><td class="font">Plex Mono</td><td class="sizes">22 px · 600</td><td class="sample"><span style="font-family:'IBM Plex Mono'; font-size:22px; font-weight:600; color:#A63D2A;">− 5.114,92 €</span></td></tr>
+  </tbody>
+</table>
+
+<h2>Typografie · Zähler</h2>
+<table class="typespec">
+  <thead><tr><th style="width:28%">Element</th><th style="width:18%">Font</th><th style="width:22%">Size · Weight · LS</th><th>Sample</th></tr></thead>
+  <tbody>
+    <tr><td class="element">Medium-Überschrift („WÄRME")</td><td class="font">Plex Sans</td><td class="sizes">12 px · 600 · 0.6 upper</td><td class="sample"><span style="font-family:'IBM Plex Sans'; font-size:12px; font-weight:600; letter-spacing:0.6px; text-transform:uppercase; color:#8A8578;">Wärme</span></td></tr>
+    <tr><td class="element">Medium-Counter</td><td class="font">Plex Mono</td><td class="sizes">11 px · 400</td><td class="sample"><span style="font-family:'IBM Plex Mono'; font-size:11px; color:#B8B0A0;">1</span></td></tr>
+    <tr><td class="element">Einheit-Chip (HAUS / KG / EG / OG)</td><td class="font">Plex Sans</td><td class="sizes">10 px · 600 · 0.3 upper</td><td class="sample"><span style="display:inline-block; padding:2px 6px; border-radius:4px; background:rgba(176,137,104,0.12); color:#B08968; font-family:'IBM Plex Sans'; font-size:10px; font-weight:600; letter-spacing:0.3px;">KG</span></td></tr>
+    <tr><td class="element">Zähler-Bezeichnung</td><td class="font">Plex Sans</td><td class="sizes">14 px · 500</td><td class="sample"><span style="font-family:'IBM Plex Sans'; font-size:14px; font-weight:500;">Heizraum KG</span></td></tr>
+    <tr><td class="element">Zähler-Typ</td><td class="font">Plex Sans</td><td class="sizes">11 px · 400</td><td class="sample"><span style="font-family:'IBM Plex Sans'; font-size:11px; color:#8A8578;">Wärmemengenzähler zentral</span></td></tr>
+    <tr><td class="element">Label „ANFANG" / „ENDE" / „VERBRAUCH"</td><td class="font">Plex Sans</td><td class="sizes">10 px · 400 · 0.3 upper</td><td class="sample"><span style="font-family:'IBM Plex Sans'; font-size:10px; letter-spacing:0.3px; text-transform:uppercase; color:#8A8578;">Verbrauch</span></td></tr>
+    <tr><td class="element">Datum Anfang/Ende</td><td class="font">Plex Mono</td><td class="sizes">10 px · 400</td><td class="sample"><span style="font-family:'IBM Plex Mono'; font-size:10px; color:#8A8578;">02.01</span></td></tr>
+    <tr><td class="element">Zählerstand (Zahl)</td><td class="font">Plex Mono</td><td class="sizes">14 px · 600</td><td class="sample"><span style="font-family:'IBM Plex Mono'; font-size:14px; font-weight:600;">382.471</span></td></tr>
+    <tr><td class="element">Verbrauch-Einheit („kWh")</td><td class="font">Plex Mono</td><td class="sizes">10 px · 400</td><td class="sample"><span style="font-family:'IBM Plex Mono'; font-size:10px; color:#8A8578;">kWh</span></td></tr>
+  </tbody>
+</table>
+
+<h2>Typografie · Abrechnung (Einheit-Detail)</h2>
+<table class="typespec">
+  <thead><tr><th style="width:28%">Element</th><th style="width:18%">Font</th><th style="width:22%">Size · Weight · LS</th><th>Sample</th></tr></thead>
+  <tbody>
+    <tr><td class="element">Kopfbereich · Kicker</td><td class="font">Plex Sans</td><td class="sizes">11 px · 400 · 0.5 upper</td><td class="sample"><span style="font-family:'IBM Plex Sans'; font-size:11px; letter-spacing:0.5px; text-transform:uppercase; color:#8A8578;">Abrechnung 2025 · OG Wohnung</span></td></tr>
+    <tr><td class="element">Kopf · Mietername</td><td class="font">Plex Sans</td><td class="sizes">17 px · 600</td><td class="sample"><span style="font-family:'IBM Plex Sans'; font-size:17px; font-weight:600;">Familie Pfaffenbach</span></td></tr>
+    <tr><td class="element">Kopf · Adresse/Periode</td><td class="font">Plex Sans</td><td class="sizes">13 px · 400</td><td class="sample"><span style="font-family:'IBM Plex Sans'; font-size:13px; color:#5B6472;">Bahnhofstr. 37, Berlin · 01.01.2025 – 31.12.2025</span></td></tr>
+    <tr><td class="element">Positions-Label</td><td class="font">Plex Sans</td><td class="sizes">13 px · 500</td><td class="sample"><span style="font-family:'IBM Plex Sans'; font-size:13px; font-weight:500;">Heizung & Warmwasser</span></td></tr>
+    <tr><td class="element">Positions-Betrag</td><td class="font">Plex Mono</td><td class="sizes">13 px · 600</td><td class="sample"><span style="font-family:'IBM Plex Mono'; font-size:13px; font-weight:600;">1.234,56 €</span></td></tr>
+    <tr><td class="element">Positions-Meta (Schlüssel)</td><td class="font">Plex Mono</td><td class="sizes">10 px · 400</td><td class="sample"><span style="font-family:'IBM Plex Mono'; font-size:10px; color:#8A8578;">Wohnfläche · 34,5% · 94 / 272 m²</span></td></tr>
+    <tr><td class="element">Ergebnis „Nachzahlung" · Label</td><td class="font">Plex Sans</td><td class="sizes">15 px · 600</td><td class="sample"><span style="font-family:'IBM Plex Sans'; font-size:15px; font-weight:600; color:#A63D2A;">Nachzahlung Mieter</span></td></tr>
+    <tr><td class="element">Ergebnis · Betrag (Hero)</td><td class="font">Plex Mono</td><td class="sizes">24 px · 600</td><td class="sample"><span style="font-family:'IBM Plex Mono'; font-size:24px; font-weight:600; color:#A63D2A;">− 2.806,35 €</span></td></tr>
+    <tr><td class="element">Primär-Button „Als PDF"</td><td class="font">Plex Sans</td><td class="sizes">15 px · 600</td><td class="sample"><span style="display:inline-block; padding:10px 18px; background:#4B5563; color:#FBF8F1; border-radius:12px; font-family:'IBM Plex Sans'; font-size:15px; font-weight:600;">Als PDF exportieren</span></td></tr>
+  </tbody>
+</table>
+
+<h2>Typografie · Dokumente / Validierung</h2>
+<table class="typespec">
+  <thead><tr><th style="width:28%">Element</th><th style="width:18%">Font</th><th style="width:22%">Size · Weight · LS</th><th>Sample</th></tr></thead>
+  <tbody>
+    <tr><td class="element">Scan-Button · Titel</td><td class="font">Plex Sans</td><td class="sizes">15 px · 600</td><td class="sample"><span style="font-family:'IBM Plex Sans'; font-size:15px; font-weight:600;">Beleg scannen</span></td></tr>
+    <tr><td class="element">Scan-Button · Sub</td><td class="font">Plex Sans</td><td class="sizes">12 px · 400</td><td class="sample"><span style="font-family:'IBM Plex Sans'; font-size:12px; color:#5B6472;">Foto → OCR → KI-Extraktion → Validierung</span></td></tr>
+    <tr><td class="element">Dateiname</td><td class="font">Plex Sans</td><td class="sizes">14 px · 500</td><td class="sample"><span style="font-family:'IBM Plex Sans'; font-size:14px; font-weight:500;">GASAG_Jahresrechnung_2025.pdf</span></td></tr>
+    <tr><td class="element">Seitenzähler</td><td class="font">Plex Mono</td><td class="sizes">10 px · 400</td><td class="sample"><span style="font-family:'IBM Plex Mono'; font-size:10px; color:#8A8578;">4 S.</span></td></tr>
+    <tr><td class="element">Ebene-Label („Ebene 1 · Rohdaten")</td><td class="font">Plex Sans</td><td class="sizes">12 px · 600 · 0.4 upper</td><td class="sample"><span style="font-family:'IBM Plex Sans'; font-size:12px; font-weight:600; letter-spacing:0.4px; text-transform:uppercase; color:#5B6472;">Ebene 1 · Rohdaten (OCR)</span></td></tr>
+    <tr><td class="element">OCR-Volltext</td><td class="font">Plex Mono</td><td class="sizes">10.5 px · 400 · LH 1.5</td><td class="sample"><code style="font-family:'IBM Plex Mono'; font-size:10.5px; line-height:1.5; background:#2A2520; color:#D4CFC0; padding:6px 10px; border-radius:6px;">GASAG AG · Berlin<br>Rechnungs-Nr 2025-..</code></td></tr>
+    <tr><td class="element">Feld-Wert (Sans)</td><td class="font">Plex Sans</td><td class="sizes">15 px · 500</td><td class="sample"><span style="font-family:'IBM Plex Sans'; font-size:15px; font-weight:500;">GASAG AG</span></td></tr>
+    <tr><td class="element">Feld-Wert (Mono · Zahl)</td><td class="font">Plex Mono</td><td class="sizes">15 px · 500</td><td class="sample"><span style="font-family:'IBM Plex Mono'; font-size:15px; font-weight:500;">4.127,84 €</span></td></tr>
+    <tr><td class="element">Konfidenz-Angabe</td><td class="font">Plex Mono</td><td class="sizes">10 px · 400</td><td class="sample"><span style="font-family:'IBM Plex Mono'; font-size:10px; color:#B8841F;">· 94% Konfidenz</span></td></tr>
+  </tbody>
+</table>
+
+<h2>Typografie · Navigation & Chrome</h2>
+<table class="typespec">
+  <thead><tr><th style="width:28%">Element</th><th style="width:18%">Font</th><th style="width:22%">Size · Weight · LS</th><th>Sample</th></tr></thead>
+  <tbody>
+    <tr><td class="element">TabBar-Label</td><td class="font">Plex Sans</td><td class="sizes">9.5 px · 500 (aktiv 600)</td><td class="sample"><span style="font-family:'IBM Plex Sans'; font-size:9.5px; font-weight:600; color:#4B5563;">Übersicht</span></td></tr>
+    <tr><td class="element">Scope-Streifen (Objekt/Einheit)</td><td class="font">Plex Sans</td><td class="sizes">12 px · 500 · 0.2</td><td class="sample"><span style="font-family:'IBM Plex Sans'; font-size:12px; font-weight:500; letter-spacing:0.2px; color:#506E8C;">OG WOHNUNG · FAM. PFAFFENBACH</span></td></tr>
+    <tr><td class="element">Scope-Streifen · m²</td><td class="font">Plex Mono</td><td class="sizes">11 px · 400</td><td class="sample"><span style="font-family:'IBM Plex Mono'; font-size:11px; color:#506E8C;">94 m²</span></td></tr>
+    <tr><td class="element">Sheet-Titel (Modal)</td><td class="font">Plex Sans</td><td class="sizes">17 px · 600</td><td class="sample"><span style="font-family:'IBM Plex Sans'; font-size:17px; font-weight:600;">Scope wechseln</span></td></tr>
+    <tr><td class="element">Status-Pill generisch</td><td class="font">Plex Sans / Mono</td><td class="sizes">11 px · 600 · 0.1</td><td class="sample"><span style="display:inline-block; padding: 2px 8px; border-radius: 10px; background: rgba(63,122,91,0.14); color:#3F7A5B; font-family:'IBM Plex Sans'; font-size:11px; font-weight:600;">OK</span></td></tr>
+  </tbody>
+</table>
+
+<!-- ============ PRINZIPIEN ============ -->
+<h2>Prinzipien</h2>
+<ul class="principles">
+  <li><div class="label">Zahlen = Mono</div><div class="body">Jeder numerische Wert (Beträge, Datum, Zählerstände, m², Prozent) läuft in IBM Plex Mono. Text in Plex Sans. Keine Mischformen in einer Zeile.</div></li>
+  <li><div class="label">Warm statt kalt</div><div class="body">Flächen auf Papier-Ton, nicht reinweiß. Dark verwendet warme Braun-Schwarz, keine Blauschwarz. Die Farbtemperatur bleibt über Modes konstant.</div></li>
+  <li><div class="label">Einheit = Farbe</div><div class="body">Jede Wohneinheit hat eine Kennfarbe (Ocker/Salbei/Taubenblau). Objekt-Scope ist Slate. Soft-Varianten für Chips und Highlights.</div></li>
+  <li><div class="label">KI-Status sichtbar</div><div class="body">Drei-Stufen-Semantik: Roh (grau) → KI-Vorschlag (Honig) → Validiert (Moosgrün). Mensch entscheidet, System schlägt vor.</div></li>
+  <li><div class="label">Dichte Informationen</div><div class="body">Vermieter wollen Übersicht, keine Platzverschwendung. 0.5 px Hairlines, enge Zeilenhöhen, keine dekorativen Illustrationen.</div></li>
+  <li><div class="label">Behördliche Klarheit</div><div class="body">Keine Emojis, keine Gradient-Buttons, keine Marketing-Sprache. Begriffe aus BetrKV und HeizkostenV direkt verwendet.</div></li>
+</ul>
+
+<div class="meta">
+  Nebenkosten App · Design Spec · v1 · Warm-professional iOS<br>
+  IBM Plex Sans 400 / 500 / 600 / 700 · IBM Plex Mono 400 / 500 / 600
+</div>
+
+</body>
+</html>
