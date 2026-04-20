@@ -14,6 +14,7 @@
 import SwiftUI
 import SwiftData
 import UIKit
+import PDFKit
 
 struct ScanEntryView: View {
     @Environment(\.modelContext) private var modelContext
@@ -208,25 +209,17 @@ struct ScanEntryView: View {
     }
 
     private func speicherMediathek(_ bilder: [UIImage]) {
+        guard !bilder.isEmpty else { return }
         do {
-            let doc: GespeichertesDokument
-            if bilder.count > 1 {
-                let pdf = try DokumentAblageService.pdfAusBildern(bilder)
-                doc = try DokumentAblageService.speichere(
-                    data: pdf, endung: "pdf",
-                    quelle: .mediathek, seitenanzahl: bilder.count,
-                    context: modelContext
-                )
-            } else if let bild = bilder.first,
-                      let jpg = bild.jpegData(compressionQuality: 0.85) {
-                doc = try DokumentAblageService.speichere(
-                    data: jpg, endung: "jpg",
-                    quelle: .mediathek, seitenanzahl: 1,
-                    context: modelContext
-                )
-            } else {
-                return
-            }
+            // Laut Task-1.1-Spec: Fotos werden IMMER als PDF persistiert,
+            // auch bei einer Seite — konsistenter Lifecycle, einheitliche
+            // Vorschau-Pipeline.
+            let pdf = try DokumentAblageService.pdfAusBildern(bilder)
+            let doc = try DokumentAblageService.speichere(
+                data: pdf, endung: "pdf",
+                quelle: .mediathek, seitenanzahl: bilder.count,
+                context: modelContext
+            )
             try modelContext.save()
             erfassungsDokument = doc
         } catch {
@@ -236,13 +229,26 @@ struct ScanEntryView: View {
 
     private func speicherDatei(_ ergebnis: DateiImportErgebnis) {
         do {
-            let doc = try DokumentAblageService.speichere(
-                data: ergebnis.data,
-                endung: ergebnis.endung,
-                quelle: .datei,
-                seitenanzahl: 1,
-                context: modelContext
-            )
+            let doc: GespeichertesDokument
+            if ergebnis.endung == "pdf" {
+                // PDFs 1:1 übernehmen (Seitenzahl aus PDFKit lesen).
+                let seiten = PDFDocument(data: ergebnis.data)?.pageCount ?? 1
+                doc = try DokumentAblageService.speichere(
+                    data: ergebnis.data, endung: "pdf",
+                    quelle: .datei, seitenanzahl: seiten,
+                    context: modelContext
+                )
+            } else if let bild = UIImage(data: ergebnis.data) {
+                // Bilder aus Datei-Importer ebenfalls zu PDF konvertieren.
+                let pdf = try DokumentAblageService.pdfAusBildern([bild])
+                doc = try DokumentAblageService.speichere(
+                    data: pdf, endung: "pdf",
+                    quelle: .datei, seitenanzahl: 1,
+                    context: modelContext
+                )
+            } else {
+                return
+            }
             try modelContext.save()
             erfassungsDokument = doc
         } catch {
