@@ -131,14 +131,6 @@ struct AppShellChrome: ViewModifier {
                 .foregroundStyle(scope.farbe(einheiten))
                 .lineLimit(1)
             Spacer()
-            if let flaechenLabel {
-                Text(flaechenLabel)
-                    .appFont(AppFont.scopeStripMono())
-                    .foregroundStyle(scope.farbe(einheiten).opacity(0.85))
-            }
-            Image(systemName: "arrow.triangle.swap")
-                .font(.caption)
-                .foregroundStyle(scope.farbe(einheiten).opacity(0.6))
         }
         .padding(.horizontal, 20)
         .frame(height: 40)
@@ -152,20 +144,6 @@ struct AppShellChrome: ViewModifier {
 
     private var trenner: some View {
         Rectangle().fill(DesignTokens.separator).frame(height: 0.5)
-    }
-
-    private var flaechenLabel: String? {
-        switch scope.current {
-        case .objekt:
-            let gesamt = immobilie?.gesamtflaecheM2 ?? 0
-            guard gesamt > 0 else { return nil }
-            return Formatting.fmt(m2: gesamt)
-        case .einheit(let id):
-            guard let e = einheiten.first(where: { $0.bezeichnung.caseInsensitiveCompare(id) == .orderedSame }),
-                  e.flaecheM2 > 0
-            else { return nil }
-            return Formatting.fmt(m2: e.flaecheM2)
-        }
     }
 }
 
@@ -190,17 +168,3 @@ extension View {
     }
 }
 
-// MARK: - Fläche-Formatter (kleiner Add-on zu Formatting)
-
-extension Formatting {
-    static func fmt(m2: Decimal) -> String {
-        let f = NumberFormatter()
-        f.locale = Locale(identifier: "de_DE")
-        f.numberStyle = .decimal
-        f.minimumFractionDigits = 0
-        f.maximumFractionDigits = 0
-        f.groupingSeparator = "."
-        let s = f.string(from: NSDecimalNumber(decimal: m2)) ?? "0"
-        return "\(s) m²"
-    }
-}
