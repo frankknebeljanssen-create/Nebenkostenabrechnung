@@ -57,7 +57,7 @@ struct AppShell: View {
             ScopePickerSheet()
         }
         .sheet(isPresented: $zeigeInspektor) {
-            InspektorPlatzhalter()
+            InspektorSheet()
         }
         .sheet(isPresented: $zeigeEinstellungen) {
             EinstellungenSheet()
