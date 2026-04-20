@@ -61,6 +61,46 @@ struct ObjektDashboardViewModel {
             .kachelCounts
     }
 
+    // MARK: - Einheit-Scope
+
+    /// Mieterabrechnung für eine konkrete Einheit (erfordert erfüllten
+    /// Pre-Flight). Nil wenn Daten unvollständig oder keine Periode.
+    func einheitAbrechnung(bezeichnung: String) -> Mieterabrechnung? {
+        guard let periode = aktivePeriode else { return nil }
+        do {
+            let alle = try AbrechnungsService.aggregiere(
+                periode: periode, immobilie: immobilie
+            )
+            return alle.first { $0.einheitBezeichnung == bezeichnung }
+        } catch {
+            return nil
+        }
+    }
+
+    /// Zähler-Kachel gefiltert auf eine Einheit (Einheit-Zähler +
+    /// Hauptzähler, die objektweit sind).
+    func zaehlerFuerEinheit(bezeichnung: String) -> KachelDaten {
+        anforderungen
+            .filter { $0.anforderung.kategorie == .zaehlerstand }
+            .filter { istZaehlerAnforderungRelevantFuer(bezeichnung, id: $0.anforderung.id) }
+            .kachelCounts
+    }
+
+    private func istZaehlerAnforderungRelevantFuer(_ einheit: String, id: String) -> Bool {
+        let prefix = "zaehler-"
+        guard id.hasPrefix(prefix) else { return false }
+        let uuidStr = String(id.dropFirst(prefix.count))
+        guard let uuid = UUID(uuidString: uuidStr) else { return false }
+        // Einheit-Zähler
+        let einheitZaehler = (immobilie.wohneinheiten ?? [])
+            .first(where: { $0.bezeichnung == einheit })?
+            .zaehler ?? []
+        if einheitZaehler.contains(where: { $0.id == uuid }) { return true }
+        // Hauptzähler sind für jede Einheit relevant (objektweit).
+        let haupt = immobilie.hauptzaehler ?? []
+        return haupt.contains(where: { $0.id == uuid })
+    }
+
     var rechnungen: KachelDaten {
         anforderungen
             .filter { $0.anforderung.kategorie == .rechnung }

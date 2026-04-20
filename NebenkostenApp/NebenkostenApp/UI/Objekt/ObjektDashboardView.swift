@@ -275,7 +275,16 @@ struct ObjektDashboardView: View {
         .padding(.bottom, 16)
     }
 
+    @ViewBuilder
     private var kachelGrid: some View {
+        if case .einheit(let id) = scopeManager.scope {
+            einheitKacheln(einheitID: id)
+        } else {
+            objektKacheln
+        }
+    }
+
+    private var objektKacheln: some View {
         LazyVGrid(columns: spalten, spacing: 12) {
             let m = viewModel.mieter
             NavigationLink(value: MieterListenZiel(immobilie: immobilie)) {
@@ -305,6 +314,46 @@ struct ObjektDashboardView: View {
             }
             .buttonStyle(.plain)
         }
+    }
+
+    @ViewBuilder
+    private func einheitKacheln(einheitID: String) -> some View {
+        let einheit = (immobilie.wohneinheiten ?? [])
+            .first(where: { $0.bezeichnung == einheitID })
+        let abrechnung = viewModel.einheitAbrechnung(bezeichnung: einheitID)
+        let z = viewModel.zaehlerFuerEinheit(bezeichnung: einheitID)
+        let r = viewModel.rechnungen
+        let (mieterName, mieterTyp) = mieterInfo(einheit: einheit)
+        let istLeer = einheit?.nutzungsart == .leerstand
+
+        LazyVGrid(columns: spalten, spacing: 12) {
+            SaldoKachel(abrechnung: abrechnung)
+
+            MieterEinheitKachel(
+                mieterName: mieterName,
+                mieterTyp: mieterTyp,
+                istLeerstand: istLeer || (mieterName.isEmpty && !istLeer ? false : istLeer)
+            )
+
+            NavigationLink(value: ZaehlerUebersichtsZiel(immobilie: immobilie)) {
+                StatusKachel(titel: "Zähler", symbol: "gauge", status: z.status,
+                             erledigt: z.erledigt, inArbeit: z.inArbeit, offen: z.offen)
+            }
+            .buttonStyle(.plain)
+
+            NavigationLink(value: RechnungenListenZiel(immobilie: immobilie)) {
+                StatusKachel(titel: "Rechnungen", symbol: "doc.text", status: r.status,
+                             erledigt: r.erledigt, inArbeit: r.inArbeit, offen: r.offen)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func mieterInfo(einheit: Wohneinheit?) -> (name: String, typ: String) {
+        guard let einheit else { return ("", "") }
+        let aktiv = (einheit.mietverhaeltnisse ?? []).first { $0.auszugAm == nil }
+        guard let mv = aktiv else { return ("", "") }
+        return (mv.mieterName, mv.mieterTyp.rawValue)
     }
 
     // MARK: - Wohneinheiten-Sektion
