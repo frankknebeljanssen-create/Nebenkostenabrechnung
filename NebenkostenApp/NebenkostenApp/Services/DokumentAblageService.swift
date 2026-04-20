@@ -42,12 +42,22 @@ enum DokumentAblageService {
 
     // MARK: - Konstanten
 
-    /// Unterordner unter ~/Documents/.
+    /// Top-Level-Unterordner unter ~/Documents/. Darunter werden
+    /// Jahres-Ordner und ein gemeinsamer Thumbnails-Ordner angelegt.
     static let scansUnterordner = "Scans"
-    /// Thumbnail-Unterordner.
+    /// Thumbnail-Unterordner — flach (keine Jahres-Sortierung).
     static let thumbnailUnterordner = "Scans/Thumbnails"
     /// Thumbnail-Kantenlänge in px.
     static let thumbnailPx: CGFloat = 300
+
+    /// Liefert den relativen Jahres-Unterordner, z.B. "Scans/2026".
+    static func jahresOrdner(fuer datum: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy"
+        f.timeZone = TimeZone.current
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return "\(scansUnterordner)/\(f.string(from: datum))"
+    }
 
     // MARK: - Pfade
 
@@ -96,12 +106,14 @@ enum DokumentAblageService {
         endung: String,
         quelle: DokumentQuelle,
         seitenanzahl: Int = 1,
+        dateinameOverride: String? = nil,
         context: ModelContext
     ) throws -> GespeichertesDokument {
-        try stelleOrdnerSicher()
+        let jahr = jahresOrdner(fuer: Date())
+        try stelleOrdnerSicher(jahresOrdner: jahr)
 
-        let name = generiereDateiname(endung: endung)
-        let relativerPfad = "\(scansUnterordner)/\(name)"
+        let name = dateinameOverride ?? generiereDateiname(endung: endung)
+        let relativerPfad = "\(jahr)/\(name)"
         let absolut = try absoluterPfad(fuer: relativerPfad)
 
         do {
@@ -187,12 +199,17 @@ enum DokumentAblageService {
 
     // MARK: - Intern
 
-    private static func stelleOrdnerSicher() throws {
+    private static func stelleOrdnerSicher(jahresOrdner: String? = nil) throws {
         let fm = FileManager.default
         let docs = try documentsURL()
-        let scans = docs.appendingPathComponent(scansUnterordner, isDirectory: true)
-        let thumbs = docs.appendingPathComponent(thumbnailUnterordner, isDirectory: true)
-        for url in [scans, thumbs] {
+        var ordner: [URL] = [
+            docs.appendingPathComponent(scansUnterordner, isDirectory: true),
+            docs.appendingPathComponent(thumbnailUnterordner, isDirectory: true)
+        ]
+        if let jahr = jahresOrdner {
+            ordner.append(docs.appendingPathComponent(jahr, isDirectory: true))
+        }
+        for url in ordner {
             if !fm.fileExists(atPath: url.path) {
                 try fm.createDirectory(at: url, withIntermediateDirectories: true)
             }

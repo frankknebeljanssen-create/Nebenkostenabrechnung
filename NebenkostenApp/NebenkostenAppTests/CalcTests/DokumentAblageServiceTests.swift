@@ -87,8 +87,15 @@ struct DokumentAblageServiceTests {
         #expect(doc.quelle == .mediathek)
         #expect(doc.seitenanzahl == 1)
         #expect(doc.dateigroesseBytes == jpgData.count)
-        #expect(doc.dateipfadRelativ.hasPrefix("Scans/scan-"))
+        #expect(doc.dateipfadRelativ.hasPrefix("Scans/"))
         #expect(doc.dateipfadRelativ.hasSuffix(".jpg"))
+        // Jahres-Unterordner: "Scans/YYYY/scan-..."
+        let pfadTeile = doc.dateipfadRelativ.split(separator: "/")
+        #expect(pfadTeile.count == 3, "Pfad muss Scans/<Jahr>/<Datei> sein")
+        if pfadTeile.count == 3 {
+            #expect(pfadTeile[1].count == 4, "Jahr muss 4-stellig sein")
+            #expect(Int(pfadTeile[1]) != nil, "Jahr muss numerisch sein")
+        }
         #expect(!doc.thumbnailPfad.isEmpty)
 
         // Datei existiert
