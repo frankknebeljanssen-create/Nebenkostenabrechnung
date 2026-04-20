@@ -19,6 +19,15 @@ struct AppShellChrome: ViewModifier {
     let subtitel: String?
     let onAdresse: () -> Void
     let onEinstellungen: () -> Void
+    /// Optionale zusätzliche Primary-Action rechts neben dem
+    /// Einstellungen-Button (z.B. "+" für neue Rechnung).
+    let primaryAction: PrimaryAction?
+
+    struct PrimaryAction {
+        let symbol: String
+        let label: String
+        let handler: () -> Void
+    }
 
     @Environment(ScopeManager.self) private var scope
     @Query(sort: \Immobilie.erstelltAm) private var immobilien: [Immobilie]
@@ -57,13 +66,22 @@ struct AppShellChrome: ViewModifier {
                             .appFont(AppFont.navAddress())
                             .lineLimit(1)
                         Image(systemName: "chevron.down")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.system(size: 16, weight: .semibold))
                     }
                     .foregroundStyle(DesignTokens.text)
                     .padding(.vertical, 6)
                 }
                 .accessibilityLabel("Bereich wählen, aktuell \(scope.beschriftung(einheiten))")
                 Spacer()
+                if let primary = primaryAction {
+                    Button(action: primary.handler) {
+                        Image(systemName: primary.symbol)
+                            .font(.title3)
+                            .foregroundStyle(DesignTokens.text)
+                    }
+                    .accessibilityLabel(primary.label)
+                    .padding(.trailing, 4)
+                }
                 Button(action: onEinstellungen) {
                     Image(systemName: "gearshape")
                         .font(.title3)
@@ -100,7 +118,7 @@ struct AppShellChrome: ViewModifier {
         HStack(spacing: 10) {
             Rectangle()
                 .fill(scope.farbe(einheiten))
-                .frame(width: 10, height: 10)
+                .frame(width: 11, height: 11)
                 .clipShape(RoundedRectangle(cornerRadius: 2))
             Text(scope.beschriftung(einheiten))
                 .appFont(AppFont.scopeStripLabel())
@@ -109,15 +127,15 @@ struct AppShellChrome: ViewModifier {
             Spacer()
             if let flaechenLabel {
                 Text(flaechenLabel)
-                    .appFont(AppFont.monoCaption())
+                    .appFont(AppFont.scopeStripMono())
                     .foregroundStyle(scope.farbe(einheiten).opacity(0.85))
             }
             Image(systemName: "arrow.triangle.swap")
-                .font(.caption2)
+                .font(.caption)
                 .foregroundStyle(scope.farbe(einheiten).opacity(0.6))
         }
         .padding(.horizontal, 20)
-        .frame(height: 36)
+        .frame(height: 40)
         .frame(maxWidth: .infinity)
         .background(scope.softFarbe(einheiten))
         .overlay(alignment: .top)    { trenner }
@@ -153,13 +171,15 @@ extension View {
         titel: String,
         subtitel: String? = nil,
         onAdresse: @escaping () -> Void,
-        onEinstellungen: @escaping () -> Void
+        onEinstellungen: @escaping () -> Void,
+        primaryAction: AppShellChrome.PrimaryAction? = nil
     ) -> some View {
         modifier(AppShellChrome(
             titel: titel,
             subtitel: subtitel,
             onAdresse: onAdresse,
-            onEinstellungen: onEinstellungen
+            onEinstellungen: onEinstellungen,
+            primaryAction: primaryAction
         ))
     }
 }

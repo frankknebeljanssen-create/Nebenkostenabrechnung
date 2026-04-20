@@ -46,6 +46,10 @@ enum AppFont {
     static func bodyMedium() -> AppFontStyle {
         .init(font: plexSans(.medium, 15), tracking: 0, uppercase: false)
     }
+    /// 16 pt / 500 — Row-Titel in Rechnungen/Belege (UI-Fix-2).
+    static func bodyMedium16() -> AppFontStyle {
+        .init(font: plexSans(.medium, 16), tracking: 0, uppercase: false)
+    }
     static func bodySemi() -> AppFontStyle {
         .init(font: plexSans(.semibold, 15), tracking: 0, uppercase: false)
     }
@@ -80,21 +84,21 @@ enum AppFont {
     static func uppercaseLabel() -> AppFontStyle {
         .init(font: plexSans(.semibold, 12), tracking: 0.6, uppercase: true)
     }
-    /// ScopeStrip-Label — ein Tick größer + breiteres Tracking
-    /// (nach UI-Fix-1 Gerätetest, Zielgruppe 50+).
+    /// ScopeStrip-Label — UI-Fix-2: 14pt/600 tracking 0.4.
     static func scopeStripLabel() -> AppFontStyle {
-        .init(font: plexSans(.semibold, 13), tracking: 0.4, uppercase: true)
+        .init(font: plexSans(.semibold, 14), tracking: 0.4, uppercase: true)
     }
-    /// Adress-Button oben in der AppNavBar (UI-Fix-1). Lesbar, nicht
-    /// caption-klein.
+    /// ScopeStrip rechter Mono-Text (m²) — UI-Fix-2: 13pt.
+    static func scopeStripMono() -> AppFontStyle {
+        .init(font: plexMono(.regular, 13), tracking: 0, uppercase: false)
+    }
+    /// Adress-Button oben in der AppNavBar — UI-Fix-2: 17pt/500.
     static func navAddress() -> AppFontStyle {
-        .init(font: plexSans(.medium, 16), tracking: 0, uppercase: false)
+        .init(font: plexSans(.medium, 17), tracking: 0, uppercase: false)
     }
-    /// Sub-Title unter dem NavBar-Titel. 15 / 500 — eine Stufe größer
-    /// als subtitle() (13 / regular), damit er als Primär-Information
-    /// wahrgenommen wird.
+    /// Sub-Title unter dem NavBar-Titel — UI-Fix-2: 16pt/500.
     static func navSubtitle() -> AppFontStyle {
-        .init(font: plexSans(.medium, 15), tracking: -0.1, uppercase: false)
+        .init(font: plexSans(.medium, 16), tracking: -0.1, uppercase: false)
     }
     static func micro() -> AppFontStyle {
         .init(font: plexSans(.regular, 10), tracking: 0.2, uppercase: false)
