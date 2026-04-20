@@ -592,6 +592,25 @@ final class GespeichertesDokument {
     /// Freier Notiztext.
     var notiz: String?
 
+    // MARK: - 3-Ebenen-Datenmodell (Task 1.2)
+
+    /// Ebene 1 Rohdaten — OCR-Volltext, unverändert.
+    var ocrVolltext: String?
+    /// Mittelwert-Confidence über alle Zeilen (0.0 … 1.0).
+    var ocrConfidence: Double?
+    /// Zeitpunkt des letzten OCR-Laufs.
+    var ocrDurchgefuehrtAm: Date?
+
+    // Ebene 2 Strukturiert — @Relationship auf AIVorschlag kommt in
+    // der AIVorschlag-Entity (siehe DataModel.swift weiter unten).
+    /// Zeitpunkt der letzten AI-Extraktion.
+    var aiDurchgefuehrtAm: Date?
+
+    /// Ebene 3 Validiert — verknüpft das Dokument mit einer Rechnung,
+    /// wenn der User die AI-Vorschläge übernommen hat. nil = noch
+    /// nicht übernommen (oder nie übernommen, z.B. Zählerstand-Foto).
+    var rechnungId: UUID?
+
     init() {}
 }
 
