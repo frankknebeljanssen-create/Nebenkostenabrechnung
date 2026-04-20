@@ -17,17 +17,34 @@ import SwiftUI
 struct AbrechnungDetailView: View {
     let abrechnung: Mieterabrechnung
     let periode: String
+    /// Datenlücken der zugrundeliegenden Periode. Kann Warnungen
+    /// (z.B. WMZ-Plausi) enthalten — Blocker tauchen hier nicht
+    /// auf, weil der AbrechnungsService bei Blockern bereits wirft.
+    var warnungen: [AnforderungMitStatus] = []
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(AppShellRouter.self) private var router
+
+    /// Defensiver Check: liegt trotz berechneter Mieterabrechnung
+    /// noch ein unbehandelter Blocker vor, rendert die View ohne
+    /// Saldo-Zahlen und ActionBar-Aktionen. Im normalen Flow tritt
+    /// der Fall nicht auf, weil `AbrechnungsService.aggregiere`
+    /// schon bei Blockern wirft.
+    private var hatBlocker: Bool {
+        warnungen.contains { $0.blockiertBerechnung }
+    }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                if !warnungen.isEmpty {
+                    warnungenCard
+                }
                 heroCard
                 positionenCard
                 saldoCard
                 paragraph35aCard
-                pdfButton
+                actionBar
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)
@@ -196,16 +213,116 @@ struct AbrechnungDetailView: View {
         }
     }
 
-    // MARK: - PDF
+    // MARK: - Warnungen-Card (Datenlücken, sprungfähig)
 
-    private var pdfButton: some View {
+    @ViewBuilder
+    private var warnungenCard: some View {
+        let hatBlockerLokal = hatBlocker
+        let ueberschrift = hatBlockerLokal
+            ? "Pflichtdaten fehlen"
+            : "Hinweise zur Datenlage"
+        let akzentFarbe = hatBlockerLokal
+            ? DesignTokens.statusError
+            : DesignTokens.statusWarn
+        let softBg = hatBlockerLokal
+            ? DesignTokens.statusErrorSoft
+            : DesignTokens.statusWarnSoft
+
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(akzentFarbe)
+                Text(ueberschrift)
+                    .appFont(AppFont.Basis.bodySemi())
+                    .foregroundStyle(akzentFarbe)
+                Spacer()
+            }
+            ForEach(warnungen) { w in
+                warnungsRow(w, akzent: akzentFarbe)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(softBg)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(akzentFarbe.opacity(0.3), lineWidth: 0.5)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    @ViewBuilder
+    private func warnungsRow(_ a: AnforderungMitStatus, akzent: Color) -> some View {
+        let content = HStack(spacing: 8) {
+            StatusDot(status: a.schwere == .blocker ? .error : .warn)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(a.anforderung.titel)
+                    .appFont(AppFont.Basis.bodyMedium())
+                    .foregroundStyle(DesignTokens.text)
+                if let hinweis = a.hinweis {
+                    Text(hinweis)
+                        .appFont(AppFont.Basis.caption())
+                        .foregroundStyle(DesignTokens.textSecondary)
+                        .lineLimit(3)
+                }
+            }
+            Spacer(minLength: 4)
+            if a.sprungZiel != nil {
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(DesignTokens.textTertiary)
+            }
+        }
+        .contentShape(Rectangle())
+
+        if let ziel = a.sprungZiel {
+            Button {
+                router.springe(zu: ziel)
+                dismiss()
+            } label: { content }
+            .buttonStyle(.plain)
+        } else {
+            content
+        }
+    }
+
+    // MARK: - ActionBar (PDF / Mail / Drucken)
+
+    private var actionBar: some View {
+        VStack(spacing: 8) {
+            actionButton(
+                titel: hatBlocker
+                    ? "PDF-Vorschau · gesperrt"
+                    : "PDF-Vorschau (kommt in UI-2)",
+                symbol: "doc.text.magnifyingglass",
+                disabled: true
+            )
+            actionButton(
+                titel: hatBlocker
+                    ? "Per Mail versenden · gesperrt"
+                    : "Per Mail versenden (kommt in UI-2)",
+                symbol: "envelope",
+                disabled: true
+            )
+            actionButton(
+                titel: hatBlocker
+                    ? "Drucken · gesperrt"
+                    : "Drucken (kommt in UI-2)",
+                symbol: "printer",
+                disabled: true
+            )
+        }
+    }
+
+    private func actionButton(titel: String, symbol: String, disabled: Bool) -> some View {
         Button {
-            // PDF-Vorschau wird in UI-2 als Sheet integriert.
+            // Integration folgt in UI-2.
         } label: {
             HStack(spacing: 8) {
-                Image(systemName: "doc.text.magnifyingglass")
+                Image(systemName: symbol)
                     .font(.system(size: 16, weight: .medium))
-                Text("PDF-Vorschau (kommt in UI-2)")
+                Text(titel)
                     .appFont(AppFont.bodySemi())
                 Spacer()
                 Image(systemName: "chevron.right")
@@ -223,7 +340,7 @@ struct AbrechnungDetailView: View {
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
-        .disabled(true)
+        .disabled(disabled)
     }
 
     // MARK: - Saldo-Farben

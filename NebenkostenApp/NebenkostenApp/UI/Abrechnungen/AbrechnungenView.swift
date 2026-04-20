@@ -54,7 +54,11 @@ struct AbrechnungenView: View {
         .sheet(isPresented: $zeigeInspektor) { InspektorPlatzhalter() }
         .sheet(item: $detail) { aus in
             NavigationStack {
-                AbrechnungDetailView(abrechnung: aus.abrechnung, periode: aus.periodeText)
+                AbrechnungDetailView(
+                    abrechnung: aus.abrechnung,
+                    periode: aus.periodeText,
+                    warnungen: aus.warnungen
+                )
             }
         }
     }
@@ -147,7 +151,13 @@ struct AbrechnungenView: View {
                             label: titelFuer(m),
                             subtitel: subtitelFuer(m),
                             chevron: true,
-                            action: { detail = .init(abrechnung: m, periodeText: periodenText(p)) },
+                            action: {
+                                detail = .init(
+                                    abrechnung: m,
+                                    periodeText: periodenText(p),
+                                    warnungen: warnungenFuer(p)
+                                )
+                            },
                             leading: {
                                 UnitBalken(farbe: einheitFarbe(m.einheitBezeichnung))
                                     .frame(height: 36)
@@ -321,6 +331,26 @@ struct AbrechnungenView: View {
         }
     }
 
+    /// Liefert die Warnungen der Periode (Schwere `.warnung` oder
+    /// `.teilweise`-Status), damit die Detail-View sie als Card
+    /// oben rendern kann. Blocker sind nicht enthalten — die Detail
+    /// würde bei Blockern gar nicht erst aufgerufen.
+    private func warnungenFuer(_ p: Abrechnungsperiode) -> [AnforderungMitStatus] {
+        guard let immobilie else { return [] }
+        let alle = VollstaendigkeitsPruefung.pruefe(immobilie: immobilie, periode: p)
+        return alle.filter { a in
+            // Warnung per Schwere (z.B. WMZ-Plausi außerhalb Toleranz)
+            // ODER Pflicht-Anforderung mit Teil-Erfüllung.
+            if a.schwere == .warnung && a.status != .erfuellt && a.status != .nichtErwartet {
+                return true
+            }
+            if a.schwere == .blocker && a.status == .teilweise {
+                return true
+            }
+            return false
+        }
+    }
+
     private func filterNachScope(_ liste: [Mieterabrechnung]) -> [Mieterabrechnung] {
         ScopeFilter.sichtbareAbrechnungen(alle: liste, scope: scope.current)
     }
@@ -397,5 +427,10 @@ struct AbrechnungenView: View {
 private struct AbrechnungenDetailAuswahl: Identifiable {
     let abrechnung: Mieterabrechnung
     let periodeText: String
+    /// Warnungen der zugrundeliegenden Periode (WMZ-Plausi, teilweise
+    /// erfüllte Anforderungen). Blocker tauchen hier in Regel nicht
+    /// auf, weil die Detail-Ansicht nur bei berechenbarer Periode
+    /// geöffnet wird.
+    let warnungen: [AnforderungMitStatus]
     var id: UUID { abrechnung.id }
 }
