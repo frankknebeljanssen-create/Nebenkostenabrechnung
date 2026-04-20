@@ -10,12 +10,16 @@
 
 import Foundation
 
-enum AbrechnungsScope: Equatable, Hashable, Sendable {
+enum AbrechnungsScope: Equatable, Hashable, Sendable, Codable {
     case objekt
     /// Einheit-ID: Wohneinheit.bezeichnung (z.B. "KG", "EG", "OG") —
     /// menschenlesbar und stabil.
     case einheit(id: String)
 }
+
+/// Alias für den Design-Handoff (tokens.jsx verwendet "AppScope").
+/// Identisch zu AbrechnungsScope — zwei Namen, ein Typ.
+typealias AppScope = AbrechnungsScope
 
 @Observable
 @MainActor
