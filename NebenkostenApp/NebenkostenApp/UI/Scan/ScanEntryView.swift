@@ -2,10 +2,13 @@
 //  ScanEntryView.swift
 //  NebenkostenApp — UI/Scan
 //
-//  Einstiegs-Sheet: drei Optionen (Kamera / Galerie / Datei). Nach
-//  erfolgreichem Import wird das Dokument gespeichert, optional
-//  direkt zugeordnet (autoRechnung/autoZaehlerstand), sonst wird
-//  ScanZuordnungView als Folge-Sheet angezeigt.
+//  Einstiegs-Sheet: drei Optionen (Kamera / Mediathek / Datei). Nach
+//  erfolgreichem Import wird das Dokument gespeichert; der Folge-
+//  Flow (DokumentErfassungView mit Typ/Versorger/Kontext-Erfassung)
+//  kommt in Task-1.1-C4 und ersetzt dieses Zwischen-Sheet.
+//
+//  Bis dahin: das Dokument wird ohne Metadaten gespeichert, Sheet
+//  schliesst direkt nach Import.
 //
 
 import SwiftUI
@@ -16,28 +19,15 @@ struct ScanEntryView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
-    /// Wenn gesetzt, wird das Dokument automatisch dieser Rechnung
-    /// zugeordnet und das Sheet schließt direkt nach Import.
-    let autoRechnung: Rechnung?
-    /// Analog für Zählerstand.
-    let autoZaehlerstand: Zaehlerstand?
-    /// Callback mit dem neu angelegten Dokument. Wird nach Zuordnung
-    /// (oder direkt bei Auto-Zuordnung) aufgerufen.
+    /// Callback mit dem neu angelegten Dokument.
     let onFertig: (GespeichertesDokument) -> Void
 
-    init(
-        autoRechnung: Rechnung? = nil,
-        autoZaehlerstand: Zaehlerstand? = nil,
-        onFertig: @escaping (GespeichertesDokument) -> Void = { _ in }
-    ) {
-        self.autoRechnung = autoRechnung
-        self.autoZaehlerstand = autoZaehlerstand
+    init(onFertig: @escaping (GespeichertesDokument) -> Void = { _ in }) {
         self.onFertig = onFertig
     }
 
     @State private var zeigeKamera = false
     @State private var zeigeDateiImporter = false
-    @State private var importiertesDokument: GespeichertesDokument?
     @State private var fehlermeldung: String?
 
     var body: some View {
@@ -65,7 +55,7 @@ struct ScanEntryView: View {
 
                     GalerieImportButton(
                         maxAuswahl: 10,
-                        onFertig: { bilder in speicherGalerie(bilder) },
+                        onFertig: { bilder in speicherMediathek(bilder) },
                         onFehler: { fehlermeldung = $0.localizedDescription }
                     ) {
                         optionZeile(
@@ -83,20 +73,6 @@ struct ScanEntryView: View {
                             untertitel: "PDF oder Bild aus Dateien-App",
                             symbol: "folder.fill"
                         )
-                    }
-                }
-
-                if let z = autoZaehlerstand {
-                    Section("Wird zugeordnet zu") {
-                        Label("Zähler \(z.zaehler?.bezeichnung ?? "—")",
-                              systemImage: "gauge")
-                            .font(.subheadline)
-                    }
-                } else if let r = autoRechnung {
-                    Section("Wird zugeordnet zu") {
-                        Label("Rechnung \(r.lieferant)",
-                              systemImage: "doc.text")
-                            .font(.subheadline)
                     }
                 }
             }
@@ -126,12 +102,6 @@ struct ScanEntryView: View {
                 onFertig: { e in speicherDatei(e) },
                 onFehler: { fehlermeldung = $0.localizedDescription }
             )
-            .sheet(item: $importiertesDokument) { doc in
-                ScanZuordnungView(dokument: doc) {
-                    onFertig(doc)
-                    dismiss()
-                }
-            }
             .alert(
                 "Fehler beim Import",
                 isPresented: .init(
@@ -175,40 +145,40 @@ struct ScanEntryView: View {
             let doc = try DokumentAblageService.speichere(
                 data: pdf, endung: "pdf",
                 quelle: .kamera,
-                seitenAnzahl: bilder.count,
+                seitenanzahl: bilder.count,
                 context: modelContext
             )
-            zuordnungAnwenden(auf: doc)
             try modelContext.save()
-            weiter(mit: doc)
+            onFertig(doc)
+            dismiss()
         } catch {
             fehlermeldung = error.localizedDescription
         }
     }
 
-    private func speicherGalerie(_ bilder: [UIImage]) {
+    private func speicherMediathek(_ bilder: [UIImage]) {
         do {
             let doc: GespeichertesDokument
             if bilder.count > 1 {
                 let pdf = try DokumentAblageService.pdfAusBildern(bilder)
                 doc = try DokumentAblageService.speichere(
                     data: pdf, endung: "pdf",
-                    quelle: .galerie, seitenAnzahl: bilder.count,
+                    quelle: .mediathek, seitenanzahl: bilder.count,
                     context: modelContext
                 )
             } else if let bild = bilder.first,
                       let jpg = bild.jpegData(compressionQuality: 0.85) {
                 doc = try DokumentAblageService.speichere(
                     data: jpg, endung: "jpg",
-                    quelle: .galerie, seitenAnzahl: 1,
+                    quelle: .mediathek, seitenanzahl: 1,
                     context: modelContext
                 )
             } else {
                 return
             }
-            zuordnungAnwenden(auf: doc)
             try modelContext.save()
-            weiter(mit: doc)
+            onFertig(doc)
+            dismiss()
         } catch {
             fehlermeldung = error.localizedDescription
         }
@@ -216,33 +186,18 @@ struct ScanEntryView: View {
 
     private func speicherDatei(_ ergebnis: DateiImportErgebnis) {
         do {
-            let seiten = (ergebnis.endung == "pdf") ? 1 : 1
             let doc = try DokumentAblageService.speichere(
                 data: ergebnis.data,
                 endung: ergebnis.endung,
                 quelle: .datei,
-                seitenAnzahl: seiten,
+                seitenanzahl: 1,
                 context: modelContext
             )
-            zuordnungAnwenden(auf: doc)
             try modelContext.save()
-            weiter(mit: doc)
-        } catch {
-            fehlermeldung = error.localizedDescription
-        }
-    }
-
-    private func zuordnungAnwenden(auf doc: GespeichertesDokument) {
-        doc.rechnung = autoRechnung
-        doc.zaehlerstand = autoZaehlerstand
-    }
-
-    private func weiter(mit doc: GespeichertesDokument) {
-        if autoRechnung != nil || autoZaehlerstand != nil {
             onFertig(doc)
             dismiss()
-        } else {
-            importiertesDokument = doc
+        } catch {
+            fehlermeldung = error.localizedDescription
         }
     }
 }

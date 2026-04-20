@@ -88,14 +88,14 @@ enum DokumentAblageService {
     ///   - data: Inhalt (PDF oder Bild).
     ///   - endung: Datei-Endung ohne Punkt ("pdf", "jpg", "png", "heic").
     ///   - quelle: Herkunft des Dokuments.
-    ///   - seitenAnzahl: Bei PDFs aus der Quelle ermittelt, sonst 1.
+    ///   - seitenanzahl: Bei PDFs aus der Quelle ermittelt, sonst 1.
     ///   - context: SwiftData-Context, in den das Model eingefügt wird.
     @discardableResult
     static func speichere(
         data: Data,
         endung: String,
         quelle: DokumentQuelle,
-        seitenAnzahl: Int = 1,
+        seitenanzahl: Int = 1,
         context: ModelContext
     ) throws -> GespeichertesDokument {
         try stelleOrdnerSicher()
@@ -115,10 +115,11 @@ enum DokumentAblageService {
         )
 
         let doc = GespeichertesDokument()
-        doc.dateiname = relativerPfad
+        doc.dateiname = name
+        doc.dateipfadRelativ = relativerPfad
         doc.thumbnailPfad = thumbnailRelativ
         doc.dateigroesseBytes = data.count
-        doc.seitenAnzahl = seitenAnzahl
+        doc.seitenanzahl = seitenanzahl
         doc.quelle = quelle
         context.insert(doc)
         return doc
@@ -130,7 +131,8 @@ enum DokumentAblageService {
         context: ModelContext
     ) {
         let fm = FileManager.default
-        if let url = try? absoluterPfad(fuer: dokument.dateiname) {
+        if !dokument.dateipfadRelativ.isEmpty,
+           let url = try? absoluterPfad(fuer: dokument.dateipfadRelativ) {
             try? fm.removeItem(at: url)
         }
         if !dokument.thumbnailPfad.isEmpty,

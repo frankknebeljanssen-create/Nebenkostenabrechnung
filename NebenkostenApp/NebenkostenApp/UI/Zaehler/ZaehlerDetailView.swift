@@ -9,7 +9,6 @@ import SwiftData
 struct ZaehlerDetailView: View {
     @Bindable var zaehler: Zaehler
     @State private var zeigeErfassen = false
-    @State private var zeigeScan = false
 
     var body: some View {
         ScrollView {
@@ -22,21 +21,8 @@ struct ZaehlerDetailView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle(kurzerTitel)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    zeigeScan = true
-                } label: {
-                    Label("Zählerstand fotografieren",
-                          systemImage: "camera.viewfinder")
-                }
-            }
-        }
         .sheet(isPresented: $zeigeErfassen) {
             ZaehlerstandErfassenView(zaehler: zaehler)
-        }
-        .sheet(isPresented: $zeigeScan) {
-            ScanEntryView(autoZaehlerstand: sortierteStaende.first) { _ in }
         }
     }
 

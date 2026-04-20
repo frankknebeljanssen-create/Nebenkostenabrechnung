@@ -16,12 +16,11 @@ import UIKit
 struct DokumenteTabRoot: View {
     @Environment(\.modelContext) private var modelContext
 
-    @Query(sort: \GespeichertesDokument.erfasstAm, order: .reverse)
+    @Query(sort: \GespeichertesDokument.erstelltAm, order: .reverse)
     private var dokumente: [GespeichertesDokument]
 
     @State private var zeigeScan = false
     @State private var vorschauURL: VorschauHost?
-    @State private var zuZuordnen: GespeichertesDokument?
 
     var body: some View {
         NavigationStack {
@@ -48,9 +47,6 @@ struct DokumenteTabRoot: View {
             .sheet(item: $vorschauURL) { host in
                 QuickLookVorschau(url: host.url)
                     .ignoresSafeArea()
-            }
-            .sheet(item: $zuZuordnen) { d in
-                ScanZuordnungView(dokument: d) {}
             }
         }
     }
@@ -87,15 +83,11 @@ struct DokumenteTabRoot: View {
     private var liste: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                gruppenCard(titel: "Rechnungen",
-                            symbol: "doc.text.fill",
-                            liste: rechnungsDokumente)
-                gruppenCard(titel: "Zählerstände",
-                            symbol: "gauge",
-                            liste: zaehlerstandDokumente)
-                gruppenCard(titel: "Ohne Zuordnung",
-                            symbol: "questionmark.circle.fill",
-                            liste: ohneZuordnung)
+                gruppenCard(
+                    titel: "Alle Dokumente",
+                    symbol: "doc.on.doc.fill",
+                    liste: dokumente
+                )
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)
@@ -155,16 +147,16 @@ struct DokumenteTabRoot: View {
                     .font(.callout.weight(.medium))
                     .lineLimit(1)
                 HStack(spacing: 6) {
-                    Text(d.erfasstAm.formatted(date: .numeric, time: .shortened))
+                    Text(d.erstelltAm.formatted(date: .numeric, time: .shortened))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Text("·").font(.caption).foregroundStyle(.tertiary)
                     Text(groesse(d.dateigroesseBytes))
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.secondary)
-                    if d.seitenAnzahl > 1 {
+                    if d.seitenanzahl > 1 {
                         Text("·").font(.caption).foregroundStyle(.tertiary)
-                        Text("\(d.seitenAnzahl) Seiten")
+                        Text("\(d.seitenanzahl) Seiten")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -178,11 +170,6 @@ struct DokumenteTabRoot: View {
                     oeffne(d)
                 } label: {
                     Label("Vorschau", systemImage: "eye")
-                }
-                Button {
-                    zuZuordnen = d
-                } label: {
-                    Label("Zuordnung ändern", systemImage: "arrow.triangle.swap")
                 }
                 Divider()
                 Button(role: .destructive) {
@@ -223,24 +210,10 @@ struct DokumenteTabRoot: View {
         }
     }
 
-    // MARK: - Gruppierung
-
-    private var rechnungsDokumente: [GespeichertesDokument] {
-        dokumente.filter { $0.rechnung != nil }
-    }
-
-    private var zaehlerstandDokumente: [GespeichertesDokument] {
-        dokumente.filter { $0.zaehlerstand != nil }
-    }
-
-    private var ohneZuordnung: [GespeichertesDokument] {
-        dokumente.filter { $0.rechnung == nil && $0.zaehlerstand == nil }
-    }
-
     // MARK: - QuickLook
 
     private func oeffne(_ d: GespeichertesDokument) {
-        guard let url = try? DokumentAblageService.absoluterPfad(fuer: d.dateiname),
+        guard let url = try? DokumentAblageService.absoluterPfad(fuer: d.dateipfadRelativ),
               FileManager.default.fileExists(atPath: url.path) else { return }
         vorschauURL = VorschauHost(url: url)
     }

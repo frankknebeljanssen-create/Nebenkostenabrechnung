@@ -78,22 +78,22 @@ struct DokumentAblageServiceTests {
         let doc = try DokumentAblageService.speichere(
             data: jpgData,
             endung: "jpg",
-            quelle: .galerie,
-            seitenAnzahl: 1,
+            quelle: .mediathek,
+            seitenanzahl: 1,
             context: ctx
         )
         try ctx.save()
 
-        #expect(doc.quelle == .galerie)
-        #expect(doc.seitenAnzahl == 1)
+        #expect(doc.quelle == .mediathek)
+        #expect(doc.seitenanzahl == 1)
         #expect(doc.dateigroesseBytes == jpgData.count)
-        #expect(doc.dateiname.hasPrefix("Scans/scan-"))
-        #expect(doc.dateiname.hasSuffix(".jpg"))
+        #expect(doc.dateipfadRelativ.hasPrefix("Scans/scan-"))
+        #expect(doc.dateipfadRelativ.hasSuffix(".jpg"))
         #expect(!doc.thumbnailPfad.isEmpty)
 
         // Datei existiert
         let fm = FileManager.default
-        let dateiUrl = try DokumentAblageService.absoluterPfad(fuer: doc.dateiname)
+        let dateiUrl = try DokumentAblageService.absoluterPfad(fuer: doc.dateipfadRelativ)
         let thumbUrl = try DokumentAblageService.absoluterPfad(fuer: doc.thumbnailPfad)
         #expect(fm.fileExists(atPath: dateiUrl.path))
         #expect(fm.fileExists(atPath: thumbUrl.path))

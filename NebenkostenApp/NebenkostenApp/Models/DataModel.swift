@@ -314,9 +314,6 @@ final class Zaehlerstand {
 
     var zaehler: Zaehler?
 
-    @Relationship(deleteRule: .nullify, inverse: \GespeichertesDokument.zaehlerstand)
-    var gespeicherteDokumente: [GespeichertesDokument]? = []
-
     init() {}
 }
 
@@ -449,9 +446,6 @@ final class Rechnung {
     var immobilie: Immobilie?
     var kostenart: Kostenart?
 
-    @Relationship(deleteRule: .nullify, inverse: \GespeichertesDokument.rechnung)
-    var gespeicherteDokumente: [GespeichertesDokument]? = []
-
     init() {}
 }
 
@@ -517,46 +511,86 @@ final class Abrechnung {
 
 // MARK: - GespeichertesDokument
 
+enum Dokumenttyp: String, Codable, CaseIterable, Sendable {
+    case rechnung
+    case bescheid
+    case handwerkerbeleg
+    case winterdienstbeleg
+    case zaehlerfoto
+    case mietvertrag
+    case sonstiges
+
+    var anzeigeName: String {
+        switch self {
+        case .rechnung:          return "Rechnung"
+        case .bescheid:          return "Bescheid"
+        case .handwerkerbeleg:   return "Handwerkerbeleg"
+        case .winterdienstbeleg: return "Winterdienstbeleg"
+        case .zaehlerfoto:       return "Zählerfoto"
+        case .mietvertrag:       return "Mietvertrag"
+        case .sonstiges:         return "Sonstiges"
+        }
+    }
+}
+
 enum DokumentQuelle: String, Codable, CaseIterable, Sendable {
     case kamera
-    case galerie
+    case mediathek
     case datei
 }
 
-/// Gescanntes oder importiertes Dokument (PDF oder Bild). Liegt als
-/// Datei im App-Documents unter /Scans/, verwaltet über
-/// `DokumentAblageService`. Ein Dokument kann (muss nicht) einer
-/// Rechnung ODER einem Zählerstand zugeordnet werden.
+/// Gescanntes oder importiertes Dokument. Alle Dokumente werden in
+/// diesem MVP als PDF persistiert (Task 1.1-Grundsatz). Liegt in
+/// `Documents/Scans/<YYYY>/<dateiname>`.
+///
+/// CloudKit-Hinweis: Kein `@Attribute(.unique)` auf der ID — CloudKit
+/// erlaubt keine Unique-Constraints. UUIDs aus `UUID()` sind praktisch
+/// kollisionsfrei.
 @Model
 final class GespeichertesDokument {
     var id: UUID = UUID()
-    var erfasstAm: Date = Date()
+    var erstelltAm: Date = Date()
 
-    /// Relativer Pfad unter App-Documents, z.B. "Scans/scan-20260420-194530.pdf".
+    /// Reiner Dateiname (z.B. "2026-04-20_Rechnung_GASAG_Jahr-2025.pdf").
     var dateiname: String = ""
-    /// Relativer Pfad zum Thumbnail, z.B. "Scans/Thumbnails/....jpg".
+    /// Relativer Pfad unter App-Documents, inkl. Jahres-Unterordner,
+    /// z.B. "Scans/2026/2026-04-20_Rechnung_GASAG_Jahr-2025.pdf".
+    var dateipfadRelativ: String = ""
+    /// 300×300-JPG-Thumbnail (erste Seite) für die Liste.
     var thumbnailPfad: String = ""
 
     var dateigroesseBytes: Int = 0
-    var seitenAnzahl: Int = 1
+    var seitenanzahl: Int = 1
 
-    /// String-Backing (CloudKit-Robustheit, Enum-Evolution).
+    /// String-Backing für CloudKit-Robustheit + Enum-Evolution.
+    private var dokumenttypRoh: String = Dokumenttyp.sonstiges.rawValue
+    var dokumenttyp: Dokumenttyp {
+        get { Dokumenttyp(rawValue: dokumenttypRoh) ?? .sonstiges }
+        set { dokumenttypRoh = newValue.rawValue }
+    }
+
     private var quelleRoh: String = DokumentQuelle.datei.rawValue
     var quelle: DokumentQuelle {
-        get { DokumentQuelle(rawValue: quelleRoh) ?? .datei }
+        get {
+            // Migration vom alten "galerie" auf "mediathek"
+            if quelleRoh == "galerie" { return .mediathek }
+            return DokumentQuelle(rawValue: quelleRoh) ?? .datei
+        }
         set { quelleRoh = newValue.rawValue }
     }
 
-    /// Optionaler Typ-Hinweis, wird in Task 1.2 via KI-Klassifikation
-    /// gesetzt (z.B. "rechnung-gas", "zaehlerstand-foto", "sonstiges").
-    /// Leer = noch unklassifiziert.
-    var typ: String = ""
-
-    /// Zuordnung zu genau EINER Entität — Rechnung oder Zählerstand
-    /// oder nichts. Die Gegenrichtung hängt Rechnung/Zählerstand an,
-    /// siehe @Relationship-Inverse unten.
-    var rechnung: Rechnung?
-    var zaehlerstand: Zaehlerstand?
+    /// Versorger / Aussteller, freitext (z.B. "GASAG", "BWB"). Optional.
+    var versorger: String?
+    /// Kontext-Zusatz für den Dateinamen (z.B. "Kalenderjahr-2025").
+    var kontext: String?
+    /// Betrag brutto falls vom User erfasst.
+    var betragBrutto: Decimal?
+    /// Dokument-Datum (auf Rechnung ausgewiesenes Datum), optional.
+    var dokumentdatum: Date?
+    /// Einheit-Zuordnung: nil = objektweit, sonst "KG"/"EG"/"OG".
+    var einheitId: String?
+    /// Freier Notiztext.
+    var notiz: String?
 
     init() {}
 }
