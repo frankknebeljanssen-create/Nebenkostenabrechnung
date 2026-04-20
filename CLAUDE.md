@@ -189,6 +189,58 @@ Warnungen werden in der Abrechnung protokolliert.
 
 ---
 
+## Design-System
+
+Die neue UI (Phase 1 ab Task UI-0) kommt aus dem Claude-Design-Handoff
+(`design_handoff_nebenkosten_app/`). Regeln:
+
+### Single Source of Truth
+
+- **Farben:** `Core/Design/DesignTokens.swift` ist 1:1 aus
+  `design_handoff_nebenkosten_app/assets/tokens.jsx` übernommen.
+  Hex-Werte Zeichen für Zeichen. Nicht „ungefähr ähnlich".
+- **Accent:** Product-Owner-Wahl ist **Blue `#3A5578`**, nicht das
+  Default-Slate `#4B5563` aus tokens.jsx. Begründung: Klarere
+  visuelle Trennung zwischen Scope-Farben (unitObjekt bleibt Slate)
+  und dem App-Accent.
+- **Fonts:** IBM Plex Sans + IBM Plex Mono, sechs Schnitte in
+  `Resources/Fonts/`. System-Fonts nur als Fallback bei Ladefehlern.
+  Kontroll-Screen: `UI/Debug/FontProbeView`.
+- **Typografie:** `Core/Design/AppFont.swift` — View-Modifier
+  `.appFont(_:)` setzt Font + Tracking + optional Uppercase in einem
+  Aufruf. Alle Geld- und Messwerte verwenden IBM Plex Mono
+  (`monoLarge`, `monoHero`, `statValue`, …).
+- **Formatierung:** `Core/Design/Formatting.swift` — de_DE-Locale
+  hart, U+2212 MINUS für negative Beträge (nicht ASCII-Hyphen),
+  U+2013 EN-DASH für Perioden.
+
+### Navigation & Shell
+
+- **5-Tab-TabBar:** Übersicht · Zähler · Rechnungen · Belege ·
+  Abrechnungen. Einstellungen ist KEIN Tab, sondern Toolbar-Button
+  rechts oben in jedem Tab (siehe `UI/Shell/AppShellChrome`).
+- **Floating Inspektor-Button:** 48 pt-Kreis in Accent-Farbe, unten
+  rechts 72 pt über der TabBar. Öffnet das "Was fehlt noch?"-Sheet.
+- **ScopeStrip:** 32 pt-Band unterhalb der NavigationBar, farbig
+  nach aktivem Scope (Objekt / KG / EG / OG). Tap öffnet den
+  Scope-Picker.
+- **Chrome:** `AppShellChrome`-ViewModifier hängt an jeden Tab-
+  Content ein einheitliches Layout an (Adress-Button + Plex-Sans-
+  Titel 30 pt + optional Subtitel + ScopeStrip).
+
+### Was noch NICHT gemacht ist
+
+- **Dark-Mode:** Phase 1 ist Light-Only. Dark-Mode-Overrides werden
+  in einem späteren Task nachgeliefert.
+- **Phase-0-Views:** `RootTabView` und die darin aufgerufenen
+  Dashboards/Listen bleiben als Debug-Zugriff im
+  `EinstellungenSheet` erreichbar. Das Debug-Menü wird nach
+  Abschluss von UI-1 … UI-3 wieder entfernt.
+- **Animations-Feinheiten:** erst in UI-2/UI-3 — in UI-0 nur
+  Default-Transitions.
+
+---
+
 ## Scope-Konzept
 
 Die App kennt zwei Scopes — Anzeigeperspektiven, zwischen denen der User
