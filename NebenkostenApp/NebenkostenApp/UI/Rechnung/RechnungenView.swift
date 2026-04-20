@@ -29,6 +29,7 @@ import SwiftData
 
 struct RechnungenView: View {
     @Environment(ScopeManager.self) private var scope
+    @Environment(AppShellRouter.self) private var router
     @Query(sort: \Immobilie.erstelltAm) private var immobilien: [Immobilie]
 
     @State private var zeigeScopePicker = false
@@ -36,6 +37,12 @@ struct RechnungenView: View {
     @State private var zeigeNeu = false
     @State private var auswahl: Rechnung?
     @State private var suchtext: String = ""
+
+    /// Kostenart-Ränge (aus betrKvRang), die aktuell aufgeklappt
+    /// sind. Initial aus UserDefaults + Default-Heizung (Rang 1).
+    /// Der Router kann durch Sprungziel einen Rang erzwingen.
+    @State private var offeneRaenge: Set<Int> = []
+    @State private var initialLayoutGeladen = false
 
     private var immobilie: Immobilie? { immobilien.first }
 
@@ -85,6 +92,50 @@ struct RechnungenView: View {
         .sheet(item: $auswahl) { r in
             RechnungEditView(modus: .bearbeiten(r))
         }
+        .onAppear {
+            if !initialLayoutGeladen {
+                ladeOffeneRaenge()
+                initialLayoutGeladen = true
+            }
+        }
+        .onChange(of: router.aktuellesSprungziel) { _, neu in
+            reagiereAufSprungziel(neu)
+        }
+    }
+
+    // MARK: - Sprungziel-Integration
+
+    /// Initialer Zustand der CollapsibleSections je Kostenart-Rang.
+    /// Lädt aus UserDefaults `rechnungen.kostenart.<rang>.open`;
+    /// Default: nur Rang 1 (Heizung & Warmwasser) offen.
+    private func ladeOffeneRaenge() {
+        var raenge: Set<Int> = []
+        for def in Self.betrKvDefinition {
+            let key = "rechnungen.kostenart.\(def.rang).open"
+            if UserDefaults.standard.object(forKey: key) != nil {
+                if UserDefaults.standard.bool(forKey: key) {
+                    raenge.insert(def.rang)
+                }
+            } else if def.rang == 1 {
+                raenge.insert(def.rang)
+            }
+        }
+        offeneRaenge = raenge
+    }
+
+    /// Antwort auf ein vom Router gesetztes Sprungziel: Wenn wir
+    /// eine Kostenart-Navigation bekommen, klappen wir den
+    /// passenden Rang auf und quittieren den Router.
+    private func reagiereAufSprungziel(_ ziel: Sprungziel?) {
+        guard case .rechnungKostenart(let id) = ziel else { return }
+        guard let ka = (immobilie?.kostenarten ?? []).first(where: { $0.id == id }) else {
+            router.quittiere()
+            return
+        }
+        let rang = Self.betrKvRang(ka.bezeichnung)
+        offeneRaenge.insert(rang)
+        UserDefaults.standard.set(true, forKey: "rechnungen.kostenart.\(rang).open")
+        router.quittiere()
     }
 
     // MARK: - Suchfeld (eigener Input-Style laut Spec)
@@ -190,7 +241,12 @@ struct RechnungenView: View {
             summary: Formatting.euro(g.summe),
             count: g.rechnungen.count,
             persistKey: "rechnungen.kostenart.\(g.rang).open",
-            defaultOffen: g.rang == 1  // Heizung & Warmwasser
+            defaultOffen: g.rang == 1,  // Heizung & Warmwasser
+            istOffenExtern: offeneRaenge.contains(g.rang),
+            onToggle: { neu in
+                if neu { offeneRaenge.insert(g.rang) }
+                else   { offeneRaenge.remove(g.rang) }
+            }
         ) {
             VStack(spacing: 0) {
                 ForEach(Array(g.rechnungen.enumerated()), id: \.element.id) { idx, r in

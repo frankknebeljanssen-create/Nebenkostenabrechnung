@@ -27,6 +27,14 @@ struct CollapsibleSection<Content: View>: View {
     let summary: String?
     let persistKey: String?
     let defaultOffen: Bool
+    /// Optional externer Status. Wenn gesetzt, überschreibt er den
+    /// lokalen @State — die Parent-View steuert den Open-State,
+    /// z.B. um via Router ein Sprungziel zu öffnen.
+    let istOffenExtern: Bool?
+    /// Callback bei Toggle-Tap. Muss gesetzt werden, wenn
+    /// `istOffenExtern` verwendet wird, sonst geht der Tap ins
+    /// Leere. Ohne Binding wird der interne State gekippt.
+    let onToggle: ((Bool) -> Void)?
     @ViewBuilder let content: () -> Content
 
     @State private var lokalOffen: Bool
@@ -37,6 +45,8 @@ struct CollapsibleSection<Content: View>: View {
         count: Int? = nil,
         persistKey: String? = nil,
         defaultOffen: Bool = false,
+        istOffenExtern: Bool? = nil,
+        onToggle: ((Bool) -> Void)? = nil,
         @ViewBuilder content: @escaping () -> Content
     ) {
         self.titel = titel
@@ -47,6 +57,8 @@ struct CollapsibleSection<Content: View>: View {
         self.summary = summary
         self.persistKey = persistKey
         self.defaultOffen = defaultOffen
+        self.istOffenExtern = istOffenExtern
+        self.onToggle = onToggle
         let initial: Bool
         if let k = persistKey, UserDefaults.standard.object(forKey: k) != nil {
             initial = UserDefaults.standard.bool(forKey: k)
@@ -57,10 +69,16 @@ struct CollapsibleSection<Content: View>: View {
         self.content = content
     }
 
+    /// Effektiver Open-Status: externer Override (wenn vorhanden)
+    /// schlägt internen State.
+    private var effektivOffen: Bool {
+        istOffenExtern ?? lokalOffen
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             headerButton
-            if lokalOffen {
+            if effektivOffen {
                 card
                     .transition(.asymmetric(
                         insertion: .opacity.combined(with: .move(edge: .top)),
@@ -68,7 +86,7 @@ struct CollapsibleSection<Content: View>: View {
                     ))
             }
         }
-        .animation(.easeOut(duration: 0.2), value: lokalOffen)
+        .animation(.easeOut(duration: 0.2), value: effektivOffen)
     }
 
     // MARK: - Header-Button (auf bgApp, kein Card)
@@ -78,7 +96,7 @@ struct CollapsibleSection<Content: View>: View {
             toggle()
         } label: {
             HStack(spacing: 8) {
-                Image(systemName: lokalOffen ? "chevron.down" : "chevron.right")
+                Image(systemName: effektivOffen ? "chevron.down" : "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(DesignTokens.textTertiary)
                 Text(titel)
@@ -116,9 +134,16 @@ struct CollapsibleSection<Content: View>: View {
     // MARK: - Toggle
 
     private func toggle() {
-        lokalOffen.toggle()
+        let neu = !effektivOffen
+        if let cb = onToggle {
+            cb(neu)
+        } else {
+            lokalOffen = neu
+        }
+        // persistKey schreibt unabhängig vom Modus, damit Defaults
+        // beim nächsten App-Start konsistent bleiben.
         if let k = persistKey {
-            UserDefaults.standard.set(lokalOffen, forKey: k)
+            UserDefaults.standard.set(neu, forKey: k)
         }
     }
 }
