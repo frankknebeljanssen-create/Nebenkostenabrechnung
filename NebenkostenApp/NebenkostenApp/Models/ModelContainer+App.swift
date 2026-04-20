@@ -28,24 +28,36 @@ extension ModelContainer {
         WarnungsAudit.self
     ]
 
-    /// Schaltet den CloudKit-Sync ein/aus. Muss in Task 0.21 auf `true`
-    /// gestellt werden, sobald
-    ///   - der Developer Account bei Apple aktiv ist,
-    ///   - der iCloud-Container `iCloud.com.example.NebenkostenApp` im
-    ///     Developer Portal angelegt ist,
-    ///   - die iCloud-Capability im Xcode-Target aktiviert ist.
+    /// Schaltet den CloudKit-Sync ein/aus.
+    ///
+    /// Aktivierungs-Checkliste (Task 0.21):
+    ///   1. Apple Developer Account aktiv
+    ///   2. Bundle-ID auf echten Reverse-DNS-Namen umstellen (aktuell
+    ///      Placeholder `com-example.NebenkostenApp`) — in Xcode Target →
+    ///      General → Identity → Bundle Identifier
+    ///   3. iCloud-Container im Developer Portal anlegen mit Identifier
+    ///      `iCloudContainerIdentifier` (siehe Konstante unten)
+    ///   4. Xcode Target → Signing & Capabilities → "+Capability" →
+    ///      iCloud → CloudKit aktivieren, Container aus Schritt 3 wählen
+    ///   5. Flag hier auf `true` flippen
+    ///   6. Auf echtem Gerät laufen (Simulator kann CloudKit nur mit
+    ///      angemeldeter iCloud-ID, aber die Preview-DBs sind unstable)
     ///
     /// Solange `false`: reiner lokaler SwiftData-Betrieb. Vermeidet den
     /// SwiftData-internen CloudKit-Init, der bei fehlender Entitlement
     /// mit NSException bricht (nicht über Swift-`throws` abfangbar).
     static let cloudKitAktiv = false
 
+    /// CloudKit-Container-Identifier. Muss identisch zum iCloud-Container
+    /// in den Xcode Capabilities sein. Bei echtem Launch den Placeholder
+    /// durch eine Reverse-DNS des User-Team-Accounts ersetzen, z.B.
+    /// `iCloud.de.frankknebeljanssen.NebenkostenApp`. Der Identifier muss
+    /// MINUSKEL beginnen und darf Punkte enthalten, aber KEINE Underscores.
+    static let iCloudContainerIdentifier = "iCloud.com.example.NebenkostenApp"
+
     /// Haupt-Container für die App. Versucht — falls `cloudKitAktiv` — den
     /// privaten CloudKit-Container und fällt bei Swift-Errors auf lokales
     /// SwiftData zurück. Bis dahin: nur lokaler Store.
-    ///
-    /// Der Container-Identifier muss identisch zum iCloud-Container in den
-    /// Xcode Capabilities sein. Beim Produktiv-Launch Placeholder ersetzen.
     static func app() throws -> ModelContainer {
         let schema = Schema(alleSchemaTypen)
 
@@ -54,7 +66,7 @@ extension ModelContainer {
                 let cloudConfig = ModelConfiguration(
                     schema: schema,
                     isStoredInMemoryOnly: false,
-                    cloudKitDatabase: .private("iCloud.com.example.NebenkostenApp")
+                    cloudKitDatabase: .private(iCloudContainerIdentifier)
                 )
                 return try ModelContainer(for: schema, configurations: [cloudConfig])
             } catch {
