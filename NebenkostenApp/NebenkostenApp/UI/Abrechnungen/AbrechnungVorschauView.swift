@@ -14,6 +14,8 @@ struct AbrechnungVorschauView: View {
     let periode: Abrechnungsperiode
     @Bindable var immobilie: Immobilie
 
+    @Environment(ScopeManager.self) private var scopeManager
+
     @State private var zeigeInspektor = false
     @State private var zeigeNeueRechnung = false
     @State private var zuErfassenderZaehler: Zaehler?
@@ -26,9 +28,10 @@ struct AbrechnungVorschauView: View {
 
     private var status: VorschauStatus {
         do {
-            let a = try AbrechnungsService.aggregiere(periode: periode, immobilie: immobilie)
-            if a.isEmpty { return .leer }
-            return .bereit(abrechnungen: a)
+            let alle = try AbrechnungsService.aggregiere(periode: periode, immobilie: immobilie)
+            let gefiltert = scopeGefiltert(alle)
+            if gefiltert.isEmpty { return .leer }
+            return .bereit(abrechnungen: gefiltert)
         } catch let err as AbrechnungsBlocker {
             if case .fehlendeDaten(let offene) = err {
                 return .blockiert(offene: offene)
@@ -36,6 +39,17 @@ struct AbrechnungVorschauView: View {
             return .leer
         } catch {
             return .leer
+        }
+    }
+
+    /// Einheit-Scope → nur die Abrechnung dieser Einheit. Objekt-Scope
+    /// → alle.
+    private func scopeGefiltert(_ alle: [Mieterabrechnung]) -> [Mieterabrechnung] {
+        switch scopeManager.scope {
+        case .objekt:
+            return alle
+        case .einheit(let id):
+            return alle.filter { $0.einheitBezeichnung == id }
         }
     }
 
@@ -55,8 +69,10 @@ struct AbrechnungVorschauView: View {
             .padding(16)
         }
         .background(Color(.systemGroupedBackground))
-        .navigationTitle("Vorschau")
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar { ScopePickerToolbar(immobilie: immobilie) }
+        .scopeIndicator(immobilie: immobilie)
         .navigationDestination(for: Mieterabrechnung.self) { a in
             MieterAbrechnungsDetailView(abrechnung: a, periode: periode, immobilie: immobilie)
         }

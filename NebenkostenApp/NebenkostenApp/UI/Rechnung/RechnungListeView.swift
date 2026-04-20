@@ -13,6 +13,8 @@ import SwiftData
 struct RechnungListeView: View {
     @Bindable var immobilie: Immobilie
 
+    @Environment(ScopeManager.self) private var scopeManager
+
     @State private var zeigeNeu = false
     @State private var auswahl: Rechnung?
     @State private var suchtext = ""
@@ -40,9 +42,10 @@ struct RechnungListeView: View {
         }
         .background(Color(.systemGroupedBackground))
         .searchable(text: $suchtext, prompt: "Versorger, Rechnungsnummer oder Betrag")
-        .navigationTitle("Rechnungen")
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ScopePickerToolbar(immobilie: immobilie)
             ToolbarItem(placement: .primaryAction) {
                 Button {
                     zeigeNeu = true
@@ -51,6 +54,7 @@ struct RechnungListeView: View {
                 }
             }
         }
+        .scopeIndicator(immobilie: immobilie)
         .sheet(isPresented: $zeigeNeu) {
             RechnungEditView(modus: .neu(immobilie: immobilie))
         }
@@ -189,10 +193,33 @@ struct RechnungListeView: View {
 
             Spacer()
 
-            Text(formatiertBetrag(r.betragBruttoEuro))
-                .font(.callout.monospacedDigit())
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(formatiertBetrag(r.betragBruttoEuro))
+                    .font(.callout.monospacedDigit())
+                if let (id, anteil) = einheitAnteil(r) {
+                    Text("davon \(id) ca. \(formatiertBetrag(anteil))")
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
         .contentShape(Rectangle())
+    }
+
+    /// Flächen-Näherung pro Einheit. Nur bei Einheit-Scope und wenn
+    /// Immobilie eine Gesamtfläche und die Einheit eine Fläche hat.
+    /// Das ist KEIN Abrechnungswert (Heizung/Wasser werden anders
+    /// umgelegt), sondern eine Orientierungshilfe — deshalb "ca."
+    /// im Label.
+    private func einheitAnteil(_ r: Rechnung) -> (String, Decimal)? {
+        guard case .einheit(let id) = scopeManager.scope else { return nil }
+        guard let einheit = (immobilie.wohneinheiten ?? [])
+            .first(where: { $0.bezeichnung == id }),
+            immobilie.gesamtflaecheM2 > 0,
+            einheit.flaecheM2 > 0
+        else { return nil }
+        let anteil = r.betragBruttoEuro * einheit.flaecheM2 / immobilie.gesamtflaecheM2
+        return (id, anteil)
     }
 
     // MARK: - Leerzustände

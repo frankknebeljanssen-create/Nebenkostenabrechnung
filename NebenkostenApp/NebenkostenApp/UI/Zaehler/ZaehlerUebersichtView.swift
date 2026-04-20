@@ -17,6 +17,8 @@ struct ZaehlerUebersichtsZiel: Hashable {
 struct ZaehlerUebersichtView: View {
     @Bindable var immobilie: Immobilie
 
+    @Environment(ScopeManager.self) private var scopeManager
+
     @State private var gewaehltePeriodeID: UUID?
     @State private var navigationZiel: Zaehler?
 
@@ -34,13 +36,15 @@ struct ZaehlerUebersichtView: View {
             .padding(16)
         }
         .background(Color(.systemGroupedBackground))
-        .navigationTitle("Zähler")
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ScopePickerToolbar(immobilie: immobilie)
             ToolbarItem(placement: .primaryAction) {
                 periodeMenu
             }
         }
+        .scopeIndicator(immobilie: immobilie)
         .navigationDestination(item: $navigationZiel) { zaehler in
             ZaehlerDetailView(zaehler: zaehler)
         }
@@ -49,10 +53,26 @@ struct ZaehlerUebersichtView: View {
 
     // MARK: - Daten
 
+    /// Alle Zähler der Immobilie (Einheit + Haupt).
     private var alleZaehler: [Zaehler] {
         let einheit = (immobilie.wohneinheiten ?? []).flatMap { $0.zaehler ?? [] }
         let haupt = immobilie.hauptzaehler ?? []
         return einheit + haupt
+    }
+
+    /// Scope-gefilterte Sicht: bei Einheit-Scope nur die Einheit-Zähler +
+    /// Hauptzähler (Hauptzähler bleiben als Info-Zeile, sind objektweit).
+    private var sichtbareZaehler: [Zaehler] {
+        switch scopeManager.scope {
+        case .objekt:
+            return alleZaehler
+        case .einheit(let id):
+            let einheitZaehler = (immobilie.wohneinheiten ?? [])
+                .first(where: { $0.bezeichnung == id })?
+                .zaehler ?? []
+            let haupt = immobilie.hauptzaehler ?? []
+            return einheitZaehler + haupt
+        }
     }
 
     private var perioden: [Abrechnungsperiode] {
@@ -84,7 +104,7 @@ struct ZaehlerUebersichtView: View {
         var ist = 0
         var offA = 0
         var offE = 0
-        for z in alleZaehler {
+        for z in sichtbareZaehler {
             let staendeInP = (z.staende ?? [])
                 .filter { $0.ablesedatum >= p.von && $0.ablesedatum <= p.bis }
             let n = staendeInP.count
@@ -92,7 +112,7 @@ struct ZaehlerUebersichtView: View {
             if n == 0 { offA += 1; offE += 1 }
             else if n == 1 { offE += 1 }
         }
-        let soll = alleZaehler.count * 2
+        let soll = sichtbareZaehler.count * 2
         return (ist, soll, offA, offE)
     }
 
@@ -172,7 +192,7 @@ struct ZaehlerUebersichtView: View {
     }
 
     private var gruppen: [Gruppe] {
-        let alle = alleZaehler
+        let alle = sichtbareZaehler
         var buckets: [Int: (titel: String, symbol: String, tint: Color, zaehler: [Zaehler])] = [:]
 
         for z in alle {
@@ -261,7 +281,7 @@ struct ZaehlerUebersichtView: View {
 
     private var naechsterOffenerZaehler: Zaehler? {
         guard let p = aktivePeriode else { return nil }
-        return alleZaehler.first { z in
+        return sichtbareZaehler.first { z in
             let n = (z.staende ?? [])
                 .filter { $0.ablesedatum >= p.von && $0.ablesedatum <= p.bis }
                 .count
