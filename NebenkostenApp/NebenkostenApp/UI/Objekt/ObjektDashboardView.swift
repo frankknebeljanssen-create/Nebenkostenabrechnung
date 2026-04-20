@@ -11,6 +11,7 @@ struct ObjektDashboardView: View {
 
     @Query(sort: \Immobilie.erstelltAm) private var alleImmobilien: [Immobilie]
     @Environment(ObjektWahl.self) private var objektWahl
+    @Environment(ScopeManager.self) private var scopeManager
 
     @State private var gewaehltePeriodeID: UUID?
     @State private var zeigeNeuesObjektSheet = false
@@ -39,8 +40,10 @@ struct ObjektDashboardView: View {
             .padding(.horizontal, 16)
         }
         .background(Color(.systemGroupedBackground))
-        .navigationTitle("Objekt")
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ScopePickerToolbar(immobilie: immobilie)
             ToolbarItem(placement: .primaryAction) {
                 Button {
                     zeigeInspektor = true
@@ -51,7 +54,11 @@ struct ObjektDashboardView: View {
                 .disabled(aktivePeriode == nil)
             }
         }
-        .onAppear(perform: waehleDefaultPeriode)
+        .scopeIndicator(immobilie: immobilie)
+        .onAppear {
+            waehleDefaultPeriode()
+            bereinigeScope()
+        }
         .sheet(isPresented: $zeigeNeuesObjektSheet) {
             NeuesObjektSheet { angelegt in
                 objektWahl.setze(angelegt.id)
@@ -123,6 +130,13 @@ struct ObjektDashboardView: View {
         if gewaehltePeriodeID == nil {
             gewaehltePeriodeID = defaultPeriode?.id
         }
+    }
+
+    /// Falls der persistierte Scope auf eine Einheit verweist, die
+    /// nicht (mehr) zu dieser Immobilie gehört: zurück auf .objekt.
+    private func bereinigeScope() {
+        let ids = Set((immobilie.wohneinheiten ?? []).map(\.bezeichnung))
+        scopeManager.bereinige(verfuegbareEinheitIDs: ids)
     }
 
     // MARK: - Sektionen

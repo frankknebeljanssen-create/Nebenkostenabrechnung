@@ -153,6 +153,12 @@ final class Wohneinheit {
     /// Wohnt der Vermieter selbst in dieser Einheit? Relevant für §35a EStG.
     var selbstnutzung: Bool = false
 
+    /// Farbkennung der Einheit als Hex-Code (z.B. "#FFAA00"). Wird für
+    /// den ScopeIndicator verwendet, damit der User auf einen Blick
+    /// sieht in welcher Einheit er gerade ist. Leer = Default-Farbe aus
+    /// Geschoss-Rang (KG=lila, EG=blau, OG=grün, sonst orange).
+    var farbkennungHex: String = ""
+
     // MARK: Relationships
 
     var immobilie: Immobilie?
