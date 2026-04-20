@@ -66,7 +66,32 @@ struct Mieterabrechnung: Identifiable, Hashable, Sendable {
 @MainActor
 enum AbrechnungsService {
 
+    /// Aggregiert die Mieterabrechnungen für die Periode — mit striktem
+    /// Pre-Flight-Check. Wirft `AbrechnungsBlocker.fehlendeDaten(…)`,
+    /// sobald eine offene Anforderung existiert (keine Extrapolation,
+    /// keine Schätzwerte). `.teilweise`-Status (z.B. Zählerwechsel mit
+    /// kompensierender Hauptrechnung, §35a-Lohnanteil fehlt, ungeprüfte
+    /// Rechnung) ist NICHT blockend — der Betrag steht, nur Meta-Info
+    /// ist unvollständig. Solche Fälle tauchen im Inspektor als
+    /// "in Arbeit" auf.
     static func aggregiere(
+        periode: Abrechnungsperiode,
+        immobilie: Immobilie
+    ) throws -> [Mieterabrechnung] {
+        let anforderungen = VollstaendigkeitsPruefung.pruefe(
+            immobilie: immobilie, periode: periode
+        )
+        let offene = anforderungen.filter { $0.status == .offen }
+        if !offene.isEmpty {
+            throw AbrechnungsBlocker.fehlendeDaten(offeneAnforderungen: offene)
+        }
+        return aggregiereIntern(periode: periode, immobilie: immobilie)
+    }
+
+    /// Interne aggregiere-Logik ohne Pre-Flight. Wird vom throwing
+    /// `aggregiere(…)` aufgerufen, nachdem die Datenvollständigkeit
+    /// bestätigt wurde.
+    private static func aggregiereIntern(
         periode: Abrechnungsperiode,
         immobilie: Immobilie
     ) -> [Mieterabrechnung] {

@@ -53,7 +53,7 @@ struct AbrechnungBahnhofstr37EndToEndTest {
         let periode2024 = perioden.first!
 
         // --- Service-Output ---
-        let abrechnungen = AbrechnungsService.aggregiere(
+        let abrechnungen = try AbrechnungsService.aggregiere(
             periode: periode2024, immobilie: immobilie
         )
         let og = abrechnungen.first(where: { $0.einheitBezeichnung == "OG" })!

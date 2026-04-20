@@ -285,6 +285,10 @@ enum SeedData {
         fuer immobilie: Immobilie,
         context: ModelContext
     ) {
+        // Bahnhofstr.: Schornsteinfeger landet im Heiz-Nebenkosten-Pool
+        // (siehe kostenartNachRechnung "kirschnereit" → "Heizung und
+        // Warmwasser"), daher keine eigene Kostenart. Für Anlagen ohne
+        // Heiz-Pool kann der User sie später manuell anlegen.
         let entwuerfe: [KostenartEntwurf] = [
             .init(bezeichnung: "Grundsteuer",                 betrKv: "1",      schluessel: .flaeche,         p35a: false, nurLohn: false),
             .init(bezeichnung: "Be- und Entwässerung",        betrKv: "2 + 3",  schluessel: .verbrauch,       p35a: false, nurLohn: false),
@@ -294,7 +298,6 @@ enum SeedData {
             .init(bezeichnung: "Gartenpflege",                betrKv: "10",     schluessel: .flaeche,         p35a: true,  nurLohn: true),
             .init(bezeichnung: "Gebäudereinigung",            betrKv: "9",      schluessel: .flaeche,         p35a: true,  nurLohn: false),
             .init(bezeichnung: "Schnee- und Eisbeseitigung",  betrKv: "8",      schluessel: .flaeche,         p35a: true,  nurLohn: true),
-            .init(bezeichnung: "Schornsteinfeger",            betrKv: "4a",     schluessel: .flaeche,         p35a: true,  nurLohn: false),
             .init(bezeichnung: "Allgemeinstrom",              betrKv: "11",     schluessel: .flaeche,         p35a: false, nurLohn: false)
         ]
 
