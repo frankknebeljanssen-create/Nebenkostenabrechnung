@@ -225,6 +225,15 @@ enum VollstaendigkeitsPruefung {
     ) -> (AnforderungsStatus, String?) {
         if rechnungen.isEmpty { return (.offen, nil) }
 
+        // STRIKTE-DATEN-Regel: AI-Vorschlags-Rechnungen sind NICHT
+        // berechnungstauglich. Eine einzige unvalidierte Rechnung
+        // blockiert die gesamte Kostenart, damit der AbrechnungsService
+        // keine halb-geratenen Zahlen in die Abrechnung nimmt.
+        let unvalidiert = rechnungen.filter { !$0.validierungsStatus.istBerechnungstauglich }
+        if !unvalidiert.isEmpty {
+            return (.offen, "\(unvalidiert.count) KI-Vorschlag\(unvalidiert.count == 1 ? "" : "-Rechnungen") noch nicht validiert")
+        }
+
         // Kostenart §35a-relevant: Warnung, wenn Lohnanteil fehlt.
         if kostenart.paragraph35a {
             let ohneLohn = rechnungen.filter { $0.lohnanteilBruttoEuro == nil }

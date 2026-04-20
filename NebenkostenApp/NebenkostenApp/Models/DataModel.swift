@@ -441,12 +441,60 @@ final class Rechnung {
     /// Wurde die Rechnung bereits geprüft/freigegeben?
     var geprueft: Bool = false
 
+    /// Validierungs-Status — bestimmt, ob diese Rechnung für eine
+    /// Abrechnung verwendet werden darf. Nach Task "Strikte Daten"
+    /// sind nur `manuell`, `validiert` und `importiert` berechnungs-
+    /// tauglich. Ein `aiVorschlag` blockiert die Berechnung.
+    ///
+    /// Gespeichert als Roh-String, damit bestehende Stores (ohne
+    /// diese Spalte) nicht crashen — Default ist `importiert`, weil
+    /// Phase-0-Bestandsdaten durch die JSON-Seeds als validiert
+    /// gelten.
+    private var validierungsStatusRoh: String = ValidierungsStatus.importiert.rawValue
+
+    var validierungsStatus: ValidierungsStatus {
+        get { ValidierungsStatus(rawValue: validierungsStatusRoh) ?? .importiert }
+        set { validierungsStatusRoh = newValue.rawValue }
+    }
+
     // MARK: Relationships
 
     var immobilie: Immobilie?
     var kostenart: Kostenart?
 
     init() {}
+}
+
+/// Validierungs-Status einer Rechnung.
+enum ValidierungsStatus: String, Codable, CaseIterable, Sendable {
+    /// Vom User händisch erfasst — gilt als validiert.
+    case manuell
+    /// AI-Vorschlag, vom User explizit bestätigt — gilt als validiert.
+    case validiert
+    /// AI-Vorschlag, noch unvalidiert — BLOCKIERT Berechnungen.
+    case aiVorschlag
+    /// Aus JSON-Import (Phase-0-Seed oder Benutzer-Export) — gilt
+    /// als validiert (Einmalzustand).
+    case importiert
+
+    /// `true`, wenn diese Rechnung für eine Berechnung verwendet
+    /// werden darf. Der Pre-Flight-Check nutzt diese Semantik
+    /// (siehe PreFlightService.rechnungsAnforderungen).
+    var istBerechnungstauglich: Bool {
+        switch self {
+        case .manuell, .validiert, .importiert: return true
+        case .aiVorschlag: return false
+        }
+    }
+
+    var anzeigeName: String {
+        switch self {
+        case .manuell:     return "Manuell"
+        case .validiert:   return "Validiert"
+        case .aiVorschlag: return "KI-Vorschlag"
+        case .importiert:  return "Importiert"
+        }
+    }
 }
 
 // MARK: - Abrechnungsperiode
