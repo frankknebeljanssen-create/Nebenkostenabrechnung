@@ -189,27 +189,105 @@ Warnungen werden in der Abrechnung protokolliert.
 
 ---
 
+## Typografie-Policy
+
+### Quelle
+
+`design_handoff/typografie-spec.html` ist die verbindliche
+Typografie-Referenz. Jede Änderung an Fonts oder Größen verlangt
+ein Update der Spec — nicht Code-Drift. Die Spec deckt sechs
+Screens + Basis-Skala ab (Rechnungen, Dashboard, Zähler,
+Abrechnung-Detail, Dokumente/Validierung, Chrome).
+
+### Zwei-Font-Regel
+
+- **IBM Plex Sans** — alle Texte, Labels, UI-Chrome. Gewichte
+  400 / 500 / 600 / 700.
+- **IBM Plex Mono** — alle Zahlen, Datumsangaben, Zählerstände,
+  Euro-Beträge, Prozente, m². Gewichte 400 / 500 / 600 (**KEIN
+  700** laut Spec — `IBMPlexMono-Bold` wird nicht gebundelt und
+  darf im Code nicht angefordert werden).
+
+**In einer Zeile niemals Sans und Mono mischen.** Für Mischzeilen
+gibt es dedizierte Components in `Core/Design/TextComponents.swift`:
+- `LabelMitBetrag(label:, betrag:)` — Label Sans links + Betrag
+  Mono rechts, Default-Styles sind die Rechnungen-Row-Kombination
+  (15/500 + Mono 15/600).
+- `DatumPeriodeZeile(rechnungsdatum:, periodeVon:, periodeBis:)`
+  — komplett Mono 11/400, weil beide Teile numerisch sind.
+
+**Verboten:** `Text("Label " + formatierterBetrag)`. Die
+Schriftart wechselt nicht innerhalb eines String-Literals, also
+muss jedes Sans/Mono-Paar zwei Text-Views haben.
+
+### AppFont-Kategorien
+
+`Core/Design/AppFont.swift` hat pro Screen ein eigenes Enum mit
+zeilengenauen Methoden aus der Spec. Jede Call-Site nennt ihre
+Screen-Rolle explizit:
+
+```swift
+Text(rechnung.lieferant).appFont(AppFont.Rechnungen.issuer())
+Text(Formatting.euro(betrag)).appFont(AppFont.Rechnungen.betrag())
+```
+
+Verfügbare Screens:
+- `AppFont.Basis`        — generische Rollen, screen-unabhängig.
+- `AppFont.Rechnungen`   — 13 Rollen der Rechnungen-Screen-Tabelle.
+- `AppFont.Dashboard`    — 11 Rollen inkl. KPI-Wert/Fortschritt.
+- `AppFont.Zaehler`      —  9 Rollen inkl. ANFANG/ENDE/VERBRAUCH.
+- `AppFont.Abrechnung`   —  9 Rollen inkl. Ergebnis-Hero.
+- `AppFont.Dokumente`    —  9 Rollen inkl. OCR-Volltext 10.5pt.
+- `AppFont.Chrome`       —  5 Rollen für TabBar + ScopeStrip +
+                            Sheet + Status-Pill.
+
+Legacy-Top-Level-Methoden (`AppFont.navTitle()`, `.bodyMedium()`,
+`.monoBody()` etc.) existieren als Abwärts-Kompatibilität — sie
+delegieren auf die Screen-/Basis-Enum-Methoden und liefern jetzt
+**automatisch die Spec-Werte**. Neuer Code nutzt direkt die
+Screen-Enums.
+
+### Größen-Änderungs-Prozess
+
+Wenn User eine Größe zu klein findet, gilt:
+
+1. **NICHT pauschal im Code bumpen.** UI-Fix-2/3 haben genau
+   das gemacht und wurden vom UI-Spec-Reset wieder zurückgenommen
+   — der Aufwand war unnötig und hat nur Drift erzeugt.
+2. Issue/Ticket mit Screenshot + Spec-Zeilen-Zitat.
+3. Claude Design aktualisiert die Spec.
+4. `design_handoff/typografie-spec.html` im Repo updaten.
+5. Code folgt der neuen Spec.
+
+Defaults sind bewusst dicht (Prinzip „Dichte Informationen" aus
+der Spec). Lesbarkeit wird durch **Weight, Tracking und Farbkon­
+trast** erreicht, nicht durch Größe.
+
 ## Design-System
 
-Die neue UI (Phase 1 ab Task UI-0) kommt aus dem Claude-Design-Handoff
-(`design_handoff_nebenkosten_app/`). Regeln:
+Die neue UI (Phase 1 ab Task UI-0) kommt aus dem Claude-Design-
+Handoff (`design_handoff_nebenkosten_app/` für Farben/Screens und
+`design_handoff/typografie-spec.html` für Typografie).
 
 ### Single Source of Truth
 
-- **Farben:** `Core/Design/DesignTokens.swift` ist 1:1 aus
-  `design_handoff_nebenkosten_app/assets/tokens.jsx` übernommen.
-  Hex-Werte Zeichen für Zeichen. Nicht „ungefähr ähnlich".
+- **Farben:** `Core/Design/DesignTokens.swift` hat die Hex-Werte
+  aus der Typografie-Spec 1:1. Neu gegenüber dem früheren
+  tokens.jsx: `bgSurfaceAlt` (#F1ECDF) + `textQuaternary`
+  (#B8B0A0). `unitObjektSoft` ist 10 % Alpha (Spec), nicht 12 %.
 - **Accent:** Product-Owner-Wahl ist **Blue `#3A5578`**, nicht das
-  Default-Slate `#4B5563` aus tokens.jsx. Begründung: Klarere
-  visuelle Trennung zwischen Scope-Farben (unitObjekt bleibt Slate)
-  und dem App-Accent.
+  Default-Slate `#4B5563` aus der Spec. Begründung: Klarere
+  visuelle Trennung zwischen Scope-Farben (unitObjekt bleibt
+  Slate) und dem App-Accent. `accentHover` (#304A6A) ist davon
+  abgeleitet — bei Slate-Wechsel auf Spec-Wert `#3F4852`
+  umstellen.
 - **Fonts:** IBM Plex Sans + IBM Plex Mono, sechs Schnitte in
-  `Resources/Fonts/`. System-Fonts nur als Fallback bei Ladefehlern.
-  Kontroll-Screen: `UI/Debug/FontProbeView`.
-- **Typografie:** `Core/Design/AppFont.swift` — View-Modifier
-  `.appFont(_:)` setzt Font + Tracking + optional Uppercase in einem
-  Aufruf. Alle Geld- und Messwerte verwenden IBM Plex Mono
-  (`monoLarge`, `monoHero`, `statValue`, …).
+  `Resources/Fonts/`. Plex-Sans-Bold (700) ist aktuell nicht
+  gebundelt — wird nur bei Bedarf nachgeladen. Plex-Mono-Bold
+  (700) ist **verboten** laut Spec-Footer.
+- **Typografie:** siehe Abschnitt „Typografie-Policy" weiter
+  oben. View-Modifier `.appFont(_:)` setzt Font + Tracking +
+  optional Uppercase in einem Aufruf.
 - **Formatierung:** `Core/Design/Formatting.swift` — de_DE-Locale
   hart, U+2212 MINUS für negative Beträge (nicht ASCII-Hyphen),
   U+2013 EN-DASH für Perioden.
