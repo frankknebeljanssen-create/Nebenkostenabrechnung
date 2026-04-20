@@ -8,10 +8,11 @@ import SwiftUI
 struct EinstellungenTabRoot: View {
     var body: some View {
         NavigationStack {
-            TabPlatzhalterView(
-                titel: "Einstellungen",
-                symbol: "gearshape"
-            )
+            Form {
+                DatenExportSection()
+                DatenLoeschungSection()
+                AboutSection()
+            }
             .navigationTitle("Einstellungen")
         }
     }

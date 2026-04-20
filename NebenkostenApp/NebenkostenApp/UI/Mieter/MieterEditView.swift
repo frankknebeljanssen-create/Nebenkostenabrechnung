@@ -251,7 +251,7 @@ struct MieterEditView: View {
 
     // MARK: - Formatierung
 
-    private static func parseBetrag(_ text: String) -> Decimal? {
+    nonisolated private static func parseBetrag(_ text: String) -> Decimal? {
         let normalisiert = text
             .replacingOccurrences(of: ".", with: "")
             .replacingOccurrences(of: ",", with: ".")
@@ -260,7 +260,7 @@ struct MieterEditView: View {
         return Decimal(string: normalisiert)
     }
 
-    private static func formatBetrag(_ betrag: Decimal) -> String {
+    nonisolated private static func formatBetrag(_ betrag: Decimal) -> String {
         let nf = NumberFormatter()
         nf.numberStyle = .decimal
         nf.locale = Locale(identifier: "de_DE")

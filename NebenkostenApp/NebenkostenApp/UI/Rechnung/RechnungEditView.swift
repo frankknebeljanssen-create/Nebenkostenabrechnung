@@ -269,7 +269,7 @@ struct RechnungEditView: View {
 
     // MARK: - Helfer
 
-    private static func parseBetrag(_ text: String) -> Decimal? {
+    nonisolated private static func parseBetrag(_ text: String) -> Decimal? {
         let normalisiert = text
             .replacingOccurrences(of: ".", with: "")   // Tausendertrennzeichen
             .replacingOccurrences(of: ",", with: ".")
@@ -278,7 +278,7 @@ struct RechnungEditView: View {
         return Decimal(string: normalisiert)
     }
 
-    private static func formatBetrag(_ betrag: Decimal) -> String {
+    nonisolated private static func formatBetrag(_ betrag: Decimal) -> String {
         let nf = NumberFormatter()
         nf.numberStyle = .decimal
         nf.locale = Locale(identifier: "de_DE")
