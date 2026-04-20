@@ -504,6 +504,61 @@ interpretiert — das darf nicht mehr passieren.
 
 ---
 
+## App-Einstieg (Splash + HomeScreen)
+
+Der Einstieg ist seit dem Home-Refactor zweistufig:
+
+### SplashView (~1 s)
+
+`UI/Shell/SplashView.swift` rendert für genau eine Sekunde beim
+App-Start: accent-RoundedRectangle 112×112 mit `house.fill`-
+Icon, Screen-Titel „Nebenkostenabrechnung", Credits + Version/
+Build aus `Bundle.infoDictionary`. Keine User-Interaktion nötig.
+
+`ContentView` hält `@State splashVorbei: Bool`, setzt ihn via
+`.task { Task.sleep(1 s); splashVorbei = true }` und wechselt
+dann per easeOut-0.25s-Cross-Fade zum Hauptinhalt (OnboardingFlow
+oder AppShell je nach `users.isEmpty`).
+
+### HomeView (Context-First)
+
+`UI/Home/HomeView.swift` ist der neue Übersicht-Tab-Inhalt —
+ersetzt die frühere Scope-Router-Logik (`UebersichtObjektView` +
+`UebersichtEinheitView`). Zeigt BEIDE Kontexte gleichzeitig, der
+Scope beeinflusst nur die Einheit-Card.
+
+Vertikale Abfolge (24 pt Spacing):
+
+1. **HomeHeaderView** — Begrüßung („Willkommen zurück.") +
+   Perioden-Label.
+2. **CurrentPropertyCard** — Objekt prominent: Adresse in
+   displayTitle (30/600), Ort · m² · Einheiten-Zahl als Zusatz,
+   rechts „Wechseln"-Button. Öffnet im MVP das EinstellungenSheet
+   (später dedizierter Objekt-Picker).
+3. **CurrentUnitCard** — Einheit mit UnitBalken in ScopeFarbe.
+   Objekt-Scope: „Gesamtes Objekt · Alle N Einheiten". Einheit-
+   Scope: „EG Wohnung · Fam. Pfaffenbach · 94 m²". „Wechseln" →
+   ScopePickerSheet.
+4. **HomeStatusCard** — drei Kennzahlen-Zeilen (Zählerstände,
+   Rechnungen geprüft, Dokumente) + StatusPill („Bereit" /
+   „In Arbeit" / „Daten fehlen"). Darunter optional eine
+   prominente „Nächster Schritt"-Zeile — erste offene
+   Anforderung mit Sprungziel. Tap → Router.
+5. **EmptyStateCard** — wenn keine Immobilie: Icon + Erklärung +
+   Primär-Button „Erstes Objekt anlegen".
+
+Regel: bewusst ruhig, plakativ, kein Dashboard-Lärm. Große
+Typografie (displayTitle für Hauptzeilen), großzügige Card-
+Paddings, keine Mini-Icons oder verspielte Effekte.
+
+Persistenz: keine neue Schicht nötig. ScopeManager hält die
+Einheit-Wahl weiter über UserDefaults („currentScope.v1"), die
+aktive Immobilie kommt aus dem SwiftData-Store (MVP: genau eine).
+
+Die alten Views `UebersichtObjektView` + `UebersichtEinheitView`
+bleiben ungenutzt im Repo — sie können als Vorlage für
+zukünftige Per-Scope-Detail-Seiten dienen.
+
 ## Strikte Daten
 
 Die App rechnet nur, wenn alle Pflichtdaten **aktiv bestätigt**
