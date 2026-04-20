@@ -20,7 +20,18 @@ enum SeedData {
     /// Bestandteile (z.B. Perioden aus Task 0.11, Zähler aus Task 0.12) auch
     /// in schon bestehenden Simulator-Stores nachgetragen, ohne dass der
     /// User die App deinstallieren muss.
+    ///
+    /// Performance-Optimierung (nach Gerätetest 15s Startup): Wenn die DB
+    /// schon eine vollständige Immobilie enthält (inkl. Einheiten, Mieter,
+    /// Zähler, Rechnungen und Perioden), wird das JSON gar nicht erst
+    /// geladen. Das erspart bei jedem "warmen" App-Start die 100+ ms
+    /// JSON-Parsing + die Bundle-Disk-IO.
     static func seedeWennLeer(in context: ModelContext) {
+        // Schneller Pfad: DB ist bereits vollständig → nichts laden.
+        if bestandIstVollstaendig(in: context) { return }
+
+        // Langsamer Pfad (erster Start oder partielle Daten): JSON laden
+        // und fehlende Teile nachziehen.
         guard let url = Bundle.main.url(forResource: "Bahnhofstr37_2025", withExtension: "json"),
               let data = try? Data(contentsOf: url),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
@@ -93,6 +104,27 @@ enum SeedData {
         }
 
         try? context.save()
+    }
+
+    /// `true`, wenn die DB alle sechs Seed-Bereiche schon abgedeckt hat.
+    /// Läuft ohne JSON-Laden, nur eine fetch + Relationship-Checks.
+    private static func bestandIstVollstaendig(in context: ModelContext) -> Bool {
+        guard let immobilie = try? context.fetch(FetchDescriptor<Immobilie>()).first else {
+            return false
+        }
+        if (immobilie.wohneinheiten ?? []).isEmpty { return false }
+        let hatMieter = (immobilie.wohneinheiten ?? [])
+            .contains(where: { !($0.mietverhaeltnisse ?? []).isEmpty })
+        if !hatMieter { return false }
+        let alleZaehler = (immobilie.hauptzaehler ?? [])
+            + (immobilie.wohneinheiten ?? []).flatMap { $0.zaehler ?? [] }
+        if alleZaehler.isEmpty { return false }
+        let hatStaende = alleZaehler.contains(where: { !($0.staende ?? []).isEmpty })
+        if !hatStaende { return false }
+        if (immobilie.kostenarten ?? []).isEmpty { return false }
+        if (immobilie.rechnungen ?? []).isEmpty { return false }
+        if (immobilie.perioden ?? []).isEmpty { return false }
+        return true
     }
 
     // MARK: - Immobilie
