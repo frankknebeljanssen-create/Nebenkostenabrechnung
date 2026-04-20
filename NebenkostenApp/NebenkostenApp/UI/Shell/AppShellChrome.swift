@@ -50,6 +50,12 @@ struct AppShellChrome: ViewModifier {
                 }
                 .background(DesignTokens.bgApp)
             }
+            // UI-Fix-2 Fix 4a: die letzte Scroll-Zeile soll nicht vom
+            // floatenden Inspektor-FAB (48×48 + 72pt bottom padding)
+            // verdeckt werden. `contentMargins` schiebt den Scroll-
+            // Content nach oben, nicht den Container — TabBar bleibt
+            // unberührt.
+            .contentMargins(.bottom, 80, for: .scrollContent)
             .navigationBarHidden(true)
     }
 

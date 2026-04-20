@@ -34,8 +34,21 @@ struct AppShell: View {
                 .tag(tab)
             }
         }
-        .tint(DesignTokens.accent)
+        // UI-Fix-2 Fix 4c: aktives Tab-Icon kräftig (accentHover
+        // statt accent), bessere Trennung vom bgAppCompact-Background.
+        .tint(DesignTokens.accentHover)
+        .toolbarBackground(DesignTokens.bgAppCompact, for: .tabBar)
+        .toolbarBackground(.visible, for: .tabBar)
+        .toolbarColorScheme(.light, for: .tabBar)
+        // UI-Fix-2 Fix 4b: Dynamic-Type-Cap auf TabBar, damit Labels
+        // bei xxxLarge nicht abgeschnitten werden.
+        .dynamicTypeSize(.large ... .xLarge)
         .overlay(alignment: .bottomTrailing) {
+            // UI-Fix-2 Fix 4a: FAB sitzt in eigenem Overlay. TabBar-
+            // Höhe + 12pt Abstand = 72pt bottom padding. Der ScrollView-
+            // contentMargins-Anteil ist in den einzelnen Tab-Views
+            // gesetzt (80pt bottom), damit der FAB keinen Content
+            // verdeckt.
             InspektorFAB { zeigeInspektor = true }
                 .padding(.trailing, 16)
                 .padding(.bottom, 72)
@@ -48,6 +61,17 @@ struct AppShell: View {
         }
         .sheet(isPresented: $zeigeEinstellungen) {
             EinstellungenSheet()
+        }
+        .onAppear { validateActiveTab() }
+    }
+
+    /// UI-Fix-2 Fix 2: wenn `activeTab` in UserDefaults einen ungültigen
+    /// Wert hält (z.B. alten Tab-Namen aus einer früheren Version),
+    /// wird er hart auf `.uebersicht` zurückgesetzt. Das verhindert,
+    /// dass ein Tab "sichtbar aber nicht erreichbar" wird.
+    private func validateActiveTab() {
+        if AppTab(rawValue: aktiveTabRaw) == nil {
+            aktiveTabRaw = AppTab.uebersicht.rawValue
         }
     }
 
