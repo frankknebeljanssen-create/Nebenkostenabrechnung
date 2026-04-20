@@ -307,6 +307,69 @@ konsistent zur Abrechnungs-Pre-Flight-Regel.
 
 ---
 
+## 3-Ebenen-Datenmodell
+
+Kern der Task-1.2-Architektur. Pro Dokument gibt es drei strikt
+getrennte Datenebenen; nur Ebene 3 fließt in die Abrechnung ein.
+Diese Trennung ergänzt die "Strikte-Daten / Keine-Schätzungen"-Regel
+und ist nicht verhandelbar.
+
+### Die drei Ebenen
+
+1. **Ebene 1 Rohdaten** — `GespeichertesDokument.ocrVolltext`,
+   `ocrConfidence`, `ocrDurchgefuehrtAm`. Unveränderter OCR-
+   Volltext samt Seitentrennern (`---SEITE N---`) und Mittelwert-
+   Konfidenz. Quelle: `OCRService` via Apple Vision, **on-device**.
+
+2. **Ebene 2 Strukturiert** — `GespeichertesDokument.aiVorschlag:
+   AIVorschlag?` (cascade-delete-Inverse). Vom AI extrahierte
+   Felder (Versorger, Datum, Betrag, Kostenart-Vorschlag, positionen-
+   JSON, konfidenzJeFeld). **Immer UNVALIDIERT.** Der User sieht
+   pro Feld einen Konfidenz-Indikator (grün ≥0,8 / orange ≥0,6 /
+   rot <0,6).
+
+3. **Ebene 3 Validiert** — eine echte `Rechnung`-Entity. Die
+   Übernahme passiert **nur durch expliziten User-Akt** im
+   `UebernahmeSheet`; der User prüft und korrigiert vorher,
+   wählt die Kostenart aus den vorhandenen der Immobilie. Nach
+   Übernahme: `GespeichertesDokument.rechnungId = rechnung.id`.
+
+### Nicht verhandelbare Regeln
+
+- **Nur Ebene 3 fließt in die Abrechnung.** Ebene 2 ist Vorschlag,
+  Ebene 1 ist Beleg.
+- **Übergang Ebene 2 → 3 NUR durch expliziten User-Akt.** Kein
+  Auto-Übernehmen, kein Background-Commit.
+- **PII-Schwärzung vor jedem AI-Call ist Pflicht.** Siehe
+  `PIISchwaerzung.apply(text:, kontext:)` — Adressen, Telefon,
+  E-Mail, IBAN, Mieter-/Vermieter-Namen werden durch Token-
+  Platzhalter ersetzt. Kundennummern/Rechnungsnummern bleiben
+  (oft für User-Zuordnung nötig).
+- **Typ-spezifische Prompts**, keine generische Extraktion. Vier
+  dedizierte Prompts: `rechnungGas`, `rechnungWasser`,
+  `bescheidKommunal`, `handwerkerbeleg` (siehe
+  `Services/AIPrompts.swift`). Fallback nur für Typen ohne
+  historische Daten.
+
+### Pipeline-Status im UI
+
+- "Kein OCR" (grau)
+- "OCR vorhanden" (blau)
+- "AI-Vorschlag vorhanden" (orange — UNVALIDIERT-Hinweis)
+- "Validiert & Rechnung erzeugt" (grün)
+
+Jedes Dokument zeigt den Status als farbigen Punkt + Text in der
+Dokumenten-Liste und in der `ValidierungsView`.
+
+### Worker-Anbindung
+
+Der AI-Call geht in Produktion gegen einen Cloudflare-Worker
+(Stub im MVP, liefert leeren AIVorschlag + loggt den geschwärzten
+Text). Response-Format ist strikt JSON, Parse-Fehler werden per
+`onParseFehler`-Callback gemeldet — **nie als App-Crash**.
+
+---
+
 ## Datenschutz & DSGVO
 
 ### Rollen
