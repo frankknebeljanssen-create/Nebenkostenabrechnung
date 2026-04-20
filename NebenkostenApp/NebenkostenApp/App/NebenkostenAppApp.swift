@@ -7,6 +7,7 @@ struct NebenkostenAppApp: App {
     let container: ModelContainer
     @State private var objektWahl = ObjektWahl()
     @State private var scopeManager = ScopeManager()
+    @State private var router = AppShellRouter()
 
     init() {
         do {
@@ -63,6 +64,7 @@ struct NebenkostenAppApp: App {
             ContentView()
                 .environment(objektWahl)
                 .environment(scopeManager)
+                .environment(router)
                 .modelContainer(container)
         }
     }

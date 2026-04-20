@@ -11,16 +11,16 @@ import SwiftUI
 
 struct AppShell: View {
     @Environment(ScopeManager.self) private var scope
+    @Environment(AppShellRouter.self) private var router
 
-    @AppStorage("activeTab") private var aktiveTabRaw: String = AppTab.uebersicht.rawValue
     @State private var zeigeScopePicker = false
     @State private var zeigeInspektor = false
     @State private var zeigeEinstellungen = false
 
     private var aktiveTab: Binding<AppTab> {
         Binding(
-            get: { AppTab(rawValue: aktiveTabRaw) ?? .uebersicht },
-            set: { aktiveTabRaw = $0.rawValue }
+            get: { router.aktiverTab },
+            set: { router.aktiverTab = $0 }
         )
     }
 
@@ -62,18 +62,12 @@ struct AppShell: View {
         .sheet(isPresented: $zeigeEinstellungen) {
             EinstellungenSheet()
         }
-        .onAppear { validateActiveTab() }
     }
 
-    /// UI-Fix-2 Fix 2: wenn `activeTab` in UserDefaults einen ungültigen
-    /// Wert hält (z.B. alten Tab-Namen aus einer früheren Version),
-    /// wird er hart auf `.uebersicht` zurückgesetzt. Das verhindert,
-    /// dass ein Tab "sichtbar aber nicht erreichbar" wird.
-    private func validateActiveTab() {
-        if AppTab(rawValue: aktiveTabRaw) == nil {
-            aktiveTabRaw = AppTab.uebersicht.rawValue
-        }
-    }
+    // Die frühere `validateActiveTab()`-Absicherung wird durch
+    // `AppShellRouter.init` selbst geleistet: ein unbekannter
+    // rawValue fällt auf `.uebersicht` zurück. Daher hier nicht
+    // mehr nötig.
 
     // MARK: - Tab-Content-Builder
 
