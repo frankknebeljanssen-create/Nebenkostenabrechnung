@@ -29,7 +29,7 @@ struct PeriodenHeader: View {
                 .minimumScaleFactor(0.75)
             if let zeitraum {
                 Text(zeitraum)
-                    .appFont(AppFont.Rechnungen.datumPeriode())
+                    .appFont(AppFont.Basis.periodenDatum())
                     .foregroundStyle(DesignTokens.textTertiary)
             }
         }

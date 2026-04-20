@@ -30,7 +30,7 @@ struct ObjektCarousel: View {
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: 220)
+            .frame(height: 150)
 
             if immobilien.count > 1 {
                 PaginationDots(

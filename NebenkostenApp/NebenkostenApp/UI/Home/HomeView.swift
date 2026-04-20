@@ -63,10 +63,13 @@ struct HomeView: View {
                         onOeffnen: oeffneObjekt
                     )
                     if let immobilie = aktiveImmobilie {
-                        CurrentUnitCard(
-                            scope: scope.current,
+                        WohneinheitCarousel(
                             immobilie: immobilie,
-                            onWechsel: { zeigeScopePicker = true }
+                            scope: Binding(
+                                get: { scope.current },
+                                set: { scope.current = $0 }
+                            ),
+                            onOeffnen: oeffneEinheit
                         )
                         HomeStatusCard(
                             anforderungen: anforderungen,
@@ -124,6 +127,14 @@ struct HomeView: View {
     /// Objekt-Detail existiert, landet der User dort.
     private func oeffneObjekt(_ immobilie: Immobilie) {
         scope.current = .objekt
+        zeigeEinstellungen = true
+    }
+
+    /// Aktive Wohneinheit-Card angetippt → Scope wurde durch
+    /// Swipen schon aktualisiert, Tap öffnet die
+    /// Einstellungen-Section (als aktuelles Einheit-Detail-Ziel).
+    private func oeffneEinheit(_ scopeAuswahl: AppScope) {
+        scope.current = scopeAuswahl
         zeigeEinstellungen = true
     }
 
