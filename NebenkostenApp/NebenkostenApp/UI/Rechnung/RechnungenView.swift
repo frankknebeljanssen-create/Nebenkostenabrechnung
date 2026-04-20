@@ -345,8 +345,8 @@ struct RechnungenView: View {
         if n.contains("grundsteuer")                                { return 4 }
         if n.contains("versicher")                                  { return 5 }
         if n.contains("schornstein")                                { return 6 }
-        if n.contains("reinig") || n.contains("garten") || n.contains("schnee") || n.contains("eis") { return 7 }
         if n.contains("hauswart") || n.contains("hausmeister")      { return 8 }
+        if n.contains("reinig") || n.contains("garten") || n.contains("schnee") { return 7 }
         if n.contains("strom") || n.contains("allgemein")           { return 9 }
         if n.contains("reparatur") || n.contains("instandhaltung")  { return 10 }
         return 10

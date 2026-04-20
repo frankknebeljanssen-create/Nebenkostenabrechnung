@@ -30,7 +30,6 @@ extension Zaehler {
         if !eigen.isEmpty { return eigen }
 
         let einheitName = (wohneinheit?.bezeichnung ?? "").trimmingCharacters(in: .whitespaces)
-        let medium = anzeigetyp
 
         // Zwischenzähler — aktuell hauptsächlich Garten-/Poolwasser.
         if typ == .zwischen {
@@ -40,17 +39,47 @@ extension Zaehler {
             case .strom:
                 return einheitName.isEmpty ? "Zwischen-Stromzähler" : "Zwischen-Stromzähler \(einheitName)"
             default:
-                return einheitName.isEmpty ? "\(medium)-Zwischenzähler" : "\(medium)-Zwischenzähler \(einheitName)"
+                let basis = Self.zaehlerBasisname(medium: self.medium)
+                return einheitName.isEmpty ? "Zwischen-\(basis)" : "Zwischen-\(basis) \(einheitName)"
             }
         }
 
+        let basis = Self.zaehlerBasisname(medium: self.medium)
+
         // Hauptzähler: keine Einheit-Zuordnung.
         if einheitName.isEmpty {
-            return "\(medium)-Hauptzähler"
+            // Hauptzähler-Variante: "Gas-Hauptzähler", "Kaltwasser-Hauptzähler".
+            let stamm = Self.hauptzaehlerStamm(medium: self.medium)
+            return "\(stamm)-Hauptzähler"
         }
 
-        // Einheit-Zähler: "Stromzähler OG", "Kaltwasserzähler EG".
-        return "\(medium)zähler \(einheitName)"
+        // Einheit-Zähler: "Stromzähler OG", "Wärmemengenzähler KG".
+        return "\(basis) \(einheitName)"
+    }
+
+    /// Kompositum "<Medium>zähler" mit korrekten deutschen Fugen-Ns.
+    private static func zaehlerBasisname(medium: Medium) -> String {
+        switch medium {
+        case .strom:         return "Stromzähler"
+        case .gas:           return "Gaszähler"
+        case .kaltwasser:    return "Kaltwasserzähler"
+        case .warmwasser:    return "Warmwasserzähler"
+        case .waermeenergie: return "Wärmemengenzähler"
+        case .oel:           return "Ölzähler"
+        }
+    }
+
+    /// Stamm-Präfix vor "-Hauptzähler", z.B. "Gas", "Kaltwasser",
+    /// "Wärmemenge".
+    private static func hauptzaehlerStamm(medium: Medium) -> String {
+        switch medium {
+        case .strom:         return "Strom"
+        case .gas:           return "Gas"
+        case .kaltwasser:    return "Kaltwasser"
+        case .warmwasser:    return "Warmwasser"
+        case .waermeenergie: return "Wärme"
+        case .oel:           return "Öl"
+        }
     }
 
     /// Reiner Medium-Name für Typ-Chips und Section-Header.
