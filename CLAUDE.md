@@ -280,6 +280,132 @@ Cards, am Ende Scope-Hinweis oder Action-Fallback. Tabs:
 `einheitRang`. Views nutzen ihn statt inline-switch — macht ihn
 testbar und die Views schlank.
 
+### Font-Skalierung (UI-Fix-Policy)
+
+Die Font-Größen sind iterativ nach realen Gerätetests angehoben
+worden. Zielgruppe der App ist Vermieter 50+, Lesbarkeit schlägt
+Design-Purismus. Die Design-Handoff-Werte sind Startpunkt, nicht
+Endstand — wenn ein Wert in der Hand kaum lesbar ist, wird er
+größer.
+
+Aktueller Stand nach UI-Fix-2 · 3:
+- NavBar Adress-Button: 17pt/500 text (+ chevron 16pt)
+- NavBar Subtitle:      16pt/500 textSecondary
+- ScopeStrip:           40pt hoch, 14pt/600 tracking 0.4
+- Zähler-Row-Titel:     17pt/600 (`bodySemi17`)
+- Zähler-Messwerte:     17–18pt/600 mono (`monoBetrag17`,
+                        `monoMesswert`)
+- Rechnungen-Row-Issuer: 16pt/500 (`bodyMedium16`)
+- Rechnungen-Betrag:    17pt/600 mono
+
+`Dynamic Type` darf die App nicht brechen. Minimum unterstützt
+bis `xLarge`; `xxxLarge` kann abgeschnitten sein. Auf der
+TabBar ist der Dynamic-Type-Range per Modifier gecapped
+(`.large ... .xLarge`).
+
+### CollapsibleSection — Standard-Pattern
+
+Alle langen Listen (Rechnungen, Belege, Zähler, Inspektor)
+nutzen `UI/Components/CollapsibleSection.swift`. Header = Chevron
+(rotiert 0/90°) + Titel + Summary (rechts, mono) + Count (caption
+darunter). Der Zustand persistiert optional in `UserDefaults` per
+`persistKey`. Default-Verhalten pro Bereich:
+
+- **Rechnungen**: Kostenart-Gruppen, nur "Heizung & Warmwasser"
+  default offen (Rang 1 in BetrKV).
+- **Belege**: Monats-Gruppen, nur aktueller Monat default offen.
+- **Zähler**: Medium-Gruppen, alle default offen (kompakt, wenig
+  Scroll). — _Ausnahme nach UI-Fix-3: die ZaehlerView nutzt kein
+  CollapsibleSection mehr, sondern Medium-Sektionen mit festem
+  Header — siehe unten._
+- **Vollständigkeits-Inspektor**: Kategorien, alle default offen.
+
+### Zähler-UI nach UI-Fix-3
+
+Die `ZaehlerView` ist komplett nach `design_handoff_nebenkosten_app/
+assets/meters-bills.jsx` (MetersScreen / MeterRow / MeterReading)
+aufgebaut. Zwei Kern-Regeln:
+
+1. **Nach Medium gruppiert, nicht nach Einheit.** Reihenfolge fix:
+   Wärme · Warmwasser · Kaltwasser · Allgemeinstrom · Gas · Öl.
+   Leere Medien werden ausgeblendet. Section-Header: Medium-Icon
+   (SF Symbol + mediumColor aus MediumMeta) + uppercase-Name +
+   Anzahl.
+2. **Drei-Spalten-Layout pro Row.** Links oben ScopePill (HAUS /
+   KG / EG / OG) in Unit-Soft-Farbe, daneben `anzeigename` als
+   Row-Titel, rechts klein der `anzeigetyp`. Darunter drei Zellen:
+   ANFANG → ENDE → VERBRAUCH. Jede Messzelle mit StatusDot,
+   Datum (DD.MM.) und Wert (Mono 17pt/600). Bei fehlendem Stand
+   rote Färbung + roter Dot; zusätzlich oben auf dem Screen eine
+   Warn-Card „N Endstände fehlen" mit „Jetzt erfassen"-Button.
+
+**ID-Verbot in der UI:** Raw-Slugs wie `kw_og` / `wmz_og` dürfen
+niemals in der View-Schicht auftauchen. Alle sichtbaren Texte
+kommen aus `Zaehler.anzeigename`, `anzeigetyp`, `anzeigeort`
+(siehe `Core/ZaehlerAnzeige.swift`). Suchlauf nach `kw_`, `ww_`,
+`wmz_`, `_og`, `_eg`, `_kg` im View-Code — Treffer sind Bugs.
+
+### TabBar-Regeln
+
+- 5 Tabs: Übersicht · Zähler · Rechnungen · Belege · Abrechnung.
+  (Label „Abrechnung" statt „Abrechnungen" — max. 10 Zeichen.)
+- Active-Tint: `accentHover` (#304A6A), nicht `accent`. Bessere
+  Trennung gegen `bgAppCompact`.
+- Floating ?-FAB (Inspektor) ist NICHT Teil der TabBar, sondern
+  Overlay. `contentMargins(.bottom, 80, for: .scrollContent)` in
+  `AppShellChrome` sorgt dafür, dass Scroll-Content nicht vom FAB
+  verdeckt wird.
+- Dynamic-Type-Cap `.large ... .xLarge` auf TabView-Root.
+
+### Rechnungen-UI nach UI-Fix-2
+
+Layout streng nach `meters-bills.jsx` BillsScreen/BillRow:
+- Kompakte Perioden-Card oben (eine Zeile, nicht raumgreifend).
+- Suchleiste (`.searchable`) direkt darunter, filtert Rows.
+- Kostenart-Gruppen in BetrKV-Reihenfolge (1 Heizung · 2 Wasser ·
+  3 Müll · 4 Grundsteuer · 5 Versicherung · 6 Schornsteinfeger ·
+  7 Reinigung/Garten · 8 Hauswart · 9 Allgemeinstrom · 10
+  Reparatur). Default: nur Heizung offen.
+- **Keine Icons vor Kostenart-Labels.** Uneinheitlich war
+  schlimmer als gar keine.
+- Rows: Issuer (16pt/500) + Betrag (17pt/600 mono) + Datum+Periode
+  (12pt) + StatusPill (validiert / ungeprüft / §35a offen).
+- „Neue Rechnung anlegen" als Toolbar-Button (`AppShellChrome.
+  primaryAction`), nicht Content-Card.
+
+### Einstellungen-Umfang (UI-Fix-2 · 7)
+
+Das `EinstellungenSheet` hat 8 Sections in fixer Reihenfolge:
+1. Objekt (readonly Stammdaten)
+2. Mieter & Vorauszahlungen
+3. Umlageschlüssel (BetrKV)
+4. Vermieter (AppUser)
+5. Daten — Export/Import/Alle-Löschen **zweistufig** (Alert 1:
+   „Wirklich löschen?"; Alert 2: Text-Input „LÖSCHEN" case-
+   insensitive case — nur exakte Eingabe triggert die Löschung
+   via `DatenLoeschService.loescheAlles(in:)`).
+6. Rechtliches — 4 Markdown-Sheets: Datenschutz, Impressum,
+   Nutzungsbedingungen, Lizenzen. Inhalte als Platzhalter in
+   `Resources/Legal/*.md` mit `[TODO]`-Markierungen, per
+   `AttributedString(markdown:)` gerendert, `textSelection(.enabled)`.
+7. Über die App — Version/Build aus Bundle-Info, Bundle-ID und
+   Device-String (`UIDevice.current.model + systemVersion`).
+8. Debug — **nur `#if DEBUG`**. Links zu Phase-0-Dashboard,
+   FontProbeView und der neuen TokenProbeView (alle Design-Tokens
+   als Swatch-Liste).
+
+Die finalen rechtlichen Texte werden vor dem Launch eingepflegt.
+Mail-Composer-Integration für „Feedback senden" folgt.
+
+### Arbeits-Policy bei Design-Tasks
+
+**Vorlage zuerst lesen.** Vor der Implementierung eines Design-
+Tasks (UI-1, UI-Fix-*) wird die passende `design_handoff_nebenkosten_app/
+assets/*.jsx`-Datei komplett gelesen und der Layout-Aufbau in
+eigenen Worten im Commit-Body zusammengefasst. Der ursprüngliche
+UI-1-Umbau hat die Vorlage an mehreren Stellen zu kursorisch
+interpretiert — das darf nicht mehr passieren.
+
 ### Was noch NICHT gemacht ist
 
 - **Dark-Mode:** Phase 1 ist Light-Only. Dark-Mode-Overrides werden
@@ -293,6 +419,10 @@ testbar und die Views schlank.
 - **PDF-Vorschau in Abrechnung-Detail:** Button ist disabled mit
   Hinweis „kommt in UI-2" — die PDF-Builder-Integration folgt im
   `PDFVorschauSheet` aus UI-2.
+- **Zähler-Detail / Erfassungs-UI:** Tap auf eine Zähler-Row
+  öffnet das bestehende `ZaehlerstandErfassenView`. Ein dediziertes
+  Zähler-Detail-Sheet mit History kommt in UI-2.
+- **Finale rechtliche Texte:** Resources/Legal/*.md sind Platzhalter.
 
 ---
 
