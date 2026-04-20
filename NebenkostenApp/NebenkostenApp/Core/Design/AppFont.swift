@@ -84,9 +84,11 @@ enum AppFont {
     static func uppercaseLabel() -> AppFontStyle {
         .init(font: plexSans(.semibold, 12), tracking: 0.6, uppercase: true)
     }
-    /// ScopeStrip-Label — UI-Fix-2: 14pt/600 tracking 0.4.
+    /// ScopeStrip-Label — UI-Fix-2a: 15pt/semibold tracking 0.6,
+    /// uppercase. Ein Tick größer + mehr Tracking, damit "EINHEIT
+    /// · OG Wohnung" ohne Gewichtssprung fett genug rüberkommt.
     static func scopeStripLabel() -> AppFontStyle {
-        .init(font: plexSans(.semibold, 14), tracking: 0.4, uppercase: true)
+        .init(font: plexSans(.semibold, 15), tracking: 0.6, uppercase: true)
     }
     /// ScopeStrip rechter Mono-Text (m²) — UI-Fix-2: 13pt.
     static func scopeStripMono() -> AppFontStyle {

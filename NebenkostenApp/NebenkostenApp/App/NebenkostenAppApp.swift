@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 @main
 struct NebenkostenAppApp: App {
@@ -16,6 +17,39 @@ struct NebenkostenAppApp: App {
         MainActor.assumeIsolated {
             SeedData.seedeWennLeer(in: container.mainContext)
         }
+
+        // TabBar-Kontrast manuell setzen: SwiftUI-tint() wird in
+        // iOS 18 teils von einem hell-blauen Pill überzeichnet —
+        // UITabBarAppearance zwingt den dunklen accentHover-Ton
+        // für aktive Icons + Titel.
+        Self.konfiguriereTabBar()
+    }
+
+    private static func konfiguriereTabBar() {
+        let app = UITabBarAppearance()
+        app.configureWithOpaqueBackground()
+        app.backgroundColor = UIColor(DesignTokens.bgAppCompact)
+
+        let aktiv = UIColor(DesignTokens.accentHover)
+        let inaktiv = UIColor(DesignTokens.textTertiary)
+
+        for item in [app.stackedLayoutAppearance,
+                     app.inlineLayoutAppearance,
+                     app.compactInlineLayoutAppearance] {
+            item.normal.iconColor = inaktiv
+            item.normal.titleTextAttributes = [
+                .foregroundColor: inaktiv,
+                .font: UIFont.systemFont(ofSize: 10, weight: .medium)
+            ]
+            item.selected.iconColor = aktiv
+            item.selected.titleTextAttributes = [
+                .foregroundColor: aktiv,
+                .font: UIFont.systemFont(ofSize: 10, weight: .semibold)
+            ]
+        }
+
+        UITabBar.appearance().standardAppearance = app
+        UITabBar.appearance().scrollEdgeAppearance = app
     }
 
     var body: some Scene {
