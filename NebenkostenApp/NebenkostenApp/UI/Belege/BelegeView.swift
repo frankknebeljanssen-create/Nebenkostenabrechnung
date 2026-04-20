@@ -361,14 +361,7 @@ struct BelegeView: View {
     }
 
     private var sichtbareDokumente: [GespeichertesDokument] {
-        switch scope.current {
-        case .objekt:
-            return alleDokumente
-        case .einheit(let id):
-            return alleDokumente.filter {
-                $0.einheitId?.caseInsensitiveCompare(id) == .orderedSame
-            }
-        }
+        ScopeFilter.sichtbareDokumente(alle: alleDokumente, scope: scope.current)
     }
 
     private var validierteCount: Int {

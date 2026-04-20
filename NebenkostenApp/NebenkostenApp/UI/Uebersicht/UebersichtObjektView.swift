@@ -23,9 +23,7 @@ struct UebersichtObjektView: View {
     private var immobilie: Immobilie? { immobilien.first }
 
     private var einheiten: [Wohneinheit] {
-        (immobilie?.wohneinheiten ?? []).sorted {
-            Self.sortRang($0.bezeichnung) < Self.sortRang($1.bezeichnung)
-        }
+        ScopeFilter.sichtbareEinheiten(alle: immobilie?.wohneinheiten ?? [], scope: .objekt)
     }
 
     private var aktivePeriode: Abrechnungsperiode? {
@@ -360,14 +358,4 @@ struct UebersichtObjektView: View {
         return max((k.month ?? 0) + 1, 1)
     }
 
-    private static func sortRang(_ b: String) -> Int {
-        switch b.uppercased().trimmingCharacters(in: .whitespaces) {
-        case "KG", "UG": return 0
-        case "EG":       return 1
-        case "OG":       return 2
-        case "2. OG":    return 3
-        case "DG":       return 4
-        default:         return 99
-        }
-    }
 }

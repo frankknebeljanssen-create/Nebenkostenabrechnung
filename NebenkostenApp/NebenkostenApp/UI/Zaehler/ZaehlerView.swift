@@ -230,32 +230,29 @@ struct ZaehlerView: View {
     }
 
     private var sichtbareEinheiten: [Wohneinheit] {
-        (immobilie?.wohneinheiten ?? []).sorted {
-            Self.sortRang($0.bezeichnung) < Self.sortRang($1.bezeichnung)
-        }
+        ScopeFilter.sichtbareEinheiten(alle: immobilie?.wohneinheiten ?? [], scope: .objekt)
+    }
+
+    private var zaehlerAufgeteilt: (haupt: [Zaehler], wohnung: [Zaehler]) {
+        let paare = ScopeFilter.zaehlerGetrennt(
+            hauptzaehler: immobilie?.hauptzaehler ?? [],
+            einheiten: immobilie?.wohneinheiten ?? [],
+            scope: scope.current
+        )
+        return (
+            haupt: paare.haupt.sorted { $0.medium.rawValue < $1.medium.rawValue },
+            wohnung: paare.wohnung.sorted { $0.medium.rawValue < $1.medium.rawValue }
+        )
     }
 
     /// Alle Zähler im aktuellen Scope — für Kennzahlen.
     private var sichtbareZaehler: [Zaehler] {
-        switch scope.current {
-        case .objekt:
-            return hauptzaehlerSichtbar + sichtbareEinheiten.flatMap { $0.zaehler ?? [] }
-        case .einheit(let id):
-            guard let e = sichtbareEinheiten.first(where: {
-                $0.bezeichnung.caseInsensitiveCompare(id) == .orderedSame
-            }) else { return [] }
-            return e.zaehler ?? []
-        }
+        let p = zaehlerAufgeteilt
+        return p.haupt + p.wohnung
     }
 
     private var hauptzaehlerSichtbar: [Zaehler] {
-        switch scope.current {
-        case .objekt:
-            return (immobilie?.hauptzaehler ?? []).sorted { $0.medium.rawValue < $1.medium.rawValue }
-        case .einheit:
-            // Im Einheit-Scope werden Hauptzähler nicht angezeigt.
-            return []
-        }
+        zaehlerAufgeteilt.haupt
     }
 
     private var ablesungenInPeriode: Int {
@@ -356,14 +353,4 @@ struct ZaehlerView: View {
         return "\(zahl) \(einheit)"
     }
 
-    private static func sortRang(_ b: String) -> Int {
-        switch b.uppercased().trimmingCharacters(in: .whitespaces) {
-        case "KG", "UG": return 0
-        case "EG":       return 1
-        case "OG":       return 2
-        case "2. OG":    return 3
-        case "DG":       return 4
-        default:         return 99
-        }
-    }
 }

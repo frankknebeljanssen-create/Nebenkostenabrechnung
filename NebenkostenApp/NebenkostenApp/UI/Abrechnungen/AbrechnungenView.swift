@@ -287,13 +287,7 @@ struct AbrechnungenView: View {
     }
 
     private func filterNachScope(_ liste: [Mieterabrechnung]) -> [Mieterabrechnung] {
-        switch scope.current {
-        case .objekt: return liste
-        case .einheit(let id):
-            return liste.filter {
-                $0.einheitBezeichnung.caseInsensitiveCompare(id) == .orderedSame
-            }
-        }
+        ScopeFilter.sichtbareAbrechnungen(alle: liste, scope: scope.current)
     }
 
     // MARK: - Kennzahlen-Daten
