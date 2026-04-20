@@ -67,6 +67,22 @@ enum AppFont {
     static func uppercaseLabel() -> AppFontStyle {
         .init(font: plexSans(.semibold, 12), tracking: 0.6, uppercase: true)
     }
+    /// ScopeStrip-Label — ein Tick größer + breiteres Tracking
+    /// (nach UI-Fix-1 Gerätetest, Zielgruppe 50+).
+    static func scopeStripLabel() -> AppFontStyle {
+        .init(font: plexSans(.semibold, 13), tracking: 0.4, uppercase: true)
+    }
+    /// Adress-Button oben in der AppNavBar (UI-Fix-1). Lesbar, nicht
+    /// caption-klein.
+    static func navAddress() -> AppFontStyle {
+        .init(font: plexSans(.medium, 16), tracking: 0, uppercase: false)
+    }
+    /// Sub-Title unter dem NavBar-Titel. 15 / 500 — eine Stufe größer
+    /// als subtitle() (13 / regular), damit er als Primär-Information
+    /// wahrgenommen wird.
+    static func navSubtitle() -> AppFontStyle {
+        .init(font: plexSans(.medium, 15), tracking: -0.1, uppercase: false)
+    }
     static func micro() -> AppFontStyle {
         .init(font: plexSans(.regular, 10), tracking: 0.2, uppercase: false)
     }

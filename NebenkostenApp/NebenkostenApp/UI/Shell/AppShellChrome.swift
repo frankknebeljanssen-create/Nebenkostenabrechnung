@@ -52,15 +52,17 @@ struct AppShellChrome: ViewModifier {
                 Button(action: onAdresse) {
                     HStack(spacing: 6) {
                         Image(systemName: "building.2")
-                            .font(.subheadline)
+                            .font(.system(size: 13, weight: .medium))
                         Text(adresseText)
-                            .appFont(AppFont.caption())
+                            .appFont(AppFont.navAddress())
                             .lineLimit(1)
                         Image(systemName: "chevron.down")
-                            .font(.caption2)
+                            .font(.system(size: 14, weight: .semibold))
                     }
-                    .foregroundStyle(DesignTokens.textSecondary)
+                    .foregroundStyle(DesignTokens.text)
+                    .padding(.vertical, 6)
                 }
+                .accessibilityLabel("Bereich wählen, aktuell \(scope.beschriftung(einheiten))")
                 Spacer()
                 Button(action: onEinstellungen) {
                     Image(systemName: "gearshape")
@@ -75,8 +77,9 @@ struct AppShellChrome: ViewModifier {
                 .padding(.top, 2)
             if let subtitel {
                 Text(subtitel)
-                    .appFont(AppFont.subtitle())
+                    .appFont(AppFont.navSubtitle())
                     .foregroundStyle(DesignTokens.textSecondary)
+                    .padding(.top, 4)
             }
         }
         .padding(.horizontal, 20)
