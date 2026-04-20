@@ -189,6 +189,61 @@ Warnungen werden in der Abrechnung protokolliert.
 
 ---
 
+## Scope-Konzept
+
+Die App kennt zwei Scopes — Anzeigeperspektiven, zwischen denen der User
+in jedem Tab per Titel-Picker wechseln kann:
+
+- `AbrechnungsScope.objekt` — Gesamt-Objekt-Sicht (Default).
+- `AbrechnungsScope.einheit(id: String)` — Sicht einer einzelnen
+  Wohneinheit. ID ist die menschenlesbare Bezeichnung ("KG", "EG", "OG").
+
+### Grundsätze
+
+1. **Scope ist reine Anzeige-Ebene, nicht Berechnungs-Ebene.** Der
+   AbrechnungsService rechnet immer objektweit. Filter (Zähler,
+   Abrechnungen) greifen erst in den Views.
+2. **Scope wird App-weit persistiert** (`UserDefaults`-Key
+   `currentScope.v1`, `ScopeManager` als `@Observable` injiziert).
+3. **Scope-Wechsel ist explizit, nicht implizit.** Das Öffnen einer
+   Einheit-Detailansicht (Drill-Down) wechselt nicht automatisch den
+   Scope.
+4. Bei Objekten mit nur einer Einheit wird der Picker ausgeblendet.
+5. Wenn die persistierte Einheit-ID in der aktuellen Immobilie nicht
+   (mehr) existiert, setzt `ScopeManager.bereinige(...)` den Scope
+   automatisch auf `.objekt` zurück.
+
+### UI-Elemente
+
+- **ScopePickerToolbar** — `ToolbarContent`, das den Navigation-Title
+  durch ein tappbares Label ersetzt. Titel-Format:
+  - Objekt-Scope: "Gesamtes Objekt"
+  - Einheit-Scope: "<ID> · <abgekürzter Mieter>", z.B.
+    "OG · Fam. Pfaffenbach" (siehe `ScopeTexte.abkuerzungName`).
+- **ScopeIndicatorBar** — 32pt-Leiste direkt unter der NavigationBar,
+  mit einheit-spezifischer Farbe (`ScopeFarbe`). Nicht interaktiv.
+  Angehängt per `.scopeIndicator(immobilie:)`.
+
+### Filter-Semantik pro View
+
+- Zähler: im Einheit-Scope nur die Einheit-Zähler + Hauptzähler
+  (objektweit relevant).
+- Rechnungen: alle Rechnungen bleiben sichtbar; pro Zeile wird
+  "davon <ID> ca. X,XX €" angezeigt (Flächen-Näherung als
+  Orientierungshilfe — kein echter Abrechnungswert).
+- Abrechnungen: im Einheit-Scope nur die eine Mieterabrechnung.
+- Dashboard-Kacheln: im Einheit-Scope andere Kachel-Garnitur
+  (Saldo + Mieter statt Mieter-Zähler-Kostenarten).
+- Wohneinheiten-Sektion im Dashboard: nur im Objekt-Scope sichtbar.
+
+### Wiederverwendung
+
+Die reine Filter-Logik liegt in `Core/ScopeFilter.swift` als freie
+`static`-Funktionen — Views rufen das als Wrapper auf, Tests treffen
+die Funktionen direkt.
+
+---
+
 ## Datenschutz & DSGVO
 
 ### Rollen
