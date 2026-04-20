@@ -22,31 +22,23 @@ struct RechnungListeView: View {
     @State private var aufgeklappt: Set<String> = []
 
     var body: some View {
-        List {
-            if alleRechnungen.isEmpty {
-                Section { leerZustand }
-            } else if gruppen.isEmpty {
-                Section { sucheLeerZustand }
-            } else {
-                ForEach(gruppen) { gruppe in
-                    Section {
-                        if aufgeklappt.contains(gruppe.schluessel) {
-                            ForEach(gruppe.rechnungen) { r in
-                                Button {
-                                    auswahl = r
-                                } label: {
-                                    zeile(r)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    } header: {
-                        sektionHeader(gruppe)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                if alleRechnungen.isEmpty {
+                    leerZustand
+                } else if gruppen.isEmpty {
+                    sucheLeerZustand
+                } else {
+                    ForEach(gruppen) { gruppe in
+                        gruppenCard(gruppe)
                     }
                 }
             }
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 16)
         }
-        .listStyle(.insetGrouped)
+        .background(Color(.systemGroupedBackground))
         .searchable(text: $suchtext, prompt: "Versorger, Rechnungsnummer oder Betrag")
         .navigationTitle("Rechnungen")
         .navigationBarTitleDisplayMode(.inline)
@@ -65,6 +57,39 @@ struct RechnungListeView: View {
         .sheet(item: $auswahl) { r in
             RechnungEditView(modus: .bearbeiten(r))
         }
+    }
+
+    // MARK: - Gruppen-Card (eigene Card pro Kostenart)
+
+    private func gruppenCard(_ gruppe: RechnungGruppe) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sektionHeader(gruppe)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+
+            if aufgeklappt.contains(gruppe.schluessel) {
+                Divider().padding(.leading, 14)
+                VStack(spacing: 0) {
+                    ForEach(Array(gruppe.rechnungen.enumerated()), id: \.element.id) { idx, r in
+                        Button {
+                            auswahl = r
+                        } label: {
+                            zeile(r)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 8)
+                        }
+                        .buttonStyle(.plain)
+                        if idx < gruppe.rechnungen.count - 1 {
+                            Divider().padding(.leading, 14)
+                        }
+                    }
+                }
+                .padding(.bottom, 4)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     // MARK: - Daten
