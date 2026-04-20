@@ -49,11 +49,24 @@ enum AppFont {
     static func bodySemi() -> AppFontStyle {
         .init(font: plexSans(.semibold, 15), tracking: 0, uppercase: false)
     }
+    /// 17 pt / 600 — für Row-Titel nach UI-Fix-2 (Zielgruppe 50+).
+    static func bodySemi17() -> AppFontStyle {
+        .init(font: plexSans(.semibold, 17), tracking: -0.1, uppercase: false)
+    }
     static func subtitle() -> AppFontStyle {
         .init(font: plexSans(.regular, 13), tracking: -0.1, uppercase: false)
     }
+    /// 13 pt / 500 — größere Sub-Line für Row-Detail (UI-Fix-2).
+    static func subtitleEmphasis() -> AppFontStyle {
+        .init(font: plexSans(.medium, 13), tracking: 0, uppercase: false)
+    }
     static func caption() -> AppFontStyle {
         .init(font: plexSans(.regular, 12), tracking: 0, uppercase: false)
+    }
+    /// 12 pt / 500 — für Meta-Zeilen (Datum / Periode) die lesbarer
+    /// sein müssen als die 11pt-smallCaption (UI-Fix-2).
+    static func captionEmphasis() -> AppFontStyle {
+        .init(font: plexSans(.medium, 12), tracking: 0, uppercase: false)
     }
     static func captionMedium() -> AppFontStyle {
         .init(font: plexSans(.medium, 12), tracking: 0, uppercase: false)
@@ -100,6 +113,14 @@ enum AppFont {
     }
     static func monoBody() -> AppFontStyle {
         .init(font: plexMono(.medium, 15), tracking: 0, uppercase: false)
+    }
+    /// 17 pt / 600 — Rechnungsbetrag-Mono in Row-Trailing.
+    static func monoBetrag17() -> AppFontStyle {
+        .init(font: plexMono(.semibold, 17), tracking: 0, uppercase: false)
+    }
+    /// 18 pt / 600 — Zählerstand-Messwerte. UI-Fix-2.
+    static func monoMesswert() -> AppFontStyle {
+        .init(font: plexMono(.semibold, 18), tracking: 0, uppercase: false)
     }
     static func monoCaption() -> AppFontStyle {
         .init(font: plexMono(.regular, 12), tracking: 0, uppercase: false)

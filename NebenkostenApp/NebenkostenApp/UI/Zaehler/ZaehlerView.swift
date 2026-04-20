@@ -2,16 +2,19 @@
 //  ZaehlerView.swift
 //  NebenkostenApp — UI/Zaehler
 //
-//  Zähler-Tab nach Design-Handoff. Drei Sections:
-//    1. PeriodStatsBlock — "Ablesungen · Periode" und "Geräte gesamt".
-//    2. Hauptzähler — Card-Liste der Liegenschafts-Hauptzähler.
-//    3. Wohnungszähler — gruppiert nach Einheit (im Objekt-Scope) bzw.
-//       nur die Einheit-Zähler (im Einheit-Scope).
+//  Zähler-Tab nach Design-Handoff + UI-Fix-2.
+//    1. Kennzahlen-Card (Ablesungen · Geräte).
+//    2. Je Medium eine CollapsibleSection mit Rows (alle default offen).
+//       Row-Layout: Symbol + anzeigename (17pt/600) + (typ · ort),
+//       rechts großer Mono-Wert (18pt/600) + Einheit (12pt) +
+//       StatusDot. Datum darunter (12pt).
+//    3. Footer-Hinweis zum Tappen.
 //
-//  Tap auf einen Zähler öffnet in UI-2 das Detail-Sheet mit Stands-
-//  historie und "Stand erfassen"-Button. Bis dahin ist der Row read-
-//  only — ein "Zählerstand erfassen"-Primary-Button am Ende startet
-//  den Flow global.
+//  Scope-Verhalten:
+//    objekt  → alle Hauptzähler + alle Einheit-Zähler, gruppiert.
+//    einheit → nur Zähler dieser Einheit (Hauptzähler ausgeblendet).
+//
+//  Tap → ZaehlerstandErfassenView-Sheet.
 //
 
 import SwiftUI
@@ -37,8 +40,7 @@ struct ZaehlerView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 kennzahlenCard
-                hauptzaehlerSektion
-                wohnungsZaehlerSektion
+                mediumSektionen
                 hinweisFooter
             }
             .padding(.horizontal, 16)
@@ -55,9 +57,7 @@ struct ZaehlerView: View {
         .sheet(isPresented: $zeigeScopePicker) { ScopePickerSheet() }
         .sheet(isPresented: $zeigeEinstellungen) { EinstellungenSheet() }
         .sheet(item: $erfassenZaehler) { z in
-            NavigationStack {
-                ZaehlerstandErfassenView(zaehler: z)
-            }
+            NavigationStack { ZaehlerstandErfassenView(zaehler: z) }
         }
     }
 
@@ -103,106 +103,94 @@ struct ZaehlerView: View {
         }
     }
 
-    // MARK: - Hauptzähler
+    // MARK: - Medium-Gruppen
 
-    @ViewBuilder
-    private var hauptzaehlerSektion: some View {
-        let liste = hauptzaehlerSichtbar
-        if !liste.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
-                SectionHeader("Hauptzähler") {
-                    Text("\(liste.count) Gerät\(liste.count == 1 ? "" : "e")")
-                        .appFont(AppFont.monoCaption())
-                        .foregroundStyle(DesignTokens.textTertiary)
+    private var mediumSektionen: some View {
+        VStack(spacing: 10) {
+            ForEach(sichtbareMedienMitZaehlern, id: \.medium) { gruppe in
+                CollapsibleSection(
+                    titel: gruppe.anzeigeName,
+                    summary: nil,
+                    count: gruppe.zaehler.count,
+                    persistKey: "zaehler.medium.\(gruppe.medium.rawValue).open",
+                    defaultOffen: true
+                ) {
+                    VStack(spacing: 0) {
+                        ForEach(Array(gruppe.zaehler.enumerated()), id: \.element.id) { idx, z in
+                            zaehlerZeile(z)
+                            if idx < gruppe.zaehler.count - 1 {
+                                DividerLine().padding(.leading, 14)
+                            }
+                        }
+                    }
                 }
-                zaehlerListe(liste, farbe: DesignTokens.unitObjekt)
             }
         }
     }
 
-    // MARK: - Wohnungszähler
+    private func zaehlerZeile(_ z: Zaehler) -> some View {
+        Button {
+            erfassenZaehler = z
+        } label: {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: mediumSymbol(z.medium))
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(mediumFarbe(z))
+                    .frame(width: 28, height: 28, alignment: .center)
 
-    @ViewBuilder
-    private var wohnungsZaehlerSektion: some View {
-        switch scope.current {
-        case .objekt:
-            ForEach(sichtbareEinheiten) { e in
-                let zaehler = (e.zaehler ?? []).sorted { $0.medium.rawValue < $1.medium.rawValue }
-                if !zaehler.isEmpty {
-                    VStack(alignment: .leading, spacing: 10) {
-                        SectionHeader(einheitTitel(e)) {
-                            Text("\(zaehler.count) Gerät\(zaehler.count == 1 ? "" : "e")")
-                                .appFont(AppFont.monoCaption())
-                                .foregroundStyle(DesignTokens.textTertiary)
-                        }
-                        zaehlerListe(zaehler, farbe: ScopeFarbe.farbe(fuer: e))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(z.anzeigename)
+                        .appFont(AppFont.bodySemi17())
+                        .foregroundStyle(DesignTokens.text)
+                        .lineLimit(1)
+                    Text(zaehlerSubLine(z))
+                        .appFont(AppFont.subtitleEmphasis())
+                        .foregroundStyle(DesignTokens.textSecondary)
+                        .lineLimit(1)
+                    if let stand = letzterStand(z) {
+                        Text("letzter Stand am \(Formatting.datum(stand.ablesedatum))")
+                            .appFont(AppFont.captionEmphasis())
+                            .foregroundStyle(DesignTokens.textTertiary)
                     }
                 }
-            }
-        case .einheit(let id):
-            if let e = (immobilie?.wohneinheiten ?? []).first(where: {
-                $0.bezeichnung.caseInsensitiveCompare(id) == .orderedSame
-            }) {
-                let zaehler = (e.zaehler ?? []).sorted { $0.medium.rawValue < $1.medium.rawValue }
-                VStack(alignment: .leading, spacing: 10) {
-                    SectionHeader(einheitTitel(e)) {
-                        if !zaehler.isEmpty {
-                            Text("\(zaehler.count) Gerät\(zaehler.count == 1 ? "" : "e")")
-                                .appFont(AppFont.monoCaption())
-                                .foregroundStyle(DesignTokens.textTertiary)
-                        }
-                    }
-                    if zaehler.isEmpty {
-                        Card {
-                            Text("Keine Zähler dieser Einheit erfasst.")
-                                .appFont(AppFont.caption())
-                                .foregroundStyle(DesignTokens.textSecondary)
+
+                Spacer(minLength: 8)
+
+                VStack(alignment: .trailing, spacing: 2) {
+                    if let stand = letzterStand(z) {
+                        HStack(alignment: .firstTextBaseline, spacing: 4) {
+                            Text(standZahl(stand.stand))
+                                .appFont(AppFont.monoMesswert())
+                                .foregroundStyle(DesignTokens.text)
+                            if !z.einheit.isEmpty {
+                                Text(z.einheit)
+                                    .appFont(AppFont.monoCaption())
+                                    .foregroundStyle(DesignTokens.textSecondary)
+                            }
                         }
                     } else {
-                        zaehlerListe(zaehler, farbe: ScopeFarbe.farbe(fuer: e))
+                        Text("—")
+                            .appFont(AppFont.monoMesswert())
+                            .foregroundStyle(DesignTokens.textTertiary)
                     }
+                    StatusDot(status: zaehlerDotStatus(z))
                 }
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(DesignTokens.textTertiary)
+                    .padding(.top, 6)
             }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
     }
 
-    private func zaehlerListe(_ liste: [Zaehler], farbe: Color) -> some View {
-        VStack(spacing: 0) {
-            ForEach(Array(liste.enumerated()), id: \.element.id) { idx, z in
-                Row(
-                    label: anzeigeNameZaehler(z),
-                    subtitel: zaehlerDetailText(z),
-                    chevron: true,
-                    action: { erfassenZaehler = z },
-                    leading: {
-                        Image(systemName: mediumSymbol(z.medium))
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(farbe)
-                            .frame(width: 24, height: 24, alignment: .center)
-                    },
-                    trailing: {
-                        HStack(spacing: 8) {
-                            if let stand = letzterStand(z) {
-                                Text(formatiere(stand.stand, einheit: z.einheit))
-                                    .appFont(AppFont.monoCaption())
-                                    .foregroundStyle(DesignTokens.text)
-                            }
-                            StatusDot(status: zaehlerDotStatus(z))
-                        }
-                    }
-                )
-                if idx < liste.count - 1 {
-                    DividerLine().padding(.leading, 14)
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(DesignTokens.bgSurface)
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(DesignTokens.separator, lineWidth: 0.5)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    private func zaehlerSubLine(_ z: Zaehler) -> String {
+        var parts: [String] = [z.anzeigetyp]
+        if !z.anzeigeort.isEmpty { parts.append(z.anzeigeort) }
+        return parts.joined(separator: " · ")
     }
 
     // MARK: - Footer
@@ -220,39 +208,51 @@ struct ZaehlerView: View {
         .padding(.top, 4)
     }
 
-    // MARK: - Derived
+    // MARK: - Daten
 
     private var subtitel: String? {
         guard let p = aktivePeriode else { return nil }
         let kal = Calendar(identifier: .gregorian)
         let j = kal.component(.year, from: p.bis)
-        return "Periode \(j)"
+        return "Periode \(j) · \(sichtbareZaehler.count) Geräte"
     }
 
     private var sichtbareEinheiten: [Wohneinheit] {
         ScopeFilter.sichtbareEinheiten(alle: immobilie?.wohneinheiten ?? [], scope: .objekt)
     }
 
-    private var zaehlerAufgeteilt: (haupt: [Zaehler], wohnung: [Zaehler]) {
-        let paare = ScopeFilter.zaehlerGetrennt(
+    private var sichtbareZaehler: [Zaehler] {
+        let p = ScopeFilter.zaehlerGetrennt(
             hauptzaehler: immobilie?.hauptzaehler ?? [],
             einheiten: immobilie?.wohneinheiten ?? [],
             scope: scope.current
         )
-        return (
-            haupt: paare.haupt.sorted { $0.medium.rawValue < $1.medium.rawValue },
-            wohnung: paare.wohnung.sorted { $0.medium.rawValue < $1.medium.rawValue }
-        )
-    }
-
-    /// Alle Zähler im aktuellen Scope — für Kennzahlen.
-    private var sichtbareZaehler: [Zaehler] {
-        let p = zaehlerAufgeteilt
         return p.haupt + p.wohnung
     }
 
-    private var hauptzaehlerSichtbar: [Zaehler] {
-        zaehlerAufgeteilt.haupt
+    private struct MediumGruppe {
+        let medium: Medium
+        let anzeigeName: String
+        let zaehler: [Zaehler]
+    }
+
+    private var sichtbareMedienMitZaehlern: [MediumGruppe] {
+        let alle = sichtbareZaehler
+        let gruppiert = Dictionary(grouping: alle) { $0.medium }
+        return Medium.allCases.compactMap { m -> MediumGruppe? in
+            guard let liste = gruppiert[m], !liste.isEmpty else { return nil }
+            return MediumGruppe(
+                medium: m,
+                anzeigeName: mediumName(m),
+                zaehler: liste.sorted { lhs, rhs in
+                    let lh = lhs.wohneinheit == nil ? 0 : 1  // Hauptzähler zuerst
+                    let rh = rhs.wohneinheit == nil ? 0 : 1
+                    if lh != rh { return lh < rh }
+                    return ScopeFilter.einheitRang(lhs.wohneinheit?.bezeichnung ?? "")
+                        < ScopeFilter.einheitRang(rhs.wohneinheit?.bezeichnung ?? "")
+                }
+            )
+        }
     }
 
     private var ablesungenInPeriode: Int {
@@ -277,15 +277,15 @@ struct ZaehlerView: View {
     private var geraeteDetail: String {
         switch scope.current {
         case .objekt:
-            let haupt = hauptzaehlerSichtbar.count
+            let haupt = (immobilie?.hauptzaehler ?? []).count
             let wohnung = sichtbareEinheiten.flatMap { $0.zaehler ?? [] }.count
-            return "\(haupt) Haus · \(wohnung) Wohnung"
+            return "\(haupt) Haus · \(wohnung) Einheit"
         case .einheit:
             return "in dieser Einheit"
         }
     }
 
-    // MARK: - Zähler-Helper
+    // MARK: - Helper
 
     private func letzterStand(_ z: Zaehler) -> Zaehlerstand? {
         (z.staende ?? []).max(by: { $0.ablesedatum < $1.ablesedatum })
@@ -301,20 +301,22 @@ struct ZaehlerView: View {
         return .error
     }
 
-    private func anzeigeNameZaehler(_ z: Zaehler) -> String {
-        if !z.bezeichnung.isEmpty { return z.bezeichnung }
-        return mediumName(z.medium)
+    private func standZahl(_ value: Decimal) -> String {
+        let f = NumberFormatter()
+        f.locale = Locale(identifier: "de_DE")
+        f.numberStyle = .decimal
+        f.minimumFractionDigits = 0
+        f.maximumFractionDigits = 3
+        f.groupingSeparator = "."
+        f.decimalSeparator = ","
+        return f.string(from: NSDecimalNumber(decimal: value)) ?? "\(value)"
     }
 
-    private func zaehlerDetailText(_ z: Zaehler) -> String {
-        let basis = mediumName(z.medium)
-        if let stand = letzterStand(z) {
-            return "\(basis) · letzte Ablesung \(Formatting.datum(stand.ablesedatum))"
+    private func mediumFarbe(_ z: Zaehler) -> Color {
+        if let e = z.wohneinheit {
+            return ScopeFarbe.farbe(fuer: e)
         }
-        if !z.seriennummer.isEmpty {
-            return "\(basis) · SN \(z.seriennummer)"
-        }
-        return basis
+        return DesignTokens.unitObjekt
     }
 
     private func mediumSymbol(_ m: Medium) -> String {
@@ -338,19 +340,4 @@ struct ZaehlerView: View {
         case .oel:           return "Öl"
         }
     }
-
-    private func einheitTitel(_ e: Wohneinheit) -> String {
-        switch e.nutzungsart {
-        case .gewerbe: return "\(e.bezeichnung) Gewerbe"
-        case .leerstand: return "\(e.bezeichnung) Leerstand"
-        default: return "\(e.bezeichnung) Wohnung"
-        }
-    }
-
-    private func formatiere(_ value: Decimal, einheit: String) -> String {
-        let zahl = NSDecimalNumber(decimal: value).stringValue
-        if einheit.isEmpty { return zahl }
-        return "\(zahl) \(einheit)"
-    }
-
 }
