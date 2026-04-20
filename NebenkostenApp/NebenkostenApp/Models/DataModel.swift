@@ -411,6 +411,13 @@ final class Rechnung {
     /// Lohnanteil brutto für §35a, falls ausgewiesen
     var lohnanteilBruttoEuro: Decimal?
 
+    /// Abgerechnete Verbrauchsmenge, falls die Rechnung einen Hauptverbrauch
+    /// ausweist (z.B. GASAG Jahresrechnung in kWh, BWB-Trinkwasser in m³).
+    /// Wird vom HeizkostenRechner bevorzugt gegenüber einer Zählerstand-
+    /// Differenz verwendet, wenn ein Zählerwechsel innerhalb der Periode
+    /// den Hauptzähler-Lauf unterbricht.
+    var verbrauchMenge: Decimal?
+
     /// PDF oder Foto der Rechnung
     @Attribute(.externalStorage) var anhang: Data?
     var anhangTyp: String = "pdf"    // "pdf", "jpg", "heic"

@@ -1,7 +1,7 @@
 {
-  "schema_version": "1.2",
+  "schema_version": "1.3",
   "beschreibung": "Testdaten Bahnhofstr. 37, Berlin, Abrechnungsperiode 01.11.2024 - 31.10.2025. Quelle: User-Dokumente (GASAG, BWB, BSR, Grundsteuer, Allianz, Vattenfall, Zählerstand-Excel, Leske, Kirschnereit, Freter, Günther, Foto-OCR der Zähler, OG-Abrechnung 2024/2025). Wird von den Integrationstests im Calc-Layer verwendet.",
-  "changelog": "v1.2 (2026-04-19): Bereinigung - alle 2023/2024er Vergleichswerte entfernt. JSON enthält nur noch Werte für die aktuelle NK-Periode 2024/2025 sowie die allgemeingültigen Berechnungskonstanten (WW-Faktor 12.9, Brennwert 11.11, 30/70-Aufteilung, 3% Strom-Zuschlag).",
+  "changelog": "v1.3 (2026-04-20): Mock-Rechnungen für Vorgartenpflege und Allgemeinstrom ergänzt (existieren in der OG-Excel-Referenz, fehlten bisher im Dateneingabe-JSON). Beträge rückgerechnet aus OG-Anteilen 46,12 € (Vorgarten) bzw. 119,44 € (Allgemeinstrom) × 528/187. v1.2 (2026-04-19): Bereinigung - alle 2023/2024er Vergleichswerte entfernt. JSON enthält nur noch Werte für die aktuelle NK-Periode 2024/2025 sowie die allgemeingültigen Berechnungskonstanten (WW-Faktor 12.9, Brennwert 11.11, 30/70-Aufteilung, 3% Strom-Zuschlag).",
 
   "briefkopf": {
     "name": "Verena Janßen",
@@ -292,6 +292,34 @@
       "netto": 110.00,
       "mwst": 20.90,
       "gesamt_brutto": 130.90
+    },
+    {
+      "id": "vorgartenpflege_2025",
+      "kostenart": "Gartenpflege",
+      "umlagefaehig": true,
+      "versorger": "Vorgartenpflege Mustermann (Mock)",
+      "rechnungs_nr": "VG-2025-01",
+      "rechnungsdatum": "2025-06-15",
+      "leistungszeitraum_start": "2024-11-01",
+      "leistungszeitraum_ende": "2025-10-31",
+      "netto": 109.45,
+      "mwst": 20.79,
+      "gesamt_brutto": 130.24,
+      "arbeitskosten_brutto": 130.24,
+      "paragraph_35a_relevant": true,
+      "anmerkung": "Mock-Rechnung v1.3. Betrag zurückgerechnet aus OG-Referenz 46.12 € × 528/187 = 130.24 € (Fläche). Ersetzt die fehlende Original-Rechnung für den Integrationstest."
+    },
+    {
+      "id": "allgemeinstrom_vattenfall_2025",
+      "kostenart": "Allgemeinstrom",
+      "umlagefaehig": true,
+      "versorger": "Vattenfall (Mock)",
+      "rechnungs_nr": "VAT-2025-Ba37",
+      "rechnungsdatum": "2025-03-31",
+      "leistungszeitraum_start": "2024-11-01",
+      "leistungszeitraum_ende": "2025-10-31",
+      "gesamt_brutto": 337.21,
+      "anmerkung": "Mock-Rechnung v1.3. Betrag zurückgerechnet aus OG-Referenz 119.44 € × 528/187 = 337.21 € (Fläche)."
     },
     {
       "id": "guenther_winterdienst_2024_2025",

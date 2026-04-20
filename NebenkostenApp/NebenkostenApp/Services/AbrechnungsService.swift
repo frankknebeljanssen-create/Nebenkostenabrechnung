@@ -2,11 +2,19 @@
 //  AbrechnungsService.swift
 //  NebenkostenApp — Services
 //
-//  Brücke zwischen @Model-SwiftData und Calc-Layer.
-//  MVP (Phase 0): Alle Kostenarten flächenbasiert umgelegt — die volle
-//  HeizkostenV-Integration mit HeizkostenRechner/WasserkostenRechner kommt
-//  in Task 0.22 End-to-End. Ausreichend, um den Abrechnungs-Flow sichtbar
-//  zu machen.
+//  Brücke zwischen @Model-SwiftData und Calc-Layer. Übersetzt Immobilie +
+//  Periode in AbrechnungsInput, ruft AbrechnungsAggregator auf und baut pro
+//  aktivem Mieter eine Mieterabrechnung.
+//
+//  Heizkosten-Pool (§7 HeizkostenV): Alle Rechnungen der Kostenart mit
+//  Umlageschlüssel `.heizkosten3070` werden gesammelt. Die teuerste Rechnung
+//  ohne Lohnanteil ist die Brennstoff-Hauptrechnung (GASAG); der Rest bildet
+//  den Heiz-Nebenkosten-Pool und wird kWh-anteilig auf Heiz- und Warmwasser-
+//  Topf gesplittet. Das entspricht der Bahnhofstr.-37-Struktur (Leske-
+//  Wartung + Kirschnereit-Schornsteinfeger als Pool).
+//
+//  §35a: Pro Rechnung aus `lohnanteilBruttoEuro` abgeleitet, flächenanteilig
+//  auf die Einheit verteilt. Rechnungen ohne Lohnanteil liefern 0 €.
 //
 
 import Foundation
@@ -19,6 +27,23 @@ struct Mieterposition: Identifiable, Hashable, Sendable {
     let mieteranteilEuro: Decimal
     let verteilerschluesselText: String
     let paragraph35aAnteilEuro: Decimal
+}
+
+/// Optionale Detaildaten der Heiz-/Warmwasser-Berechnung einer Einheit.
+/// Wird im PDF als "Anlage 1 Heizkostenabrechnung" gerendert.
+struct HeizungsAnlagenDetails: Hashable, Sendable {
+    let heizkostenTopfEuro: Decimal
+    let warmwasserkostenTopfEuro: Decimal
+    let qHeizungKwh: Double
+    let qWarmwasserKwh: Double
+    let wmzAnteilKwh: Double
+    let wwVerbrauchM3: Double
+    let flaechenanteilHeizungEuro: Decimal
+    let verbrauchsanteilHeizungEuro: Decimal
+    let flaechenanteilWarmwasserEuro: Decimal
+    let verbrauchsanteilWarmwasserEuro: Decimal
+    let heizungVerteilerschluesselText: String
+    let warmwasserVerteilerschluesselText: String
 }
 
 struct Mieterabrechnung: Identifiable, Hashable, Sendable {
@@ -35,94 +60,409 @@ struct Mieterabrechnung: Identifiable, Hashable, Sendable {
     /// Positiv → Nachzahlung, negativ → Erstattung.
     let saldoEuro: Decimal
     let steuer35aBetragEuro: Decimal
+    let heizungsAnlage: HeizungsAnlagenDetails?
 }
 
 @MainActor
 enum AbrechnungsService {
 
-    /// Erzeugt für jeden aktiven Mieter der Immobilie eine Mieterabrechnung
-    /// für die angegebene Periode.
     static func aggregiere(
         periode: Abrechnungsperiode,
         immobilie: Immobilie
     ) -> [Mieterabrechnung] {
-        let aktiveMieter = (immobilie.wohneinheiten ?? [])
-            .flatMap { $0.mietverhaeltnisse ?? [] }
-            .filter { $0.auszugAm == nil && $0.wohneinheit != nil }
+        let einheiten = immobilie.wohneinheiten ?? []
+        guard !einheiten.isEmpty, immobilie.gesamtflaecheM2 > 0 else { return [] }
 
         let periodenRechnungen = (immobilie.rechnungen ?? []).filter { r in
             r.rechnungsdatum >= periode.von && r.rechnungsdatum <= periode.bis
         }
         let monate = monateInPeriode(periode)
+        let kostenarten = immobilie.kostenarten ?? []
 
-        return aktiveMieter
-            .sorted { lhs, rhs in
-                let lBez = lhs.wohneinheit?.bezeichnung ?? ""
-                let rBez = rhs.wohneinheit?.bezeichnung ?? ""
-                return sortierrang(lBez) < sortierrang(rBez)
+        // --- 1. Heizkosten-Berechnung (HeizkostenRechner) ---
+        let heizResult = berechneHeizkosten(
+            einheiten: einheiten,
+            immobilie: immobilie,
+            periode: periode,
+            kostenarten: kostenarten,
+            periodenRechnungen: periodenRechnungen
+        )
+
+        // --- 2. Wasser-Berechnung (WasserkostenRechner) ---
+        let wasserErgebnis = berechneWasser(
+            einheiten: einheiten,
+            periode: periode,
+            kostenarten: kostenarten,
+            periodenRechnungen: periodenRechnungen
+        )
+
+        // --- 3. Flächen-Kostenarten (alle anderen) ---
+        // Behandelt wird: .flaeche, .einheiten, .personen (alle drei als
+        // Flächen-Umlage für MVP — Personen-Umlage kommt in Phase 1).
+        let flaechenErgebnisse = berechneFlaechen(
+            einheiten: einheiten,
+            immobilie: immobilie,
+            kostenarten: kostenarten,
+            periodenRechnungen: periodenRechnungen
+        )
+
+        // --- 4. Pro Einheit Positionen zusammenstellen ---
+        var positionenProEinheit: [UUID: [Mieterposition]] = [:]
+        var heizAnlageProEinheit: [UUID: HeizungsAnlagenDetails] = [:]
+        for e in einheiten { positionenProEinheit[e.id] = [] }
+
+        if let heizResult {
+            for einheitErg in heizResult.ergebnis.proEinheit {
+                guard let id = UUID(uuidString: einheitErg.einheitID) else { continue }
+                positionenProEinheit[id, default: []].append(Mieterposition(
+                    id: UUID(),
+                    kostenart: "Heizung",
+                    gesamtkostenEuro: heizResult.ergebnis.heizkostenTopfEuro,
+                    mieteranteilEuro: einheitErg.heizung.gesamtEuro,
+                    verteilerschluesselText: einheitErg.heizung.verteilerschluesselText,
+                    paragraph35aAnteilEuro: heizResult.p35aHeizungProEinheit[id] ?? 0
+                ))
+                positionenProEinheit[id, default: []].append(Mieterposition(
+                    id: UUID(),
+                    kostenart: "Warmwasser",
+                    gesamtkostenEuro: heizResult.ergebnis.warmwasserkostenTopfEuro,
+                    mieteranteilEuro: einheitErg.warmwasser.gesamtEuro,
+                    verteilerschluesselText: einheitErg.warmwasser.verteilerschluesselText,
+                    paragraph35aAnteilEuro: heizResult.p35aWarmwasserProEinheit[id] ?? 0
+                ))
+
+                heizAnlageProEinheit[id] = HeizungsAnlagenDetails(
+                    heizkostenTopfEuro: heizResult.ergebnis.heizkostenTopfEuro,
+                    warmwasserkostenTopfEuro: heizResult.ergebnis.warmwasserkostenTopfEuro,
+                    qHeizungKwh: heizResult.ergebnis.qHeizungKwh,
+                    qWarmwasserKwh: heizResult.ergebnis.qWarmwasserGesamtKwh,
+                    wmzAnteilKwh: heizResult.wmzProEinheit[einheitErg.einheitID] ?? 0,
+                    wwVerbrauchM3: heizResult.wwProEinheit[einheitErg.einheitID] ?? 0,
+                    flaechenanteilHeizungEuro: einheitErg.heizung.flaechenanteilEuro,
+                    verbrauchsanteilHeizungEuro: einheitErg.heizung.verbrauchsanteilEuro,
+                    flaechenanteilWarmwasserEuro: einheitErg.warmwasser.flaechenanteilEuro,
+                    verbrauchsanteilWarmwasserEuro: einheitErg.warmwasser.verbrauchsanteilEuro,
+                    heizungVerteilerschluesselText: einheitErg.heizung.verteilerschluesselText,
+                    warmwasserVerteilerschluesselText: einheitErg.warmwasser.verteilerschluesselText
+                )
             }
-            .map { bauAbrechnung(mieter: $0, rechnungen: periodenRechnungen, immobilie: immobilie, monateInPeriode: monate) }
+        }
+
+        if let wasserErgebnis {
+            for e in wasserErgebnis.ergebnis.proEinheit {
+                guard let id = UUID(uuidString: e.einheitID) else { continue }
+                let preisText = wasserErgebnis.ergebnis.kombiPreisEuroProM3
+                    .gerundet(auf: 4, modus: .bankers)
+                positionenProEinheit[id, default: []].append(Mieterposition(
+                    id: UUID(),
+                    kostenart: "Be- und Entwässerung",
+                    gesamtkostenEuro: wasserErgebnis.ergebnis.bwbGesamtkostenEuro,
+                    mieteranteilEuro: e.anteilEuro,
+                    verteilerschluesselText: "\(formatiere(e.verbrauchM3)) m³ × "
+                        + "\(formatiere(preisText)) €/m³",
+                    paragraph35aAnteilEuro: 0
+                ))
+            }
+        }
+
+        for eintrag in flaechenErgebnisse {
+            for einheitErg in eintrag.ergebnis.proEinheit {
+                guard let id = UUID(uuidString: einheitErg.einheitID) else { continue }
+                positionenProEinheit[id, default: []].append(Mieterposition(
+                    id: UUID(),
+                    kostenart: eintrag.kostenart,
+                    gesamtkostenEuro: eintrag.ergebnis.basisBetragEuro,
+                    mieteranteilEuro: einheitErg.anteilEuro,
+                    verteilerschluesselText: einheitErg.verteilerschluesselText,
+                    paragraph35aAnteilEuro: eintrag.p35aProEinheit[id] ?? 0
+                ))
+            }
+        }
+
+        // --- 5. Aktive Mieter → Mieterabrechnung ---
+        let alleMietverhaeltnisse: [Mietverhaeltnis] = einheiten
+            .flatMap { $0.mietverhaeltnisse ?? [] }
+        let aktiveMieter: [Mietverhaeltnis] = alleMietverhaeltnisse
+            .filter { $0.auszugAm == nil && $0.wohneinheit != nil }
+            .sorted { lhs, rhs in
+                let l = sortierrang(lhs.wohneinheit?.bezeichnung ?? "")
+                let r = sortierrang(rhs.wohneinheit?.bezeichnung ?? "")
+                return l < r
+            }
+
+        return aktiveMieter.map { mv in
+            guard let einheit = mv.wohneinheit else {
+                return leereMieterabrechnung(mieter: mv)
+            }
+            let positionen = positionenProEinheit[einheit.id] ?? []
+            let gesamt = positionen.reduce(Decimal(0)) { $0 + $1.mieteranteilEuro }
+            let vorauszahlungen = mv.vorauszahlungMonatEuro * Decimal(monate)
+            let saldo = gesamt - vorauszahlungen
+            let p35a = positionen.reduce(Decimal(0)) { $0 + $1.paragraph35aAnteilEuro }
+            return Mieterabrechnung(
+                id: UUID(),
+                mieterID: mv.id,
+                mieterName: mv.mieterName,
+                mieterAnschrift: mv.mieterAnschrift,
+                mieterEmail: mv.mieterEmail,
+                einheitBezeichnung: einheit.bezeichnung,
+                einheitFlaecheM2: einheit.flaecheM2,
+                positionen: positionen,
+                gesamtkostenEuro: gesamt,
+                vorauszahlungenEuro: vorauszahlungen,
+                saldoEuro: saldo,
+                steuer35aBetragEuro: p35a,
+                heizungsAnlage: heizAnlageProEinheit[einheit.id]
+            )
+        }
     }
 
-    // MARK: - Eine Mieterabrechnung
+    // MARK: - Heizkosten
 
-    private static func bauAbrechnung(
-        mieter: Mietverhaeltnis,
-        rechnungen: [Rechnung],
+    private struct HeizResult {
+        let ergebnis: HeizkostenErgebnis
+        /// WMZ-Kwh je einheitID-String (identisch mit HeizkostenInput).
+        let wmzProEinheit: [String: Double]
+        let wwProEinheit: [String: Double]
+        let p35aHeizungProEinheit: [UUID: Decimal]
+        let p35aWarmwasserProEinheit: [UUID: Decimal]
+    }
+
+    private static func berechneHeizkosten(
+        einheiten: [Wohneinheit],
         immobilie: Immobilie,
-        monateInPeriode: Int
-    ) -> Mieterabrechnung {
-        guard let einheit = mieter.wohneinheit else {
-            return leereMieterabrechnung(mieter: mieter)
+        periode: Abrechnungsperiode,
+        kostenarten: [Kostenart],
+        periodenRechnungen: [Rechnung]
+    ) -> HeizResult? {
+        let heizkostenarten = kostenarten.filter {
+            $0.umlageschluessel == .heizkosten3070
+                || $0.umlageschluessel == .warmwasser3070
+                || $0.umlageschluessel == .heizkosten5050
         }
+        let heizRechnungen = periodenRechnungen.filter { r in
+            guard let ka = r.kostenart else { return false }
+            return heizkostenarten.contains { $0.id == ka.id }
+        }
+        guard !heizRechnungen.isEmpty else { return nil }
 
-        let positionen: [Mieterposition] = rechnungen.compactMap { rechnung in
-            guard let kostenart = rechnung.kostenart, kostenart.aktiv else { return nil }
-            let anteil = berechneAnteil(
-                rechnung: rechnung,
-                einheit: einheit,
-                immobilie: immobilie
-            )
-            guard anteil > 0 else { return nil }
+        // Hauptrechnung = grösster Betrag ohne Lohnanteil (Brennstoff).
+        // Pool = alle anderen Rechnungen der Heiz-Kostenart (Wartung,
+        // Schornsteinfeger, …) — mit oder ohne Lohnanteil.
+        let sortiert = heizRechnungen.sorted { $0.betragBruttoEuro > $1.betragBruttoEuro }
+        guard let haupt = sortiert.first(where: { $0.lohnanteilBruttoEuro == nil })
+                ?? sortiert.first
+        else { return nil }
+        let pool = heizRechnungen.filter { $0.id != haupt.id }
 
-            let p35a: Decimal
-            if kostenart.paragraph35a, let lohn = rechnung.lohnanteilBruttoEuro,
-               rechnung.betragBruttoEuro > 0 {
-                p35a = lohn * einheit.flaecheM2 / immobilie.gesamtflaecheM2
-            } else {
-                p35a = 0
+        // Verbräuche aus Zählern (oder Hauptrechnung bei Zählerwechsel).
+        guard let gasKwh = ermittleGasVerbrauchKwh(
+            immobilie: immobilie, periode: periode, hauptRechnung: haupt
+        ), gasKwh > 0 else { return nil }
+
+        var wmzProEinheit: [String: Double] = [:]
+        var wwProEinheit: [String: Double] = [:]
+        var flaechenProEinheit: [String: Double] = [:]
+        for e in einheiten {
+            let id = e.id.uuidString
+            flaechenProEinheit[id] = NSDecimalNumber(decimal: e.flaecheM2).doubleValue
+            if let wmz = (e.zaehler ?? []).first(where: { $0.medium == .waermeenergie }),
+               let diff = stanDiffInPeriode(zaehler: wmz, periode: periode) {
+                let faktor = wmz.einheit == "MWh" ? 1_000.0 : 1.0
+                wmzProEinheit[id] = diff * faktor
             }
-
-            return Mieterposition(
-                id: UUID(),
-                kostenart: kostenart.bezeichnung,
-                gesamtkostenEuro: rechnung.betragBruttoEuro,
-                mieteranteilEuro: anteil,
-                verteilerschluesselText: verteilerschluessel(einheit: einheit, immobilie: immobilie),
-                paragraph35aAnteilEuro: p35a
-            )
+            if let ww = (e.zaehler ?? []).first(where: { $0.medium == .warmwasser }),
+               let diff = stanDiffInPeriode(zaehler: ww, periode: periode) {
+                wwProEinheit[id] = diff
+            }
         }
 
-        let gesamt = positionen.reduce(Decimal(0)) { $0 + $1.mieteranteilEuro }
-        let vorauszahlungen = mieter.vorauszahlungMonatEuro * Decimal(monateInPeriode)
-        let saldo = gesamt - vorauszahlungen
-        let p35aGesamt = positionen.reduce(Decimal(0)) { $0 + $1.paragraph35aAnteilEuro }
+        // Pool-Split nach kWh-Verhältnis Heizung:WW.
+        let parameter = heizParameter(ausImmobilie: immobilie)
+        let vWwGesamt = wwProEinheit.values.reduce(0.0, +)
+        let qWwKwh = vWwGesamt * parameter.wwGasFaktor * parameter.brennwertKwhProM3
+        let anteilWw = gasKwh > 0 ? min(max(qWwKwh / gasKwh, 0), 1) : 0
+        let anteilHeiz = 1.0 - anteilWw
 
-        return Mieterabrechnung(
-            id: UUID(),
-            mieterID: mieter.id,
-            mieterName: mieter.mieterName,
-            mieterAnschrift: mieter.mieterAnschrift,
-            mieterEmail: mieter.mieterEmail,
-            einheitBezeichnung: einheit.bezeichnung,
-            einheitFlaecheM2: einheit.flaecheM2,
-            positionen: positionen,
-            gesamtkostenEuro: gesamt,
-            vorauszahlungenEuro: vorauszahlungen,
-            saldoEuro: saldo,
-            steuer35aBetragEuro: p35aGesamt
+        let poolSumme = pool.reduce(Decimal(0)) { $0 + $1.betragBruttoEuro }
+        let heizNebenkosten = poolSumme * Decimal(anteilHeiz)
+        let wwNebenkosten   = poolSumme * Decimal(anteilWw)
+
+        // Pool-Lohnanteil für §35a ebenfalls aufteilen.
+        let poolLohn = pool.reduce(Decimal(0)) { $0 + ($1.lohnanteilBruttoEuro ?? 0) }
+        let lohnHeiz = poolLohn * Decimal(anteilHeiz)
+        let lohnWw   = poolLohn * Decimal(anteilWw)
+
+        let input = HeizkostenInput(
+            gesamtGasVerbrauchKwh: gasKwh,
+            gesamtGasKostenBrutto: haupt.betragBruttoEuro,
+            heizNebenkosten: heizNebenkosten,
+            wwNebenkosten: wwNebenkosten,
+            wmzProEinheit: wmzProEinheit,
+            wwM3ProEinheit: wwProEinheit,
+            flaechenProEinheit: flaechenProEinheit,
+            parameter: parameter
+        )
+        let ergebnis = HeizkostenRechner.berechne(input)
+
+        // §35a: Lohn-Pool pro Topf flächenanteilig pro Einheit.
+        var p35aHeiz: [UUID: Decimal] = [:]
+        var p35aWw:   [UUID: Decimal] = [:]
+        let gesamt = immobilie.gesamtflaecheM2
+        for e in einheiten where gesamt > 0 {
+            p35aHeiz[e.id] = lohnHeiz * e.flaecheM2 / gesamt
+            p35aWw[e.id]   = lohnWw   * e.flaecheM2 / gesamt
+        }
+
+        return HeizResult(
+            ergebnis: ergebnis,
+            wmzProEinheit: wmzProEinheit,
+            wwProEinheit: wwProEinheit,
+            p35aHeizungProEinheit: p35aHeiz,
+            p35aWarmwasserProEinheit: p35aWw
         )
     }
+
+    private static func heizParameter(ausImmobilie immobilie: Immobilie) -> HeizkostenParameter {
+        // Phase 0: Defaults des HeizkostenParameter-Initializers passen zu
+        // Bahnhofstr. 37 (wwGasFaktor 12.9, Brennwert 11.14, 3 % Strom,
+        // 30/70). Phase 1 liest pro Immobilie hinterlegte Feinwerte.
+        return HeizkostenParameter()
+    }
+
+    private static func ermittleGasVerbrauchKwh(
+        immobilie: Immobilie,
+        periode: Abrechnungsperiode,
+        hauptRechnung: Rechnung
+    ) -> Double? {
+        // Variante A: Gas-Hauptzähler-Stand-Differenz × Brennwert.
+        if let gas = (immobilie.hauptzaehler ?? [])
+            .first(where: { $0.medium == .gas }),
+           let diff = stanDiffInPeriode(zaehler: gas, periode: periode) {
+            let brennwert = NSDecimalNumber(
+                decimal: gas.brennwertKwhProM3 ?? Decimal(string: "11.14")!
+            ).doubleValue
+            return diff * brennwert
+        }
+        // Variante B: Hauptrechnung trägt verbrauchMenge (kWh) — robust
+        // gegen Zählerwechsel innerhalb der Periode.
+        if let kwh = hauptRechnung.verbrauchMenge {
+            return NSDecimalNumber(decimal: kwh).doubleValue
+        }
+        return nil
+    }
+
+    /// Monotone Stand-Differenz innerhalb der Periode. Bei Zählerwechsel
+    /// (Differenz negativ) → nil.
+    private static func stanDiffInPeriode(
+        zaehler: Zaehler,
+        periode: Abrechnungsperiode
+    ) -> Double? {
+        let staende = (zaehler.staende ?? [])
+            .filter { $0.ablesedatum >= periode.von && $0.ablesedatum <= periode.bis }
+            .sorted { $0.ablesedatum < $1.ablesedatum }
+        guard staende.count >= 2,
+              let first = staende.first,
+              let last = staende.last
+        else { return nil }
+        let diff = last.stand - first.stand
+        return diff > 0 ? NSDecimalNumber(decimal: diff).doubleValue : nil
+    }
+
+    // MARK: - Wasser
+
+    private struct WasserResult {
+        let ergebnis: WasserkostenErgebnis
+    }
+
+    private static func berechneWasser(
+        einheiten: [Wohneinheit],
+        periode: Abrechnungsperiode,
+        kostenarten: [Kostenart],
+        periodenRechnungen: [Rechnung]
+    ) -> WasserResult? {
+        let wasserkostenarten = kostenarten.filter { $0.umlageschluessel == .verbrauch }
+        let wasserRechnungen = periodenRechnungen.filter { r in
+            guard let ka = r.kostenart else { return false }
+            return wasserkostenarten.contains { $0.id == ka.id }
+        }
+        let summe = wasserRechnungen.reduce(Decimal(0)) { $0 + $1.betragBruttoEuro }
+        guard summe > 0 else { return nil }
+
+        // Verbrauch je Einheit = Σ(KW-Zähler) + Σ(WW-Zähler). Kaltwasser-
+        // Gartenzwischenzähler bleibt Teil des Einheit-Verbrauchs (BWB
+        // berechnet Abwasser-Abzug bereits selbst in der Rechnung).
+        var verbrauchProEinheit: [String: Verbrauch] = [:]
+        for e in einheiten {
+            var m3: Decimal = 0
+            for z in (e.zaehler ?? []) where z.medium == .kaltwasser || z.medium == .warmwasser {
+                if let diff = stanDiffInPeriode(zaehler: z, periode: periode) {
+                    m3 += Decimal(diff)
+                }
+            }
+            verbrauchProEinheit[e.id.uuidString] = m3
+        }
+
+        let ergebnis = WasserkostenRechner.berechne(WasserkostenInput(
+            bwbGesamtkostenEuro: summe,
+            verbrauchProEinheitM3: verbrauchProEinheit
+        ))
+        return WasserResult(ergebnis: ergebnis)
+    }
+
+    // MARK: - Flächen-Umlage
+
+    private struct FlaechenPositionsErgebnis {
+        let kostenart: String
+        let ergebnis: FlaechenErgebnis
+        let p35aProEinheit: [UUID: Decimal]
+    }
+
+    private static func berechneFlaechen(
+        einheiten: [Wohneinheit],
+        immobilie: Immobilie,
+        kostenarten: [Kostenart],
+        periodenRechnungen: [Rechnung]
+    ) -> [FlaechenPositionsErgebnis] {
+        let flaechenKA = kostenarten.filter {
+            $0.umlageschluessel == .flaeche
+                || $0.umlageschluessel == .einheiten
+                || $0.umlageschluessel == .personen
+        }
+        let flaechenDict: [String: Flaeche] = Dictionary(uniqueKeysWithValues: einheiten.map {
+            ($0.id.uuidString, $0.flaecheM2)
+        })
+
+        var ergebnisse: [FlaechenPositionsErgebnis] = []
+        for ka in flaechenKA.sorted(by: { $0.sortierung < $1.sortierung }) {
+            let rechnungen = periodenRechnungen.filter { $0.kostenart?.id == ka.id }
+            let summe = rechnungen.reduce(Decimal(0)) { $0 + $1.betragBruttoEuro }
+            guard summe > 0 else { continue }
+
+            let lohn = rechnungen.reduce(Decimal(0)) {
+                $0 + ($1.lohnanteilBruttoEuro ?? 0)
+            }
+
+            let fr = FlaechenRechner.berechne(FlaechenInput(
+                basisBetragEuro: summe,
+                gesamtflaecheM2: immobilie.gesamtflaecheM2,
+                flaechenProEinheit: flaechenDict
+            ))
+
+            var p35a: [UUID: Decimal] = [:]
+            for e in einheiten where immobilie.gesamtflaecheM2 > 0 {
+                p35a[e.id] = lohn * e.flaecheM2 / immobilie.gesamtflaecheM2
+            }
+            ergebnisse.append(FlaechenPositionsErgebnis(
+                kostenart: ka.bezeichnung,
+                ergebnis: fr,
+                p35aProEinheit: p35a
+            ))
+        }
+        return ergebnisse
+    }
+
+    // MARK: - Helfer
 
     private static func leereMieterabrechnung(mieter: Mietverhaeltnis) -> Mieterabrechnung {
         Mieterabrechnung(
@@ -137,31 +477,10 @@ enum AbrechnungsService {
             gesamtkostenEuro: 0,
             vorauszahlungenEuro: 0,
             saldoEuro: 0,
-            steuer35aBetragEuro: 0
+            steuer35aBetragEuro: 0,
+            heizungsAnlage: nil
         )
     }
-
-    // MARK: - Anteilsrechnung
-
-    /// MVP: immer flächenbasiert. Phase 1 / Task 0.22: verzweigen auf
-    /// HeizkostenRechner und WasserkostenRechner bei entsprechendem
-    /// Umlageschlüssel.
-    private static func berechneAnteil(
-        rechnung: Rechnung,
-        einheit: Wohneinheit,
-        immobilie: Immobilie
-    ) -> Decimal {
-        guard immobilie.gesamtflaecheM2 > 0 else { return 0 }
-        return rechnung.betragBruttoEuro * einheit.flaecheM2 / immobilie.gesamtflaecheM2
-    }
-
-    private static func verteilerschluessel(einheit: Wohneinheit, immobilie: Immobilie) -> String {
-        let e = stringFor(einheit.flaecheM2)
-        let g = stringFor(immobilie.gesamtflaecheM2)
-        return "\(e) / \(g) m²"
-    }
-
-    // MARK: - Helfer
 
     private static func monateInPeriode(_ p: Abrechnungsperiode) -> Int {
         var kal = Calendar(identifier: .gregorian)
@@ -182,11 +501,11 @@ enum AbrechnungsService {
         }
     }
 
-    private static func stringFor(_ d: Decimal) -> String {
-        let g = d.gerundet(auf: 0, modus: .abrunden)
-        if d == g {
-            return NSDecimalNumber(decimal: g).stringValue
+    private static func formatiere(_ d: Decimal) -> String {
+        let ganzzahlig = d.gerundet(auf: 0, modus: .abrunden)
+        if d == ganzzahlig {
+            return NSDecimalNumber(decimal: ganzzahlig).stringValue
         }
-        return NSDecimalNumber(decimal: d.gerundet(auf: 1, modus: .bankers)).stringValue
+        return NSDecimalNumber(decimal: d.gerundet(auf: 2, modus: .bankers)).stringValue
     }
 }

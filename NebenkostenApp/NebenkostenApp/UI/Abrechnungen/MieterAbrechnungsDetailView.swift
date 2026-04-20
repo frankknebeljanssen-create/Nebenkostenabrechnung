@@ -280,7 +280,7 @@ struct MieterAbrechnungsDetailView: View {
         let saldoFmt = formatiereZahl(abrechnung.saldoEuro.magnitude)
         let saldoText = abrechnung.saldoEuro >= 0 ? saldoFmt : "− \(saldoFmt)"
 
-        return [
+        var ctx: [String: Any] = [
             "vermieter": [
                 "name":     user?.name ?? "",
                 "adresse":  user?.anschrift ?? "",
@@ -317,9 +317,43 @@ struct MieterAbrechnungsDetailView: View {
             ],
             "positionen":          positionenDicts,
             "steuer35aRelevant":   abrechnung.steuer35aBetragEuro > 0,
-            "hatHeizungsAnlage":   false,
+            "hatHeizungsAnlage":   abrechnung.heizungsAnlage != nil,
             "hatCo2Anlage":        false
         ]
+
+        if let h = abrechnung.heizungsAnlage {
+            let heizTopf  = h.heizkostenTopfEuro
+            let wwTopf    = h.warmwasserkostenTopfEuro
+            let anteilHeiz = abrechnung.positionen
+                .first(where: { $0.kostenart == "Heizung" })?.mieteranteilEuro ?? 0
+            let anteilWw = abrechnung.positionen
+                .first(where: { $0.kostenart == "Warmwasser" })?.mieteranteilEuro ?? 0
+            ctx["heizung"] = [
+                "gesamtkostenEuro":     formatiereZahl(heizTopf + wwTopf),
+                "heizkostenTopfEuro":   formatiereZahl(heizTopf),
+                "warmwasserTopfEuro":   formatiereZahl(wwTopf),
+                "qHeizungKwh":          formatiereGanz(h.qHeizungKwh),
+                "qWarmwasserKwh":       formatiereGanz(h.qWarmwasserKwh),
+                "wmzGesamt":            formatiereGanz(h.qHeizungKwh),
+                "wmzAnteil":            formatiereGanz(h.wmzAnteilKwh),
+                "wwVerbrauchM3":        formatiereZahl(Decimal(h.wwVerbrauchM3)),
+                "flaechenanteilEuro":   formatiereZahl(h.flaechenanteilHeizungEuro
+                                                       + h.flaechenanteilWarmwasserEuro),
+                "verbrauchsanteilEuro": formatiereZahl(h.verbrauchsanteilHeizungEuro
+                                                       + h.verbrauchsanteilWarmwasserEuro),
+                "verbrauchAnteilProzent": "70",
+                "gesamtAnteilEuro":     formatiereZahl(anteilHeiz + anteilWw)
+            ]
+        }
+        return ctx
+    }
+
+    private func formatiereGanz(_ wert: Double) -> String {
+        let nf = NumberFormatter()
+        nf.numberStyle = .decimal
+        nf.locale = Locale(identifier: "de_DE")
+        nf.maximumFractionDigits = 0
+        return nf.string(from: NSNumber(value: wert)) ?? "\(Int(wert.rounded()))"
     }
 
     // MARK: - Formatter-Helfer

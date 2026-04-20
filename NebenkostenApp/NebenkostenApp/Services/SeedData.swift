@@ -327,6 +327,11 @@ enum SeedData {
         formatter.locale = Locale(identifier: "en_US_POSIX")
 
         // Rechnungs-ID → Kostenart-Bezeichnung (aus bauKostenarten).
+        // Kirschnereit und Leske landen in "Heizung und Warmwasser", damit sie
+        // der AbrechnungsService als Heiz-Nebenkosten-Pool erkennt und
+        // kWh-anteilig auf Heizungs- und Warmwasser-Topf splittet
+        // (§7 HeizkostenV-Struktur, siehe heiz_nebenkosten_zusammensetzung
+        // in den Testdaten).
         let kostenartNachRechnung: [String: String] = [
             "gasag_2024_2025":                   "Heizung und Warmwasser",
             "bwb_2024_2025":                     "Be- und Entwässerung",
@@ -334,9 +339,11 @@ enum SeedData {
             "grundsteuer_2025":                  "Grundsteuer",
             "allianz_2024_2025":                 "Gebäudeversicherung",
             "leske_wartung_2024_2025":           "Heizung und Warmwasser",
-            "kirschnereit_schornsteinfeger_2025":"Schornsteinfeger",
+            "kirschnereit_schornsteinfeger_2025":"Heizung und Warmwasser",
             "freter_treppenhaus_2025":           "Gebäudereinigung",
-            "guenther_winterdienst_2024_2025":   "Schnee- und Eisbeseitigung"
+            "guenther_winterdienst_2024_2025":   "Schnee- und Eisbeseitigung",
+            "vorgartenpflege_2025":              "Gartenpflege",
+            "allgemeinstrom_vattenfall_2025":    "Allgemeinstrom"
         ]
 
         let kostenartenNachBezeichnung = Dictionary(
@@ -376,6 +383,9 @@ enum SeedData {
             }
             if let lohn = decimal(aus: roh["arbeitskosten_brutto"]) {
                 r.lohnanteilBruttoEuro = lohn
+            }
+            if let verbr = decimal(aus: roh["verbrauch_kwh"]) {
+                r.verbrauchMenge = verbr
             }
             r.geprueft = true
 
