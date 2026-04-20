@@ -418,6 +418,13 @@ final class Rechnung {
     /// den Hauptzähler-Lauf unterbricht.
     var verbrauchMenge: Decimal?
 
+    /// Interner Arbeitspreis €/kWh für den Warmwasser/Heizung-Kostensplit.
+    /// Nur bei Gas-Hauptrechnungen gesetzt (z.B. GASAG 0,104255 €/kWh für
+    /// Bahnhofstr. 37). Wenn vorhanden, splittet HeizkostenRechner die
+    /// Brennstoffkosten nach ww_gas_kwh × internerArbeitspreis statt
+    /// pro-rata. Siehe HeizkostenParameter.internerArbeitspreisEuroProKwh.
+    var internerArbeitspreisEuroProKwh: Decimal?
+
     /// PDF oder Foto der Rechnung
     @Attribute(.externalStorage) var anhang: Data?
     var anhangTyp: String = "pdf"    // "pdf", "jpg", "heic"

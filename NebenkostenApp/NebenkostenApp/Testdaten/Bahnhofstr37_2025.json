@@ -44,9 +44,9 @@
   ],
 
   "mieter": [
-    {"einheit_id": "KG", "name": "Frank Knebel-Janßen", "typ": "Gewerbemieter", "personenzahl": null},
-    {"einheit_id": "EG", "name": "Verena Janßen", "typ": "Selbstnutzer", "personenzahl": null, "hinweis": "§35a EStG relevant für eigene Steuererklärung"},
-    {"einheit_id": "OG", "name": "Familie Sandra und Daniel Pfaffenbach", "typ": "Wohnungsmieter", "personenzahl": null}
+    {"einheit_id": "KG", "name": "Frank Knebel-Janßen", "typ": "Gewerbemieter", "personenzahl": null, "vorauszahlung_monat": 0},
+    {"einheit_id": "EG", "name": "Verena Janßen", "typ": "Selbstnutzer", "personenzahl": null, "vorauszahlung_monat": 0, "hinweis": "§35a EStG relevant für eigene Steuererklärung"},
+    {"einheit_id": "OG", "name": "Familie Sandra und Daniel Pfaffenbach", "typ": "Wohnungsmieter", "personenzahl": null, "vorauszahlung_monat": 470}
   ],
 
   "abrechnungsperiode": {"start": "2024-11-01", "ende": "2025-10-31", "tage": 365},
@@ -179,6 +179,7 @@
       "umlagefaehig": true,
       "versorger": "BSR Berliner Stadtreinigung",
       "bescheid_nr": "220448697",
+      "rechnungsdatum": "2025-01-31",
       "zeitraum_start": "2025-01-01",
       "zeitraum_ende": "2025-12-31",
       "zeitraum_hinweis": "Kalenderjahr. Im MVP-Modus .rechnungsdatum voll auf NK-Periode 2024/2025 gebucht. Ab Folgeperiode zeitanteilig (10 Monate aktuell + 2 Monate aus vorheriger BSR-Rechnung).",
@@ -195,6 +196,7 @@
       "kostenart": "Grundsteuer",
       "umlagefaehig": true,
       "versorger": "Finanzamt Berlin",
+      "rechnungsdatum": "2025-02-15",
       "zeitraum_start": "2025-01-01",
       "zeitraum_ende": "2025-12-31",
       "messbetrag": 714.02,

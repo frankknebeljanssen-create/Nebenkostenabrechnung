@@ -170,6 +170,9 @@ enum SeedData {
             mv.mieterName = (roh["name"] as? String) ?? ""
             mv.mieterTyp = mieterTyp(aus: (roh["typ"] as? String) ?? "")
             mv.einzugAm = Date(timeIntervalSince1970: 0)   // Unbekannt — MVP
+            if let vz = decimal(aus: roh["vorauszahlung_monat"]) {
+                mv.vorauszahlungMonatEuro = vz
+            }
             if let einheitID = roh["einheit_id"] as? String,
                let wohneinheit = einheitenNachID[einheitID] {
                 mv.wohneinheit = wohneinheit
@@ -386,6 +389,9 @@ enum SeedData {
             }
             if let verbr = decimal(aus: roh["verbrauch_kwh"]) {
                 r.verbrauchMenge = verbr
+            }
+            if let ap = decimal(aus: roh["interner_arbeitspreis_berechnung"]) {
+                r.internerArbeitspreisEuroProKwh = ap
             }
             r.geprueft = true
 

@@ -278,7 +278,7 @@ enum AbrechnungsService {
         }
 
         // Pool-Split nach kWh-Verhältnis Heizung:WW.
-        let parameter = heizParameter(ausImmobilie: immobilie)
+        let parameter = heizParameter(hauptRechnung: haupt)
         let vWwGesamt = wwProEinheit.values.reduce(0.0, +)
         let qWwKwh = vWwGesamt * parameter.wwGasFaktor * parameter.brennwertKwhProM3
         let anteilWw = gasKwh > 0 ? min(max(qWwKwh / gasKwh, 0), 1) : 0
@@ -323,11 +323,15 @@ enum AbrechnungsService {
         )
     }
 
-    private static func heizParameter(ausImmobilie immobilie: Immobilie) -> HeizkostenParameter {
+    private static func heizParameter(hauptRechnung: Rechnung) -> HeizkostenParameter {
         // Phase 0: Defaults des HeizkostenParameter-Initializers passen zu
         // Bahnhofstr. 37 (wwGasFaktor 12.9, Brennwert 11.14, 3 % Strom,
-        // 30/70). Phase 1 liest pro Immobilie hinterlegte Feinwerte.
-        return HeizkostenParameter()
+        // 30/70). Interner Arbeitspreis aus der Hauptrechnung überschreibt
+        // den Pro-Rata-Split (WW-Kostenanteil = qWwKwh · internerPreis).
+        let preis = hauptRechnung.internerArbeitspreisEuroProKwh.map {
+            NSDecimalNumber(decimal: $0).doubleValue
+        }
+        return HeizkostenParameter(internerArbeitspreisEuroProKwh: preis)
     }
 
     private static func ermittleGasVerbrauchKwh(
@@ -389,13 +393,18 @@ enum AbrechnungsService {
         let summe = wasserRechnungen.reduce(Decimal(0)) { $0 + $1.betragBruttoEuro }
         guard summe > 0 else { return nil }
 
-        // Verbrauch je Einheit = Σ(KW-Zähler) + Σ(WW-Zähler). Kaltwasser-
-        // Gartenzwischenzähler bleibt Teil des Einheit-Verbrauchs (BWB
-        // berechnet Abwasser-Abzug bereits selbst in der Rechnung).
+        // Verbrauch je Einheit = Σ(KW-Hauptzähler) + Σ(WW-Zähler). Garten-
+        // Zwischenzähler (typ == .zwischen) wird bewusst NICHT addiert —
+        // BWB-Rechnung hat den Abwasser-Abzug für das Garten-Wasser bereits
+        // eingerechnet, also wäre er sonst doppelt berücksichtigt.
         var verbrauchProEinheit: [String: Verbrauch] = [:]
         for e in einheiten {
             var m3: Decimal = 0
-            for z in (e.zaehler ?? []) where z.medium == .kaltwasser || z.medium == .warmwasser {
+            let relevant = (e.zaehler ?? []).filter {
+                ($0.medium == .kaltwasser || $0.medium == .warmwasser)
+                    && $0.typ != .zwischen
+            }
+            for z in relevant {
                 if let diff = stanDiffInPeriode(zaehler: z, periode: periode) {
                     m3 += Decimal(diff)
                 }

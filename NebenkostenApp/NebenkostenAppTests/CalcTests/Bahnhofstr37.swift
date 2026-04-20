@@ -15,6 +15,7 @@ struct Bahnhofstr37: Decodable {
     let rechnungen: [RechnungDaten]
     let zaehlerstaende: Zaehlerstaende
     let heiz_nebenkosten_zusammensetzung: HeizNebenkostenZusammensetzung?
+    let erwartete_ergebnisse: ErwarteteErgebnisse?
 
     struct Objekt: Decodable {
         let gesamtflaeche_qm: Decimal
@@ -80,6 +81,27 @@ struct Bahnhofstr37: Decodable {
 
     struct HeizNebenkostenZusammensetzung: Decodable {
         let summe_2024_2025: Decimal
+    }
+
+    struct ErwarteteErgebnisse: Decodable {
+        let og_gesamtabrechnung_2024_2025: OgGesamt
+
+        struct OgGesamt: Decodable {
+            let be_entwaesserung: Decimal
+            let ww_heizung: Decimal
+            let grundsteuer: Decimal
+            let versicherung: Decimal
+            let vorgartenpflege: Decimal
+            let schnee_eis: Decimal
+            let allgemeinstrom: Decimal
+            let reinigung: Decimal
+            let bsr: Decimal
+            let gesamtkosten: Decimal
+            let vorauszahlung_monat: Decimal
+            let vorauszahlung_jahr: Decimal
+            let erstattung: Decimal
+            let paragraph_35a_anteil: Decimal
+        }
     }
 
     // MARK: - Laden
