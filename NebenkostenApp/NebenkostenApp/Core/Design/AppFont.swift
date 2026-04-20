@@ -38,6 +38,12 @@ enum AppFont {
         static func displayTitle() -> AppFontStyle {
             .init(font: plexSans(.semibold, 30), tracking: -0.6, uppercase: false)
         }
+        /// 40pt / 600 / tracking −0.8 — Perioden-Header im HomeScreen.
+        /// Soll als neue Hauptorientierung über dem Objekt-Carousel
+        /// sofort den Zeitraum klarmachen.
+        static func periodenHeader() -> AppFontStyle {
+            .init(font: plexSans(.semibold, 40), tracking: -0.8, uppercase: false)
+        }
         /// 12pt / 600 / tracking 0.6 UPPER — Sektions-Kicker
         /// ("ABRECHNUNGSPERIODE", "WÄRME" usw.).
         static func kicker() -> AppFontStyle {

@@ -18,7 +18,7 @@ struct EmptyStateCard: View {
     let onPrimaerAktion: () -> Void
 
     var body: some View {
-        Card {
+        Card(tiefe: .erhoben) {
             VStack(alignment: .leading, spacing: 16) {
                 Image(systemName: "building.2")
                     .font(.system(size: 40, weight: .regular))

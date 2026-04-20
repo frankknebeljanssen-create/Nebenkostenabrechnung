@@ -2,22 +2,17 @@
 //  HomeView.swift
 //  NebenkostenApp — UI/Home
 //
-//  Context-First-Einstieg des Übersicht-Tabs. Vertikale Abfolge:
-//    1. HomeHeaderView   — Begrüßung + Perioden-Info
-//    2. CurrentPropertyCard  — aktuelles Objekt, Wechseln-Action
-//    3. CurrentUnitCard  — aktuelle Einheit, Wechseln-Action
-//    4. HomeStatusCard   — kompakt (Zähler / Rechnungen / Docs) +
-//                          „Nächster Schritt" mit Router-Sprung
-//    5. EmptyStateCard   — nur, wenn keine Immobilie im Store
+//  Context-First-Einstieg, v2 nach Geräte-Review. Änderungen
+//  gegenüber v1:
+//    - „Willkommen zurück." und „Start" entfallen.
+//    - AppShellChrome-Titel = nil (kein 30pt-Block oberhalb).
+//    - PeriodenHeader (40 pt) ist die neue Hauptorientierung.
+//    - ObjektCarousel ersetzt die statische CurrentPropertyCard:
+//      horizontal swipebar, eigene Paging-Dots, Tap öffnet Objekt.
+//    - Cards nutzen Card.Tiefe.erhoben — klarer Kontrast zum bgApp.
 //
-//  Komposition bewusst einfach: kein Dashboard, keine Grid-Layouts,
-//  keine animierten Prozent-Ringe. Ruhige Typografie, viel Padding.
-//
-//  Persistenz: die Auswahl des Scope (Objekt vs. Einheit) lebt im
-//  ScopeManager (UserDefaults „currentScope.v1"). Die aktive
-//  Immobilie ergibt sich aus dem SwiftData-Store (MVP: genau eine).
-//  Das zweite aktive Wahl-Feld wird automatisch beim nächsten App-
-//  Start wiederhergestellt.
+//  Die CurrentUnitCard und die HomeStatusCard bleiben aus v1
+//  erhalten, bekommen aber die neue Tiefe-Option.
 //
 
 import SwiftUI
@@ -30,91 +25,110 @@ struct HomeView: View {
 
     @State private var zeigeScopePicker = false
     @State private var zeigeEinstellungen = false
-    @State private var zeigeObjektWechsel = false
+    @State private var carouselIndex: Int = 0
 
-    private var immobilie: Immobilie? { immobilien.first }
+    /// Die im Carousel aktuell sichtbare Immobilie. Fallback auf
+    /// die erste, wenn der Index außerhalb des Bereichs liegt
+    /// (z.B. nach Löschung einer Immobilie).
+    private var aktiveImmobilie: Immobilie? {
+        guard !immobilien.isEmpty else { return nil }
+        let idx = max(0, min(carouselIndex, immobilien.count - 1))
+        return immobilien[idx]
+    }
 
     private var aktivePeriode: Abrechnungsperiode? {
-        let perioden = (immobilie?.perioden ?? []).sorted(by: { $0.bis > $1.bis })
+        let perioden = (aktiveImmobilie?.perioden ?? []).sorted(by: { $0.bis > $1.bis })
         let heute = Date()
         return perioden.first(where: { $0.bis < heute }) ?? perioden.first
     }
 
     private var anforderungen: [AnforderungMitStatus] {
-        guard let immobilie, let p = aktivePeriode else { return [] }
+        guard let immobilie = aktiveImmobilie, let p = aktivePeriode else { return [] }
         return VollstaendigkeitsPruefung.pruefe(immobilie: immobilie, periode: p)
     }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                HomeHeaderView(
-                    immobilieBekannt: immobilie != nil,
-                    periodenLabel: periodenLabel
-                )
-                if let immobilie {
-                    CurrentPropertyCard(
-                        immobilie: immobilie,
-                        onWechsel: { zeigeObjektWechsel = true }
-                    )
-                    CurrentUnitCard(
-                        scope: scope.current,
-                        immobilie: immobilie,
-                        onWechsel: { zeigeScopePicker = true }
-                    )
-                    HomeStatusCard(
-                        anforderungen: anforderungen,
-                        immobilie: immobilie,
-                        periode: aktivePeriode,
-                        onSprung: { ziel in
-                            router.springe(zu: ziel)
-                        }
-                    )
-                } else {
+                if immobilien.isEmpty {
+                    kopfLeer
                     EmptyStateCard(onPrimaerAktion: {
                         zeigeEinstellungen = true
                     })
+                } else {
+                    kopfMitPeriode
+                    ObjektCarousel(
+                        immobilien: immobilien,
+                        aktuellerIndex: $carouselIndex,
+                        onOeffnen: oeffneObjekt
+                    )
+                    if let immobilie = aktiveImmobilie {
+                        CurrentUnitCard(
+                            scope: scope.current,
+                            immobilie: immobilie,
+                            onWechsel: { zeigeScopePicker = true }
+                        )
+                        HomeStatusCard(
+                            anforderungen: anforderungen,
+                            immobilie: immobilie,
+                            periode: aktivePeriode,
+                            onSprung: { ziel in
+                                router.springe(zu: ziel)
+                            }
+                        )
+                    }
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.top, 20)
+            .padding(.top, 16)
             .padding(.bottom, 40)
         }
         .background(DesignTokens.bgApp)
         .appShellChrome(
-            titel: "Start",
+            titel: nil,                       // kein "Start"
             subtitel: nil,
             onAdresse: { zeigeScopePicker = true },
             onEinstellungen: { zeigeEinstellungen = true }
         )
         .sheet(isPresented: $zeigeScopePicker) { ScopePickerSheet() }
         .sheet(isPresented: $zeigeEinstellungen) { EinstellungenSheet() }
-        .sheet(isPresented: $zeigeObjektWechsel) {
-            // Solange nur ein Objekt im MVP existiert, führt „Objekt
-            // wechseln" zur Einstellungs-Section. Sobald mehrere
-            // Objekte gleichzeitig unterstützt werden, übernimmt hier
-            // ein dedizierter Picker.
-            EinstellungenSheet()
-        }
         .onChange(of: router.aktuellesSprungziel) { _, neu in
             reagiereAufSprungziel(neu)
         }
     }
 
-    // MARK: - Header-Info
+    // MARK: - Kopfzonen
 
-    private var periodenLabel: String? {
-        guard let p = aktivePeriode else { return nil }
-        let jahr = Calendar(identifier: .gregorian).component(.year, from: p.bis)
-        return "Abrechnungsperiode \(jahr)"
+    /// Kopfzone mit voll ausgebauter Perioden-Überschrift
+    /// (40 pt/600). Nur sichtbar, wenn mindestens eine Immobilie
+    /// existiert — sonst macht der Perioden-Header keinen Sinn.
+    private var kopfMitPeriode: some View {
+        PeriodenHeader(periode: aktivePeriode)
+            .padding(.horizontal, 4)
+    }
+
+    /// Fallback-Kopf, wenn der Store noch leer ist. Minimal, damit
+    /// die EmptyStateCard selbst die Hauptbühne bleibt.
+    private var kopfLeer: some View {
+        Text("Willkommen")
+            .appFont(AppFont.Basis.periodenHeader())
+            .foregroundStyle(DesignTokens.text)
+            .padding(.horizontal, 4)
+    }
+
+    // MARK: - Tap auf eine Carousel-Card
+
+    /// Aktive Objekt-Card angetippt → in das Objekt hinein. Im
+    /// MVP: Scope auf Objekt setzen + EinstellungenSheet (dort
+    /// sind aktuell die Objekt-Details). Sobald ein dediziertes
+    /// Objekt-Detail existiert, landet der User dort.
+    private func oeffneObjekt(_ immobilie: Immobilie) {
+        scope.current = .objekt
+        zeigeEinstellungen = true
     }
 
     // MARK: - Sprungziel-Reaktion
 
-    /// Der HomeView ist der Ziel-Tab für Stammdaten-/VZ-Sprungziele.
-    /// Bei Ankunft eines solchen Sprungziels öffnen wir das
-    /// Einstellungen-Sheet — die konkrete Section wird später durch
-    /// scroll-anchors markiert (aktuell alle Sections sichtbar).
     private func reagiereAufSprungziel(_ ziel: Sprungziel?) {
         switch ziel {
         case .einstellungenObjekt,

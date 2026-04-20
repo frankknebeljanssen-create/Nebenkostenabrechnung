@@ -17,7 +17,7 @@ struct CurrentUnitCard: View {
     let onWechsel: () -> Void
 
     var body: some View {
-        Card {
+        Card(tiefe: .erhoben) {
             HStack(alignment: .top, spacing: 14) {
                 UnitBalken(farbe: balkenFarbe)
                     .frame(height: 60)

@@ -22,7 +22,7 @@ struct HomeStatusCard: View {
     let onSprung: (Sprungziel) -> Void
 
     var body: some View {
-        Card {
+        Card(tiefe: .erhoben) {
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
                     Text("Status")

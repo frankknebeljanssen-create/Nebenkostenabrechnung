@@ -15,7 +15,10 @@ import SwiftUI
 import SwiftData
 
 struct AppShellChrome: ViewModifier {
-    let titel: String
+    /// Titel im 30pt-Screen-Block. `nil` lässt den Block weg —
+    /// für Screens, die ihre eigene Hauptorientierung (z.B. einen
+    /// Perioden-Header) direkt im Content rendern.
+    let titel: String?
     let subtitel: String?
     let onAdresse: () -> Void
     let onEinstellungen: () -> Void
@@ -95,10 +98,12 @@ struct AppShellChrome: ViewModifier {
                 }
                 .accessibilityLabel("Einstellungen")
             }
-            Text(titel)
-                .appFont(AppFont.Basis.displayTitle())
-                .foregroundStyle(DesignTokens.text)
-                .padding(.top, 2)
+            if let titel {
+                Text(titel)
+                    .appFont(AppFont.Basis.displayTitle())
+                    .foregroundStyle(DesignTokens.text)
+                    .padding(.top, 2)
+            }
             if let subtitel {
                 Text(subtitel)
                     .appFont(AppFont.Rechnungen.subZeile())
@@ -151,8 +156,10 @@ struct AppShellChrome: ViewModifier {
 
 extension View {
     /// Hängt Navigation-Bar + ScopeStrip an eine Tab-Content-View.
+    /// `titel == nil` lässt den 30pt-Titel-Block weg (für Screens,
+    /// die eine eigene Hauptorientierung im Content haben).
     func appShellChrome(
-        titel: String,
+        titel: String?,
         subtitel: String? = nil,
         onAdresse: @escaping () -> Void,
         onEinstellungen: @escaping () -> Void,
