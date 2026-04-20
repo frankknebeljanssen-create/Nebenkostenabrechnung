@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<title>Nebenkosten App — Prototyp</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'IBM Plex Sans', -apple-system, system-ui, sans-serif;
+    background: #E4DFD2;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 0;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  button { font-family: inherit; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slideup { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  @keyframes popin { 0% { transform: scale(0.96); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+  
+  .scrim {
+    position: fixed; inset: 0; pointer-events: none;
+    background:
+      radial-gradient(ellipse at top left, rgba(176,137,104,0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at bottom right, rgba(80,110,140,0.08) 0%, transparent 50%);
+  }
+
+  .side-panel {
+    position: absolute;
+    color: #5B5446;
+    font-size: 11px;
+    font-family: 'IBM Plex Mono', monospace;
+    letter-spacing: 0.3px;
+    line-height: 1.7;
+  }
+
+  .tweaks-panel {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #FBF8F1;
+    border: 0.5px solid rgba(60,50,40,0.18);
+    border-radius: 14px;
+    padding: 14px 16px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    font-family: 'IBM Plex Sans', sans-serif;
+    min-width: 220px;
+    z-index: 200;
+    display: none;
+  }
+  .tweaks-panel.open { display: block; }
+  .tweaks-panel h3 {
+    margin: 0 0 10px; font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.6px; color: #8A8578;
+  }
+  .tweaks-row { display: flex; gap: 4px; margin-bottom: 8px; }
+  .tweaks-btn {
+    flex: 1; padding: 6px 10px; font-size: 12px; cursor: pointer;
+    border: 1px solid rgba(60,50,40,0.12);
+    background: #F5F1E8; color: #1F2937; border-radius: 6px;
+  }
+  .tweaks-btn.active { background: #4B5563; color: white; border-color: #4B5563; }
+  .tweaks-label { font-size: 11px; color: #5B6472; margin-bottom: 4px; display: block; }
+</style>
+</head>
+<body>
+
+<div class="scrim"></div>
+
+<div style="display: flex; gap: 60px; align-items: center; position: relative;">
+
+  <!-- Left info panel -->
+  <div style="width: 280px; padding: 20px 0;">
+    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #8A8578; letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 6px;">Prototyp · 01</div>
+    <div style="font-family: 'IBM Plex Sans', sans-serif; font-size: 22px; font-weight: 600; color: #1F2937; line-height: 1.25; margin-bottom: 14px; letter-spacing: -0.4px;">Nebenkosten&shy;app für deutsche Kleinvermieter</div>
+    <div style="font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; color: #5B6472; line-height: 1.55;">
+      iOS-Prototyp mit klickbarer Navigation durch alle zehn Hauptscreens. Warme, behördliche Ästhetik mit Papier-Ton, IBM Plex für Zahlen, dezenten Einheit-Kennfarben.
+    </div>
+
+    <div style="margin-top: 30px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #8A8578; letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 10px;">Kurz-Anleitung</div>
+    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #5B5446; line-height: 1.9;">
+      <div>· TabBar unten wechselt Bereich</div>
+      <div>· Adresse oben → Scope-Wechsler</div>
+      <div>· „?"-Tab öffnet Inspektor</div>
+      <div>· Dokument antippen → Validierung</div>
+      <div>· PDF aus Abrechnung-Detail</div>
+    </div>
+
+    <div style="margin-top: 28px; display: flex; flex-direction: column; gap: 6px;">
+      <button id="jumpDashObjekt" class="jump-btn">Dashboard · Objekt</button>
+      <button id="jumpDashEinheit" class="jump-btn">Dashboard · OG Pfaffenbach</button>
+      <button id="jumpMeters" class="jump-btn">Zähler</button>
+      <button id="jumpBills" class="jump-btn">Rechnungen</button>
+      <button id="jumpDocs" class="jump-btn">Dokumente</button>
+      <button id="jumpDocValidation" class="jump-btn">Dokument-Validierung</button>
+      <button id="jumpAbrech" class="jump-btn">Abrechnungen-Liste</button>
+      <button id="jumpAbrechDetail" class="jump-btn">Abrechnung · Detail</button>
+      <button id="jumpPdf" class="jump-btn">PDF-Vorschau</button>
+      <button id="jumpSettings" class="jump-btn">Einstellungen</button>
+      <button id="jumpScan" class="jump-btn">Scan-Flow</button>
+      <button id="jumpInspector" class="jump-btn">Vollständigkeits-Inspektor</button>
+      <button id="jumpScopeMenu" class="jump-btn">Scope-Menü</button>
+    </div>
+  </div>
+
+  <!-- Device mount -->
+  <div id="device-root"></div>
+
+  <!-- Right info panel -->
+  <div style="width: 260px; padding: 20px 0;">
+    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #8A8578; letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 10px;">Design-System</div>
+    <div style="display: flex; gap: 6px; margin-bottom: 18px;">
+      <div title="Objekt" style="flex:1; height: 28px; border-radius: 4px; background: #4B5563;"></div>
+      <div title="KG" style="flex:1; height: 28px; border-radius: 4px; background: #B08968;"></div>
+      <div title="EG" style="flex:1; height: 28px; border-radius: 4px; background: #7A9070;"></div>
+      <div title="OG" style="flex:1; height: 28px; border-radius: 4px; background: #506E8C;"></div>
+    </div>
+    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #5B5446; line-height: 1.9;">
+      <div>Objekt &nbsp; #4B5563 Slate</div>
+      <div>KG Gewerbe &nbsp; #B08968 Ocker</div>
+      <div>EG Wohnung &nbsp; #7A9070 Salbei</div>
+      <div>OG Wohnung &nbsp; #506E8C Taubenblau</div>
+    </div>
+
+    <div style="margin-top: 24px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #8A8578; letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 10px;">Typografie</div>
+    <div style="font-family: 'IBM Plex Sans', sans-serif; font-size: 22px; font-weight: 600; color: #1F2937; line-height: 1.1;">IBM Plex Sans</div>
+    <div style="font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; color: #5B6472;">Grundschrift</div>
+    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 20px; font-weight: 600; color: #1F2937; margin-top: 10px;">4.127,84 €</div>
+    <div style="font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; color: #5B6472;">Plex Mono für Zahlen</div>
+
+    <div style="margin-top: 24px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #8A8578; letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 10px;">Status-Semantik</div>
+    <div style="display: flex; flex-direction: column; gap: 6px; font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; color: #5B5446;">
+      <div style="display:flex; gap:8px; align-items:center;"><div style="width:10px;height:10px;border-radius:5px;background:#3F7A5B"></div>Validiert · fertig</div>
+      <div style="display:flex; gap:8px; align-items:center;"><div style="width:10px;height:10px;border-radius:5px;background:#B8841F"></div>KI-Vorschlag · in Arbeit</div>
+      <div style="display:flex; gap:8px; align-items:center;"><div style="width:10px;height:10px;border-radius:5px;background:#A63D2A"></div>Fehlt · prüfen</div>
+      <div style="display:flex; gap:8px; align-items:center;"><div style="width:10px;height:10px;border-radius:5px;background:#8A8578"></div>Roh · nicht relevant</div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .jump-btn {
+    width: 100%; text-align: left;
+    padding: 6px 10px; font-size: 12px;
+    background: transparent; color: #5B5446;
+    border: 1px solid transparent; border-radius: 6px;
+    cursor: pointer;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .jump-btn:hover { background: rgba(60,50,40,0.06); color: #1F2937; }
+</style>
+
+<!-- Tweaks panel (populated only when edit mode active) -->
+<div class="tweaks-panel" id="tweaksPanel">
+  <h3>Tweaks</h3>
+  
+  <div style="margin-bottom: 14px;">
+    <span class="tweaks-label">Variante</span>
+    <div class="tweaks-row">
+      <button class="tweaks-btn" data-key="variant" data-val="classic">Klassisch</button>
+      <button class="tweaks-btn" data-key="variant" data-val="dense">Dicht</button>
+    </div>
+  </div>
+
+  <div style="margin-bottom: 14px;">
+    <span class="tweaks-label">Startansicht</span>
+    <div class="tweaks-row">
+      <button class="tweaks-btn" data-key="scope" data-val="objekt">Objekt</button>
+      <button class="tweaks-btn" data-key="scope" data-val="og">OG</button>
+    </div>
+  </div>
+
+  <div>
+    <span class="tweaks-label">Akzentfarbe</span>
+    <div class="tweaks-row">
+      <button class="tweaks-btn" data-key="accent" data-val="slate" style="background:#4B5563;color:#fff;">Slate</button>
+      <button class="tweaks-btn" data-key="accent" data-val="blue" style="background:#3A5578;color:#fff;">Blau</button>
+      <button class="tweaks-btn" data-key="accent" data-val="ink" style="background:#1F2937;color:#fff;">Ink</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="tokens.jsx"></script>
+<script type="text/babel" src="data.jsx"></script>
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="shell.jsx"></script>
+<script type="text/babel" src="dashboard.jsx"></script>
+<script type="text/babel" src="meters-bills.jsx"></script>
+<script type="text/babel" src="docs.jsx"></script>
+<script type="text/babel" src="abrechnung-settings.jsx"></script>
+<script type="text/babel" src="sheets.jsx"></script>
+
+<script type="text/babel">
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "variant": "classic",
+  "scope": "objekt",
+  "accent": "blue"
+}/*EDITMODE-END*/;
+
+const ACCENT_MAP = {
+  slate: '#4B5563',
+  blue: '#3A5578',
+  ink: '#1F2937',
+};
+
+function App() {
+  const [tweaks, setTweaks] = useState(TWEAK_DEFAULTS);
+  const [scope, setScope] = useState(() => {
+    const saved = localStorage.getItem('nk_scope');
+    return saved || TWEAK_DEFAULTS.scope;
+  });
+  const [activeTab, setActiveTab] = useState(() => {
+    return localStorage.getItem('nk_tab') || 'dashboard';
+  });
+  const [scopeSheetOpen, setScopeSheetOpen] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
+  const [docSheetOpen, setDocSheetOpen] = useState(false);
+  const [activeDoc, setActiveDoc] = useState('d3');
+  const [validatedFields, setValidatedFields] = useState({});
+  const [validatedDocs, setValidatedDocs] = useState({});
+  const [activeAbrechnungUnit, setActiveAbrechnungUnit] = useState(null);
+  const [pdfOpen, setPdfOpen] = useState(false);
+
+  useEffect(() => { localStorage.setItem('nk_scope', scope); }, [scope]);
+  useEffect(() => { localStorage.setItem('nk_tab', activeTab); }, [activeTab]);
+
+  // Apply accent via TOKENS override
+  useEffect(() => {
+    TOKENS.accent = ACCENT_MAP[tweaks.accent] || ACCENT_MAP.slate;
+  }, [tweaks.accent]);
+
+  const compact = tweaks.variant === 'dense';
+
+  const validateField = (docId, fieldId) => {
+    setValidatedFields(prev => ({ ...prev, [`${docId}.${fieldId}`]: true }));
+  };
+  const validateAll = (docId, fieldIds) => {
+    const upd = {};
+    fieldIds.forEach(f => { upd[`${docId}.${f}`] = true; });
+    setValidatedFields(prev => ({ ...prev, ...upd }));
+    setValidatedDocs(prev => ({ ...prev, [docId]: 'validated' }));
+    setTimeout(() => setDocSheetOpen(false), 400);
+  };
+
+  const tabTitles = {
+    dashboard: scope === 'objekt' ? 'Haus-Übersicht' : UNITS.find(u=>u.id===scope)?.label || '',
+    meters: 'Zähler',
+    bills: 'Rechnungen',
+    docs: 'Dokumente',
+    abrechnungen: scope === 'objekt' ? 'Abrechnungen' : `Abrechnung · ${UNITS.find(u=>u.id===scope)?.short}`,
+    settings: 'Einstellungen',
+  };
+  const tabSubtitles = {
+    dashboard: scope === 'objekt' ? `${OBJEKT.address} · ${OBJEKT.periodShort}` : UNITS.find(u=>u.id===scope)?.tenant,
+    meters: scope === 'objekt' ? `Alle Zähler · ${OBJEKT.periodShort}` : `Zähler ${UNITS.find(u=>u.id===scope)?.short}`,
+    bills: `${BILLS.length} Rechnungen · ${OBJEKT.periodShort}`,
+    docs: `${DOCS.length} Belege erfasst`,
+    abrechnungen: OBJEKT.period,
+    settings: OBJEKT.address,
+  };
+
+  let screen;
+  if (activeTab === 'dashboard') screen = <Dashboard scope={scope} setActiveTab={setActiveTab} openInspector={() => setInspectorOpen(true)} />;
+  else if (activeTab === 'meters') screen = <MetersScreen scope={scope} />;
+  else if (activeTab === 'bills') screen = <BillsScreen scope={scope} />;
+  else if (activeTab === 'docs') screen = <DocsScreen scope={scope} validatedDocs={validatedDocs}
+    onScan={() => setScanOpen(true)}
+    onOpenDoc={(id) => { setActiveDoc(id); setDocSheetOpen(true); }} />;
+  else if (activeTab === 'abrechnungen') {
+    if (activeAbrechnungUnit || scope !== 'objekt') {
+      screen = <AbrechnungDetail unitId={activeAbrechnungUnit || scope} onPdf={() => setPdfOpen(true)} />;
+    } else {
+      screen = <AbrechnungenScreen scope={scope} onOpenUnit={(id) => setActiveAbrechnungUnit(id)} />;
+    }
+  }
+  else if (activeTab === 'settings') screen = <SettingsScreen scope={scope} />;
+
+  return (
+    <IOSDevice width={402} height={874}>
+      <div style={{
+        display: 'flex', flexDirection: 'column', height: '100%',
+        background: TOKENS.bgApp,
+      }}>
+        <AppNavBar 
+          title={tabTitles[activeTab]} 
+          subtitle={tabSubtitles[activeTab]}
+          scope={scope}
+          compact={compact}
+          onOpenScope={() => setScopeSheetOpen(true)}
+          rightAction={
+            activeTab === 'abrechnungen' && activeAbrechnungUnit
+              ? <button onClick={() => setActiveAbrechnungUnit(null)} style={{
+                  background:'transparent', border:'none', cursor:'pointer',
+                  fontFamily: TOKENS.fontSans, fontSize: 14, color: TOKENS.accent, fontWeight: 500,
+                }}>Zurück</button>
+              : <button onClick={() => setScanOpen(true)} style={{
+                  width: 32, height: 32, borderRadius: 16,
+                  background: TOKENS.accent, border: 'none', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Icon name="camera" size={15} color="white" stroke={1.9} />
+                </button>
+          }
+        />
+        <ScopeStrip scope={scope} onTap={() => setScopeSheetOpen(true)} />
+        <div style={{ flex: 1, overflow: 'auto', background: TOKENS.bgApp }}>
+          {screen}
+        </div>
+        <AppTabBar activeTab={activeTab} onTab={(t) => {
+          if (t === 'abrechnungen') setActiveAbrechnungUnit(null);
+          setActiveTab(t);
+        }} onQuestion={() => setInspectorOpen(true)} />
+      </div>
+
+      <ScopePickerSheet open={scopeSheetOpen} onClose={() => setScopeSheetOpen(false)}
+        scope={scope} setScope={setScope} />
+      <CompletenessSheet open={inspectorOpen} onClose={() => setInspectorOpen(false)}
+        setActiveTab={setActiveTab} />
+      <ScanSheet open={scanOpen} onClose={() => setScanOpen(false)} />
+      <DocValidationSheet open={docSheetOpen} onClose={() => setDocSheetOpen(false)}
+        docId={activeDoc} validatedFields={validatedFields}
+        onValidateField={validateField} onValidateAll={validateAll} />
+      <PdfPreviewSheet open={pdfOpen} onClose={() => setPdfOpen(false)} 
+        unitId={activeAbrechnungUnit || (scope === 'objekt' ? 'og' : scope)} />
+    </IOSDevice>
+  );
+}
+
+// Expose control for jump buttons
+let setAppState = null;
+function AppWrapper() {
+  const [tab, setTab] = useState(() => localStorage.getItem('nk_tab') || 'dashboard');
+  const [scope, setScope] = useState(() => localStorage.getItem('nk_scope') || 'objekt');
+  const [sheets, setSheets] = useState({ scope: false, inspector: false, scan: false, doc: false, pdf: false });
+  const [docId, setDocId] = useState('d3');
+  const [abrechnungUnit, setAbrechnungUnit] = useState(null);
+  const [tweaks, setTweaks] = useState(TWEAK_DEFAULTS);
+  const [validatedFields, setValidatedFields] = useState({});
+  const [validatedDocs, setValidatedDocs] = useState({});
+
+  useEffect(() => { localStorage.setItem('nk_scope', scope); }, [scope]);
+  useEffect(() => { localStorage.setItem('nk_tab', tab); }, [tab]);
+  useEffect(() => { TOKENS.accent = ACCENT_MAP[tweaks.accent] || ACCENT_MAP.slate; }, [tweaks.accent]);
+
+  setAppState = { setTab, setScope, setSheets, setDocId, setAbrechnungUnit, setTweaks, tweaks };
+
+  const compact = tweaks.variant === 'dense';
+
+  const validateField = (dId, fieldId) => {
+    setValidatedFields(p => ({...p, [`${dId}.${fieldId}`]: true}));
+  };
+  const validateAll = (dId, fieldIds) => {
+    const upd = {};
+    fieldIds.forEach(f => { upd[`${dId}.${f}`] = true; });
+    setValidatedFields(p => ({...p, ...upd}));
+    setValidatedDocs(p => ({...p, [dId]: 'validated'}));
+    setTimeout(() => setSheets(s => ({...s, doc: false})), 400);
+  };
+
+  const tabTitles = {
+    dashboard: scope === 'objekt' ? 'Haus-Übersicht' : UNITS.find(u=>u.id===scope)?.label || '',
+    meters: 'Zähler',
+    bills: 'Rechnungen',
+    docs: 'Dokumente',
+    abrechnungen: abrechnungUnit 
+      ? `Abrechnung · ${UNITS.find(u=>u.id===abrechnungUnit)?.short}` 
+      : (scope === 'objekt' ? 'Abrechnungen' : `Abrechnung · ${UNITS.find(u=>u.id===scope)?.short}`),
+    settings: 'Einstellungen',
+  };
+  const tabSubtitles = {
+    dashboard: scope === 'objekt' ? `${OBJEKT.address} · ${OBJEKT.periodShort}` : UNITS.find(u=>u.id===scope)?.tenant,
+    meters: scope === 'objekt' ? `Alle Zähler · ${OBJEKT.periodShort}` : `Zähler ${UNITS.find(u=>u.id===scope)?.short}`,
+    bills: `${BILLS.length} Rechnungen · ${OBJEKT.periodShort}`,
+    docs: `${DOCS.length} Belege erfasst`,
+    abrechnungen: abrechnungUnit 
+      ? UNITS.find(u=>u.id===abrechnungUnit)?.tenant 
+      : OBJEKT.period,
+    settings: OBJEKT.address,
+  };
+
+  let screen;
+  if (tab === 'dashboard') screen = <Dashboard scope={scope} setActiveTab={setTab} openInspector={() => setSheets(s => ({...s, inspector: true}))} />;
+  else if (tab === 'meters') screen = <MetersScreen scope={scope} />;
+  else if (tab === 'bills') screen = <BillsScreen scope={scope} />;
+  else if (tab === 'docs') screen = <DocsScreen scope={scope} validatedDocs={validatedDocs}
+      onScan={() => setSheets(s => ({...s, scan: true}))}
+      onOpenDoc={(id) => { setDocId(id); setSheets(s => ({...s, doc: true})); }} />;
+  else if (tab === 'abrechnungen') {
+    if (abrechnungUnit || scope !== 'objekt') {
+      screen = <AbrechnungDetail unitId={abrechnungUnit || scope} onPdf={() => setSheets(s => ({...s, pdf: true}))} />;
+    } else {
+      screen = <AbrechnungenScreen scope={scope} onOpenUnit={(id) => setAbrechnungUnit(id)} />;
+    }
+  }
+  else if (tab === 'settings') screen = <SettingsScreen scope={scope} />;
+
+  return (
+    <IOSDevice width={402} height={874}>
+      <div style={{
+        display: 'flex', flexDirection: 'column', height: '100%',
+        background: TOKENS.bgApp,
+      }}>
+        <AppNavBar 
+          title={tabTitles[tab]} 
+          subtitle={tabSubtitles[tab]}
+          scope={scope}
+          compact={compact}
+          onOpenScope={() => setSheets(s => ({...s, scope: true}))}
+          rightAction={
+            tab === 'abrechnungen' && abrechnungUnit && scope === 'objekt'
+              ? <button onClick={() => setAbrechnungUnit(null)} style={{
+                  background:'transparent', border:'none', cursor:'pointer', padding: '4px 0',
+                  fontFamily: TOKENS.fontSans, fontSize: 14, color: TOKENS.accent, fontWeight: 500,
+                }}>Liste</button>
+              : <button onClick={() => setSheets(s => ({...s, scan: true}))} style={{
+                  width: 32, height: 32, borderRadius: 16,
+                  background: TOKENS.accent, border: 'none', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Icon name="camera" size={15} color="white" stroke={1.9} />
+                </button>
+          }
+        />
+        <ScopeStrip scope={scope} onTap={() => setSheets(s => ({...s, scope: true}))} />
+        <div style={{ flex: 1, overflow: 'auto', background: TOKENS.bgApp }}>
+          {screen}
+        </div>
+        <AppTabBar activeTab={tab} onTab={(t) => {
+          if (t === 'abrechnungen') setAbrechnungUnit(null);
+          setTab(t);
+        }} onQuestion={() => setSheets(s => ({...s, inspector: true}))} />
+      </div>
+
+      <ScopePickerSheet open={sheets.scope} onClose={() => setSheets(s => ({...s, scope: false}))}
+        scope={scope} setScope={setScope} />
+      <CompletenessSheet open={sheets.inspector} onClose={() => setSheets(s => ({...s, inspector: false}))}
+        setActiveTab={setTab} />
+      <ScanSheet open={sheets.scan} onClose={() => setSheets(s => ({...s, scan: false}))} />
+      <DocValidationSheet open={sheets.doc} onClose={() => setSheets(s => ({...s, doc: false}))}
+        docId={docId} validatedFields={validatedFields}
+        onValidateField={validateField} onValidateAll={validateAll} />
+      <PdfPreviewSheet open={sheets.pdf} onClose={() => setSheets(s => ({...s, pdf: false}))}
+        unitId={abrechnungUnit || (scope === 'objekt' ? 'og' : scope)} />
+    </IOSDevice>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('device-root')).render(<AppWrapper />);
+
+// Hook up jump buttons
+setTimeout(() => {
+  const map = {
+    jumpDashObjekt: () => { setAppState.setScope('objekt'); setAppState.setTab('dashboard'); setAppState.setAbrechnungUnit(null); },
+    jumpDashEinheit: () => { setAppState.setScope('og'); setAppState.setTab('dashboard'); },
+    jumpMeters: () => setAppState.setTab('meters'),
+    jumpBills: () => setAppState.setTab('bills'),
+    jumpDocs: () => setAppState.setTab('docs'),
+    jumpDocValidation: () => { setAppState.setTab('docs'); setAppState.setDocId('d3'); setAppState.setSheets(s => ({...s, doc: true})); },
+    jumpAbrech: () => { setAppState.setScope('objekt'); setAppState.setAbrechnungUnit(null); setAppState.setTab('abrechnungen'); },
+    jumpAbrechDetail: () => { setAppState.setScope('objekt'); setAppState.setAbrechnungUnit('og'); setAppState.setTab('abrechnungen'); },
+    jumpPdf: () => { setAppState.setScope('objekt'); setAppState.setAbrechnungUnit('og'); setAppState.setTab('abrechnungen'); setAppState.setSheets(s => ({...s, pdf: true})); },
+    jumpSettings: () => setAppState.setTab('settings'),
+    jumpScan: () => setAppState.setSheets(s => ({...s, scan: true})),
+    jumpInspector: () => setAppState.setSheets(s => ({...s, inspector: true})),
+    jumpScopeMenu: () => setAppState.setSheets(s => ({...s, scope: true})),
+  };
+  Object.entries(map).forEach(([id, fn]) => {
+    const el = document.getElementById(id);
+    if (el) el.onclick = fn;
+  });
+}, 400);
+
+// Tweaks mode
+let tweaksMode = false;
+const panel = document.getElementById('tweaksPanel');
+function renderTweaksActive() {
+  if (!setAppState) return;
+  const t = setAppState.tweaks;
+  panel.querySelectorAll('.tweaks-btn').forEach(b => {
+    const k = b.dataset.key, v = b.dataset.val;
+    b.classList.toggle('active', t[k] === v);
+  });
+}
+panel.querySelectorAll('.tweaks-btn').forEach(b => {
+  b.onclick = () => {
+    const k = b.dataset.key, v = b.dataset.val;
+    if (setAppState) {
+      const next = {...setAppState.tweaks, [k]: v};
+      setAppState.setTweaks(next);
+      if (k === 'scope') setAppState.setScope(v);
+      window.parent.postMessage({type: '__edit_mode_set_keys', edits: {[k]: v}}, '*');
+      setTimeout(renderTweaksActive, 50);
+    }
+  };
+});
+
+window.addEventListener('message', (e) => {
+  if (e.data && e.data.type === '__activate_edit_mode') {
+    tweaksMode = true;
+    panel.classList.add('open');
+    renderTweaksActive();
+  } else if (e.data && e.data.type === '__deactivate_edit_mode') {
+    tweaksMode = false;
+    panel.classList.remove('open');
+  }
+});
+window.parent.postMessage({type: '__edit_mode_available'}, '*');
+
+</script>
+
+</body>
+</html>

@@ -228,6 +228,58 @@ Die neue UI (Phase 1 ab Task UI-0) kommt aus dem Claude-Design-Handoff
   Content ein einheitliches Layout an (Adress-Button + Plex-Sans-
   Titel 30 pt + optional Subtitel + ScopeStrip).
 
+### Reusable-Komponenten (UI-1 C1)
+
+Unter `UI/Components/` liegen wiederverwendbare Bausteine — alle
+nach Design-Handoff und mit Referenzen auf `DesignTokens` + `AppFont`:
+
+- `Card` — Standard-Container (radius 14, 0.5pt separator-Border,
+  padding 14/16, bgSurface).
+- `SectionHeader(titel, trailing)` — 11pt 600 uppercase tracking 0.6
+  textTertiary mit optionalem rechtem Slot.
+- `Row(label, subtitel, chevron, action, leading, trailing)` —
+  generische Listen-Row. Bei einem Row im Card: `chevron: true`
+  signalisiert Tap-Ziel, Action wrappt alles in einen Button.
+- `StatusDot` (8pt Kreis) und `StatusPill` (Capsule mit weichem
+  Hintergrund, 5 Stile: ok/warn/error/muted/accent).
+- `UnitBalken` — 4pt breiter vertikaler Farbbalken in ScopeFarbe.
+- `DividerLine` — 0.5pt Trennlinie in `separator`.
+- `ProgressRail(anteil, fillFarbe, hoehe)` — 4pt Capsule-Progress.
+- `PeriodStatsBlock(links: StatBlock, rechts: StatBlock)` — zwei
+  Werte nebeneinander mit vertikaler 0.5pt-Rule.
+
+### Tab-Inhalte (UI-1 C2-C7)
+
+Jeder Tab hat eine schlanke `XxxView`-Root mit identischem Aufbau:
+AppShellChrome oben, Kennzahlen-Card am Anfang, danach Gruppen-
+Cards, am Ende Scope-Hinweis oder Action-Fallback. Tabs:
+
+- `UebersichtView` (Router) → `UebersichtObjektView` (4 Sections:
+  Periodenkarte, Offene Punkte, Einheiten, Schnellaktionen) oder
+  `UebersichtEinheitView` (5 Sections: Hero-VZ-Summe, Mieter-Card,
+  Zähler-Card, Vorauszahlung-Detail, Schnellaktionen).
+- `ZaehlerView` — Kennzahlen + Hauptzähler-Section + je Einheit
+  eine Wohnungs-Zähler-Section. Tap öffnet
+  `ZaehlerstandErfassenView` per sheet(item:).
+- `RechnungenView` — Kennzahlen + gruppierte Cards in BetrKV-
+  Reihenfolge. Default zugeklappt, Tap auf Header toggelt.
+- `BelegeView` — Kennzahlen + Monats-Cards mit Thumbnail-Rows.
+  Pipeline-StatusPill (Roh / OCR / KI-Vorschlag / Validiert).
+  Tap öffnet Validierung oder Vorschau je nach Stage.
+- `AbrechnungenView` — Perioden-Cards mit Saldo-Rows pro Einheit
+  + `AbrechnungDetailView`-Sheet (Hero-Saldo monoHero, Kosten-
+  positionen, §35a-Card).
+- `EinstellungenSheet` — System-Form mit DSGVO-Export,
+  Datenlöschung, About + Debug-Zugang zu Phase-0.
+
+### ScopeFilter-Service
+
+`Core/ScopeFilter.swift` bündelt die Scope-Filter-Logik typisiert:
+`sichtbareDokumente`, `sichtbareRechnungen`, `sichtbareAbrechnungen`,
+`sichtbareZaehler`/`zaehlerGetrennt`, `sichtbareEinheiten`,
+`einheitRang`. Views nutzen ihn statt inline-switch — macht ihn
+testbar und die Views schlank.
+
 ### Was noch NICHT gemacht ist
 
 - **Dark-Mode:** Phase 1 ist Light-Only. Dark-Mode-Overrides werden
@@ -238,6 +290,9 @@ Die neue UI (Phase 1 ab Task UI-0) kommt aus dem Claude-Design-Handoff
   Abschluss von UI-1 … UI-3 wieder entfernt.
 - **Animations-Feinheiten:** erst in UI-2/UI-3 — in UI-0 nur
   Default-Transitions.
+- **PDF-Vorschau in Abrechnung-Detail:** Button ist disabled mit
+  Hinweis „kommt in UI-2" — die PDF-Builder-Integration folgt im
+  `PDFVorschauSheet` aus UI-2.
 
 ---
 
