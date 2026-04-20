@@ -73,8 +73,8 @@ struct ObjektDashboardView: View {
                 .font(.title2.bold())
             if !immobilie.ort.isEmpty {
                 Text(immobilie.ort)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .font(.callout)
+                    .foregroundStyle(.tertiary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -121,12 +121,8 @@ struct ObjektDashboardView: View {
     }
 
     private var ring: some View {
-        HStack {
-            Spacer()
-            CompletionRing(prozent: viewModel.completionProzent)
-            Spacer()
-        }
-        .padding(.vertical, 8)
+        CompletionBalken(prozent: viewModel.completionProzent)
+            .padding(.vertical, 4)
     }
 
     private var kachelGrid: some View {
