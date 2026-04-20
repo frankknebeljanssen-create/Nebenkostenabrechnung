@@ -15,6 +15,9 @@ struct ObjektDashboardView: View {
     @State private var gewaehltePeriodeID: UUID?
     @State private var zeigeNeuesObjektSheet = false
     @State private var zeigeLimitAlert = false
+    @State private var zeigeInspektor = false
+    @State private var zeigeNeueRechnung = false
+    @State private var zuErfassenderZaehler: Zaehler?
 
     private static let maxObjekte = 4
 
@@ -37,11 +40,46 @@ struct ObjektDashboardView: View {
         }
         .background(Color(.systemGroupedBackground))
         .navigationTitle("Objekt")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    zeigeInspektor = true
+                } label: {
+                    Image(systemName: "questionmark.circle")
+                }
+                .accessibilityLabel("Was fehlt mir noch?")
+                .disabled(aktivePeriode == nil)
+            }
+        }
         .onAppear(perform: waehleDefaultPeriode)
         .sheet(isPresented: $zeigeNeuesObjektSheet) {
             NeuesObjektSheet { angelegt in
                 objektWahl.setze(angelegt.id)
             }
+        }
+        .sheet(isPresented: $zeigeInspektor) {
+            if let periode = aktivePeriode {
+                VollstaendigkeitsInspektorSheet(
+                    immobilie: immobilie,
+                    periode: periode,
+                    onRechnungAnlegen: {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                            zeigeNeueRechnung = true
+                        }
+                    },
+                    onZaehlerOeffnen: { z in
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                            zuErfassenderZaehler = z
+                        }
+                    }
+                )
+            }
+        }
+        .sheet(isPresented: $zeigeNeueRechnung) {
+            RechnungEditView(modus: .neu(immobilie: immobilie))
+        }
+        .sheet(item: $zuErfassenderZaehler) { z in
+            ZaehlerstandErfassenView(zaehler: z)
         }
         .alert(
             "Objekt-Limit erreicht",
