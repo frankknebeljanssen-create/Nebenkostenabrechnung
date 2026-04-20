@@ -57,16 +57,58 @@ struct DatenAnforderung: Identifiable, Equatable, Sendable {
     }
 }
 
+/// Schwere einer Anforderung. Trennt Pflichtdaten, ohne die die
+/// Abrechnung nicht laufen darf, von Plausibilitäts-Warnungen,
+/// die der User zur Kenntnis nehmen, aber nicht zwingend korrigieren
+/// muss.
+enum AnforderungsSchwere: String, Sendable, Codable {
+    /// Blockiert die Berechnung, wenn `status == .offen`. Default-
+    /// Verhalten aller bisherigen Regeln.
+    case blocker
+    /// Informiert den User, blockiert aber nicht. Aktuell
+    /// ausschließlich für die WMZ-Plausi-Regel.
+    case warnung
+}
+
 /// Anforderung zusammen mit konkret ermitteltem Status + optionalem
-/// Hinweistext (z.B. "nur Anfangsstand erfasst, Endstand fehlt").
+/// Hinweistext, Sprungziel für direktes UI-Routing und Schwere-
+/// Klassifizierung.
 struct AnforderungMitStatus: Identifiable, Sendable {
     let anforderung: DatenAnforderung
     let status: AnforderungsStatus
     /// Menschenlesbarer Zusatz, wenn status == .teilweise. Wird vom
     /// Inspektor-Sheet angezeigt.
     let hinweis: String?
+    /// Direktes UI-Navigations-Ziel. Die `AppShellRouter`-Instanz
+    /// interpretiert das und öffnet den passenden Tab/Sheet.
+    let sprungZiel: Sprungziel?
+    /// `.blocker` (default) verhindert Berechnung bei `.offen`,
+    /// `.warnung` blockiert nie.
+    let schwere: AnforderungsSchwere
+
+    init(
+        anforderung: DatenAnforderung,
+        status: AnforderungsStatus,
+        hinweis: String? = nil,
+        sprungZiel: Sprungziel? = nil,
+        schwere: AnforderungsSchwere = .blocker
+    ) {
+        self.anforderung = anforderung
+        self.status = status
+        self.hinweis = hinweis
+        self.sprungZiel = sprungZiel
+        self.schwere = schwere
+    }
 
     var id: String { anforderung.id }
+
+    /// `true`, wenn diese Anforderung die Berechnung blockiert —
+    /// sowohl Schwere `.blocker` als auch Status `.offen` müssen
+    /// zusammenkommen. Wird vom AbrechnungsService für den
+    /// Blocker-Throw verwendet.
+    var blockiertBerechnung: Bool {
+        schwere == .blocker && status == .offen
+    }
 }
 
 /// Fehler-Typ für den AbrechnungsService-Pre-Flight (strikte Daten-

@@ -81,9 +81,13 @@ enum AbrechnungsService {
         let anforderungen = VollstaendigkeitsPruefung.pruefe(
             immobilie: immobilie, periode: periode
         )
-        let offene = anforderungen.filter { $0.status == .offen }
-        if !offene.isEmpty {
-            throw AbrechnungsBlocker.fehlendeDaten(offeneAnforderungen: offene)
+        // Strikte-Daten: nur Anforderungen der Schwere `.blocker` mit
+        // Status `.offen` verhindern die Berechnung. Warnungen (z.B.
+        // WMZ-Plausi) tauchen weiter in der UI auf, blockieren aber
+        // nichts.
+        let offeneBlocker = anforderungen.filter { $0.blockiertBerechnung }
+        if !offeneBlocker.isEmpty {
+            throw AbrechnungsBlocker.fehlendeDaten(offeneAnforderungen: offeneBlocker)
         }
         return aggregiereIntern(periode: periode, immobilie: immobilie)
     }
