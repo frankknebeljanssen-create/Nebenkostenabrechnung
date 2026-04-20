@@ -5,6 +5,7 @@ import SwiftData
 struct NebenkostenAppApp: App {
     let container: ModelContainer
     @State private var objektWahl = ObjektWahl()
+    @State private var scopeManager = ScopeManager()
 
     init() {
         do {
@@ -21,6 +22,7 @@ struct NebenkostenAppApp: App {
         WindowGroup {
             ContentView()
                 .environment(objektWahl)
+                .environment(scopeManager)
                 .modelContainer(container)
         }
     }
