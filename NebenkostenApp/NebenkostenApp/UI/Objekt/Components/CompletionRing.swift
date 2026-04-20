@@ -18,29 +18,29 @@ struct CompletionBalken: View {
     private var prozentText: String { "\(Int((geklammert * 100).rounded())) %" }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
                 Text(prozentText)
-                    .font(.title2.weight(.semibold))
+                    .font(.system(size: 24, weight: .semibold))
                     .monospacedDigit()
                     .foregroundStyle(balkenFarbe)
                 Text("vollständig")
-                    .font(.footnote)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
                 Spacer()
             }
 
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .fill(Color.gray.opacity(0.15))
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .fill(balkenFarbe)
                         .frame(width: proxy.size.width * geklammert)
                         .animation(.easeInOut(duration: 0.4), value: geklammert)
                 }
             }
-            .frame(height: 8)
+            .frame(height: 16)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Abrechnung zu \(Int((geklammert * 100).rounded())) Prozent vollständig.")

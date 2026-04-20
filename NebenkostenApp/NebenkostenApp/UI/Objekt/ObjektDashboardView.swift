@@ -122,7 +122,8 @@ struct ObjektDashboardView: View {
 
     private var ring: some View {
         CompletionBalken(prozent: viewModel.completionProzent)
-            .padding(.vertical, 4)
+            .padding(.top, 4)
+            .padding(.bottom, 16)
     }
 
     private var kachelGrid: some View {
