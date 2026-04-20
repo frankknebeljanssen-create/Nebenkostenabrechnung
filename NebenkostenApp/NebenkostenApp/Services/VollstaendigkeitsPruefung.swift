@@ -26,6 +26,9 @@ enum VollstaendigkeitsPruefung {
         liste.append(contentsOf: stammdatenAnforderungen(immobilie: immobilie))
         liste.append(contentsOf: zaehlerAnforderungen(immobilie: immobilie, periode: periode))
         liste.append(contentsOf: rechnungsAnforderungen(immobilie: immobilie, periode: periode))
+        if let plausi = wmzPlausiAnforderung(immobilie: immobilie, periode: periode) {
+            liste.append(plausi)
+        }
         return liste
     }
 
@@ -372,6 +375,100 @@ enum VollstaendigkeitsPruefung {
         nf.currencyCode = "EUR"
         nf.locale = Locale(identifier: "de_DE")
         return nf.string(from: NSDecimalNumber(decimal: d)) ?? "\(d) €"
+    }
+
+    // MARK: - WMZ-Plausibilität (Warnung, kein Blocker)
+
+    /// Prüft, ob die Summe der Wärmemengenzähler-Deltas in der
+    /// Periode im erwarteten Bereich des Gas-Wärmeanteils liegt.
+    /// Heuristik nach §9 HeizkostenV: Warmwasser-Anteil bei
+    /// zentraler Anlage ca. 18 %, Rest (≈82 %) ist Heizung.
+    /// Toleranz 85–115 % — außerhalb blinkt ein Warn-Hinweis
+    /// (Schwere = `.warnung`, blockiert NICHT die Berechnung).
+    ///
+    /// Liefert `nil`, wenn die Regel nicht anwendbar ist (keine
+    /// WMZ-Zähler, kein Gas-Verbrauch bekannt). Das tritt in der
+    /// UI als "nicht relevant" auf.
+    private static func wmzPlausiAnforderung(
+        immobilie: Immobilie,
+        periode: Abrechnungsperiode
+    ) -> AnforderungMitStatus? {
+        let wmz = alleZaehler(immobilie).filter { $0.medium == .waermeenergie }
+        guard !wmz.isEmpty else { return nil }
+
+        let wmzSumme = wmz.reduce(Decimal(0)) { acc, z in
+            acc + deltaInPeriode(z, periode: periode)
+        }
+
+        let gasVerbrauch = (immobilie.rechnungen ?? [])
+            .filter {
+                $0.rechnungsdatum >= periode.von
+                    && $0.rechnungsdatum <= periode.bis
+                    && ($0.kostenart?.bezeichnung.lowercased().contains("heiz") == true
+                        || $0.kostenart?.bezeichnung.lowercased().contains("gas") == true)
+            }
+            .compactMap { $0.verbrauchMenge }
+            .reduce(Decimal(0), +)
+
+        guard gasVerbrauch > 0 else { return nil }
+
+        let heizAnteilFaktor = Decimal(string: "0.82") ?? 0
+        let erwartet = gasVerbrauch * heizAnteilFaktor
+        let unten    = erwartet * (Decimal(string: "0.85") ?? 0)
+        let oben     = erwartet * (Decimal(string: "1.15") ?? 0)
+
+        let anf = DatenAnforderung(
+            id: "plausi-wmz",
+            kategorie: .zaehlerstand,
+            titel: "Plausibilität Wärmemengenzähler",
+            details: "WMZ-Summe sollte 85–115 % des Gas-Heizanteils entsprechen",
+            erforderlich: false
+        )
+
+        if wmzSumme >= unten && wmzSumme <= oben {
+            return .init(
+                anforderung: anf,
+                status: .erfuellt,
+                hinweis: nil,
+                sprungZiel: .wmzPlausi,
+                schwere: .warnung
+            )
+        }
+
+        let prozent = prozentAbweichung(gemessen: wmzSumme, erwartet: erwartet)
+        let hinweis = "WMZ-Summe bei \(prozent) des Gas-Heizanteils (85–115 % erwartet)"
+        return .init(
+            anforderung: anf,
+            status: .teilweise,
+            hinweis: hinweis,
+            sprungZiel: .wmzPlausi,
+            schwere: .warnung
+        )
+    }
+
+    // MARK: - Interne Helfer
+
+    private static func alleZaehler(_ immobilie: Immobilie) -> [Zaehler] {
+        let haupt = immobilie.hauptzaehler ?? []
+        let wohnung = (immobilie.wohneinheiten ?? []).flatMap { $0.zaehler ?? [] }
+        return haupt + wohnung
+    }
+
+    private static func deltaInPeriode(_ z: Zaehler, periode: Abrechnungsperiode) -> Decimal {
+        let staende = (z.staende ?? [])
+            .filter { $0.ablesedatum >= periode.von && $0.ablesedatum <= periode.bis }
+            .sorted { $0.ablesedatum < $1.ablesedatum }
+        guard let first = staende.first, let last = staende.last, first.id != last.id else {
+            return 0
+        }
+        return max(0, last.stand - first.stand)
+    }
+
+    private static func prozentAbweichung(gemessen: Decimal, erwartet: Decimal) -> String {
+        guard erwartet > 0 else { return "—" }
+        let faktor = (gemessen as NSDecimalNumber).doubleValue
+            / (erwartet as NSDecimalNumber).doubleValue
+        return String(format: "%.0f %%", faktor * 100)
     }
 
     // MARK: - Convenience
