@@ -520,36 +520,49 @@ Build aus `Bundle.infoDictionary`. Keine User-Interaktion nötig.
 dann per easeOut-0.25s-Cross-Fade zum Hauptinhalt (OnboardingFlow
 oder AppShell je nach `users.isEmpty`).
 
-### HomeView (Context-First)
+### HomeView (Context-First, v2)
 
-`UI/Home/HomeView.swift` ist der neue Übersicht-Tab-Inhalt —
-ersetzt die frühere Scope-Router-Logik (`UebersichtObjektView` +
-`UebersichtEinheitView`). Zeigt BEIDE Kontexte gleichzeitig, der
-Scope beeinflusst nur die Einheit-Card.
+`UI/Home/HomeView.swift` ist der Übersicht-Tab-Inhalt — ersetzt
+die frühere Scope-Router-Logik (`UebersichtObjektView` +
+`UebersichtEinheitView`). Der `AppShellChrome`-Titel ist auf
+`nil` gesetzt; der HomeScreen bringt seine eigene Haupt-
+Orientierung mit.
 
 Vertikale Abfolge (24 pt Spacing):
 
-1. **HomeHeaderView** — Begrüßung („Willkommen zurück.") +
-   Perioden-Label.
-2. **CurrentPropertyCard** — Objekt prominent: Adresse in
-   displayTitle (30/600), Ort · m² · Einheiten-Zahl als Zusatz,
-   rechts „Wechseln"-Button. Öffnet im MVP das EinstellungenSheet
-   (später dedizierter Objekt-Picker).
+1. **PeriodenHeader** — 40 pt/600 „Abrechnung 2025" + Mono 11 pt
+   Zeitraum darunter. Erste Orientierung oben, ersetzt den alten
+   30-pt-Screen-Titel sowie die frühere „Willkommen zurück."-
+   Zeile.
+2. **ObjektCarousel** — horizontales Paging via `TabView(.page)`,
+   pro Immobilie eine große `ObjektCard` (bgSurface +
+   separatorStrong + Shadow, 18 pt radius, 22/20 pt Padding).
+   Eigene `PaginationDots` unter dem Carousel (nur ab 2
+   Immobilien sichtbar). Tap auf die aktive Card → „Objekt
+   öffnen" (setzt Scope auf `.objekt` und öffnet EinstellungenSheet,
+   bis ein dediziertes Objekt-Detail existiert).
 3. **CurrentUnitCard** — Einheit mit UnitBalken in ScopeFarbe.
    Objekt-Scope: „Gesamtes Objekt · Alle N Einheiten". Einheit-
    Scope: „EG Wohnung · Fam. Pfaffenbach · 94 m²". „Wechseln" →
-   ScopePickerSheet.
-4. **HomeStatusCard** — drei Kennzahlen-Zeilen (Zählerstände,
-   Rechnungen geprüft, Dokumente) + StatusPill („Bereit" /
-   „In Arbeit" / „Daten fehlen"). Darunter optional eine
-   prominente „Nächster Schritt"-Zeile — erste offene
-   Anforderung mit Sprungziel. Tap → Router.
-5. **EmptyStateCard** — wenn keine Immobilie: Icon + Erklärung +
-   Primär-Button „Erstes Objekt anlegen".
+   ScopePickerSheet. `Card(tiefe: .erhoben)`.
+4. **HomeStatusCard** — drei Kennzahlen (Zählerstände, Rechnungen
+   geprüft, Dokumente) + StatusPill („Bereit" / „In Arbeit" /
+   „Daten fehlen"). Darunter die prominente „Nächster Schritt"-
+   Zeile mit Sprungziel-Tap. `Card(tiefe: .erhoben)`.
+5. **EmptyStateCard** — nur wenn keine Immobilie: Icon +
+   Erklärung + Primär-Button „Erstes Objekt anlegen".
+   `Card(tiefe: .erhoben)`.
 
-Regel: bewusst ruhig, plakativ, kein Dashboard-Lärm. Große
-Typografie (displayTitle für Hauptzeilen), großzügige Card-
-Paddings, keine Mini-Icons oder verspielte Effekte.
+Design-Regel:
+- Cards heben sich mit `Card.Tiefe.erhoben` (separatorStrong +
+  Shadow 8 %/Radius 10/y 3) spürbar vom `bgApp` ab — seriös,
+  nicht verspielt.
+- Keine doppelte Adress-Zeile: Objekt-Adresse lebt ausschließlich
+  in der Carousel-Card.
+- Große Typografie für Haupt-Orientierung (PeriodenHeader 40 pt,
+  Objekt-Adresse 17 pt/600 in der Carousel-Card).
+- `HomeHeaderView.swift` und `CurrentPropertyCard.swift` bleiben
+  als ungenutzte Legacy-Files im Repo.
 
 Persistenz: keine neue Schicht nötig. ScopeManager hält die
 Einheit-Wahl weiter über UserDefaults („currentScope.v1"), die
