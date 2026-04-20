@@ -30,6 +30,7 @@ struct RechnungEditView: View {
     @State private var geprueft: Bool
 
     @State private var zeigeLoeschen = false
+    @State private var zeigeScan = false
 
     init(modus: Modus) {
         self.modus = modus
@@ -69,6 +70,7 @@ struct RechnungEditView: View {
                 zeitraumSektion
                 betragSektion
                 kostenartSektion
+                belegSektion
                 notizSektion
                 geprueftSektion
                 if case .bearbeiten = modus {
@@ -77,6 +79,13 @@ struct RechnungEditView: View {
                             zeigeLoeschen = true
                         }
                     }
+                }
+            }
+            .sheet(isPresented: $zeigeScan) {
+                if case .bearbeiten(let r) = modus {
+                    ScanEntryView(autoRechnung: r) { _ in }
+                } else {
+                    ScanEntryView { _ in }
                 }
             }
             .navigationTitle(titel)
@@ -172,6 +181,24 @@ struct RechnungEditView: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    private var belegSektion: some View {
+        Section("Beleg") {
+            Button {
+                zeigeScan = true
+            } label: {
+                Label(belegButtonTitel, systemImage: "doc.viewfinder")
+            }
+        }
+    }
+
+    private var belegButtonTitel: String {
+        if case .bearbeiten(let r) = modus,
+           let anzahl = r.gespeicherteDokumente?.count, anzahl > 0 {
+            return "\(anzahl) Beleg\(anzahl == 1 ? "" : "e") · weiteren scannen"
+        }
+        return "Beleg scannen oder importieren"
     }
 
     private var notizSektion: some View {

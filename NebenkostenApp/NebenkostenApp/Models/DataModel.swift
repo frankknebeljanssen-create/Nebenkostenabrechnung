@@ -314,6 +314,9 @@ final class Zaehlerstand {
 
     var zaehler: Zaehler?
 
+    @Relationship(deleteRule: .nullify, inverse: \GespeichertesDokument.zaehlerstand)
+    var gespeicherteDokumente: [GespeichertesDokument]? = []
+
     init() {}
 }
 
@@ -445,6 +448,9 @@ final class Rechnung {
 
     var immobilie: Immobilie?
     var kostenart: Kostenart?
+
+    @Relationship(deleteRule: .nullify, inverse: \GespeichertesDokument.rechnung)
+    var gespeicherteDokumente: [GespeichertesDokument]? = []
 
     init() {}
 }
