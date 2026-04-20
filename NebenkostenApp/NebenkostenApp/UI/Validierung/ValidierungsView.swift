@@ -21,12 +21,15 @@ struct ValidierungsView: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(ObjektWahl.self) private var objektWahl
+    @Query(sort: \Immobilie.erstelltAm) private var immobilien: [Immobilie]
 
     @State private var rohdatenAufgeklappt = true
     @State private var aiAufgeklappt = true
     @State private var laeuftOCR = false
     @State private var laeuftAI = false
     @State private var fehler: String?
+    @State private var zeigeUebernahme = false
 
     var body: some View {
         NavigationStack {
@@ -56,7 +59,22 @@ struct ValidierungsView: View {
                 actions: { Button("OK", role: .cancel) {} },
                 message: { Text(fehler ?? "") }
             )
+            .sheet(isPresented: $zeigeUebernahme) {
+                UebernahmeSheet(
+                    dokument: dokument,
+                    immobilie: aktiveImmobilie,
+                    onFertig: { dismiss() }
+                )
+            }
         }
+    }
+
+    private var aktiveImmobilie: Immobilie? {
+        if let id = objektWahl.aktiveID,
+           let match = immobilien.first(where: { $0.id == id }) {
+            return match
+        }
+        return immobilien.first
     }
 
     // MARK: - Status-Header
@@ -273,7 +291,7 @@ struct ValidierungsView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                 Button {
-                    // Rechnungs-Übernahme folgt in Task 1.2-C7.
+                    zeigeUebernahme = true
                 } label: {
                     Label("Als Rechnung übernehmen",
                           systemImage: "doc.text.fill")
@@ -281,7 +299,7 @@ struct ValidierungsView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
-                .disabled(true)
+                .disabled(dokument.aiVorschlag == nil)
                 Button {
                     dismiss()
                 } label: {
