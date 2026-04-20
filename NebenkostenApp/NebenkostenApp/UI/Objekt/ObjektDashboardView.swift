@@ -68,31 +68,25 @@ struct ObjektDashboardView: View {
     // MARK: - Sektionen
 
     private var kopf: some View {
-        HStack(alignment: .top, spacing: 16) {
-            Text("Objekt")
-                .font(.callout.weight(.medium))
-                .foregroundStyle(.secondary)
-            Spacer()
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(immobilie.adresse.isEmpty ? "Unbenanntes Objekt" : immobilie.adresse)
-                    .font(.callout.weight(.semibold))
-                if !immobilie.ort.isEmpty {
-                    Text(immobilie.ort)
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                }
+        VStack(alignment: .leading, spacing: 2) {
+            Text(immobilie.adresse.isEmpty ? "Unbenanntes Objekt" : immobilie.adresse)
+                .font(.callout.weight(.semibold))
+            if !immobilie.ort.isEmpty {
+                Text(immobilie.ort)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
             }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private var periodePicker: some View {
         HStack {
-            Text("Abrechnungsperiode")
+            Text("Abrechnungszeitraum")
                 .font(.callout)
                 .foregroundStyle(.quaternary)
             Spacer()
@@ -123,11 +117,16 @@ struct ObjektDashboardView: View {
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
-                    .background(Color(.secondarySystemBackground))
+                    .background(Color(.tertiarySystemBackground))
                     .clipShape(Capsule())
                 }
             }
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private var ring: some View {
