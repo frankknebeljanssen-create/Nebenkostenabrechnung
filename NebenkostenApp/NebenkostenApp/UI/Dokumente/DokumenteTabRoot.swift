@@ -20,6 +20,7 @@ struct DokumenteTabRoot: View {
     @State private var zeigeScan = false
     @State private var vorschauDokument: GespeichertesDokument?
     @State private var zuLoeschen: GespeichertesDokument?
+    @State private var zuValidieren: GespeichertesDokument?
 
     var body: some View {
         NavigationStack {
@@ -42,6 +43,9 @@ struct DokumenteTabRoot: View {
             }
             .sheet(isPresented: $zeigeScan) {
                 ScanEntryView { _ in }
+            }
+            .sheet(item: $zuValidieren) { d in
+                ValidierungsView(dokument: d)
             }
             .sheet(item: $vorschauDokument) { d in
                 NavigationStack {
@@ -130,6 +134,12 @@ struct DokumenteTabRoot: View {
                                 } label: {
                                     Label("Löschen", systemImage: "trash")
                                 }
+                                Button {
+                                    zuValidieren = d
+                                } label: {
+                                    Label("Validieren", systemImage: "sparkles")
+                                }
+                                .tint(.indigo)
                             }
                     }
                 } header: {
@@ -166,12 +176,30 @@ struct DokumenteTabRoot: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                pipelineBadge(d)
+                    .padding(.top, 2)
             }
             Spacer()
             Image(systemName: "chevron.right")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }
+    }
+
+    @ViewBuilder
+    private func pipelineBadge(_ d: GespeichertesDokument) -> some View {
+        let (text, farbe) = pipelineStatus(d)
+        HStack(spacing: 4) {
+            Circle().fill(farbe).frame(width: 6, height: 6)
+            Text(text).font(.caption2).foregroundStyle(farbe)
+        }
+    }
+
+    private func pipelineStatus(_ d: GespeichertesDokument) -> (String, Color) {
+        if d.rechnungId != nil { return ("Validiert & Rechnung erzeugt", .green) }
+        if d.aiVorschlag != nil { return ("AI-Vorschlag vorhanden",       .orange) }
+        if d.ocrVolltext != nil { return ("OCR vorhanden",                .blue) }
+        return ("Kein OCR", .gray)
     }
 
     @ViewBuilder
