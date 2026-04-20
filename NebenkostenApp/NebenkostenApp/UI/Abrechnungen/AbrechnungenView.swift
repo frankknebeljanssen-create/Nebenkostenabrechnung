@@ -22,6 +22,7 @@ import SwiftData
 
 struct AbrechnungenView: View {
     @Environment(ScopeManager.self) private var scope
+    @Environment(AppShellRouter.self) private var router
     @Query(sort: \Immobilie.erstelltAm) private var immobilien: [Immobilie]
 
     @State private var zeigeScopePicker = false
@@ -217,37 +218,71 @@ struct AbrechnungenView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(DesignTokens.statusWarn)
+                    .foregroundStyle(DesignTokens.statusError)
                 Text("Pflichtdaten fehlen — Abrechnung ist blockiert.")
-                    .appFont(AppFont.caption())
+                    .appFont(AppFont.Basis.caption())
                     .foregroundStyle(DesignTokens.text)
                 Spacer()
             }
-            ForEach(anforderungen.prefix(3)) { a in
-                HStack(spacing: 8) {
-                    StatusDot(status: .error)
-                    Text(a.anforderung.titel)
-                        .appFont(AppFont.caption())
-                        .foregroundStyle(DesignTokens.text)
-                    Spacer()
-                }
+            ForEach(anforderungen.prefix(4)) { a in
+                blockerRow(a)
             }
-            Button {
-                zeigeInspektor = true
-            } label: {
-                HStack(spacing: 8) {
-                    Text("Vollständigkeits-Inspektor öffnen")
-                        .appFont(AppFont.caption())
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
+            if anforderungen.count > 4 {
+                Button {
+                    zeigeInspektor = true
+                } label: {
+                    HStack(spacing: 8) {
+                        Text("\(anforderungen.count - 4) weitere Punkte im Inspektor öffnen")
+                            .appFont(AppFont.Basis.caption())
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                    }
+                    .foregroundStyle(DesignTokens.accent)
                 }
-                .foregroundStyle(DesignTokens.accent)
+                .buttonStyle(.plain)
+                .padding(.top, 2)
             }
-            .buttonStyle(.plain)
-            .padding(.top, 2)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
+    }
+
+    /// Eine Datenlücke als sprungfähige Row. Tap → Router.springe
+    /// navigiert zum Erfassungsort (Zähler / Einstellungen / Kostenart).
+    @ViewBuilder
+    private func blockerRow(_ a: AnforderungMitStatus) -> some View {
+        let content = HStack(spacing: 8) {
+            StatusDot(status: .error)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(a.anforderung.titel)
+                    .appFont(AppFont.Basis.bodyMedium())
+                    .foregroundStyle(DesignTokens.text)
+                if let hinweis = a.hinweis {
+                    Text(hinweis)
+                        .appFont(AppFont.Basis.caption())
+                        .foregroundStyle(DesignTokens.textSecondary)
+                        .lineLimit(2)
+                }
+            }
+            Spacer(minLength: 4)
+            if a.sprungZiel != nil {
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(DesignTokens.textTertiary)
+            }
+        }
+        .contentShape(Rectangle())
+
+        if let ziel = a.sprungZiel {
+            Button {
+                router.springe(zu: ziel)
+            } label: {
+                content
+            }
+            .buttonStyle(.plain)
+        } else {
+            content
+        }
     }
 
     // MARK: - Ergebnisse
@@ -269,7 +304,7 @@ struct AbrechnungenView: View {
         var pillStyle: StatusPill.Style {
             switch self {
             case .berechenbar(let liste): return liste.isEmpty ? .muted : .ok
-            case .blockiert:              return .warn
+            case .blockiert:              return .error
             }
         }
     }
