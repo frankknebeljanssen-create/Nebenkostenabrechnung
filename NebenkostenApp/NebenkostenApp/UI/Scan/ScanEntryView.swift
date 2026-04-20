@@ -19,7 +19,11 @@ struct ScanEntryView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
-    /// Callback mit dem neu angelegten Dokument.
+    @Query(sort: \Immobilie.erstelltAm) private var immobilien: [Immobilie]
+    @Environment(ObjektWahl.self) private var objektWahl
+
+    /// Callback mit dem neu angelegten (und via Erfassungs-Sheet
+    /// validierten) Dokument.
     let onFertig: (GespeichertesDokument) -> Void
 
     init(onFertig: @escaping (GespeichertesDokument) -> Void = { _ in }) {
@@ -29,6 +33,7 @@ struct ScanEntryView: View {
     @State private var zeigeKamera = false
     @State private var zeigeDateiImporter = false
     @State private var fehlermeldung: String?
+    @State private var erfassungsDokument: GespeichertesDokument?
 
     var body: some View {
         NavigationStack {
@@ -111,6 +116,53 @@ struct ScanEntryView: View {
                 actions: { Button("OK", role: .cancel) {} },
                 message: { Text(fehlermeldung ?? "") }
             )
+            .sheet(item: $erfassungsDokument) { doc in
+                DokumentErfassungView(
+                    dokument: doc,
+                    einheitBezeichnungen: einheitBezeichnungen,
+                    onFertig: {
+                        onFertig(doc)
+                        erfassungsDokument = nil
+                        dismiss()
+                    },
+                    onVerwerfen: {
+                        DokumentAblageService.loesche(doc, context: modelContext)
+                        try? modelContext.save()
+                        erfassungsDokument = nil
+                    }
+                )
+            }
+        }
+    }
+
+    private var aktuelleImmobilie: Immobilie? {
+        if let id = objektWahl.aktiveID,
+           let match = immobilien.first(where: { $0.id == id }) {
+            return match
+        }
+        return immobilien.first
+    }
+
+    private var einheitBezeichnungen: [String] {
+        (aktuelleImmobilie?.wohneinheiten ?? [])
+            .map(\.bezeichnung)
+            .sorted { lhs, rhs in
+                let r1 = sortRang(lhs)
+                let r2 = sortRang(rhs)
+                if r1 != r2 { return r1 < r2 }
+                return lhs.localizedCompare(rhs) == .orderedAscending
+            }
+    }
+
+    private func sortRang(_ b: String) -> Int {
+        let k = b.uppercased().trimmingCharacters(in: .whitespaces)
+        switch k {
+        case "KG", "UG":  return 0
+        case "EG":        return 1
+        case "OG":        return 2
+        case "2. OG":     return 3
+        case "DG":        return 4
+        default:          return 99
         }
     }
 
@@ -149,8 +201,7 @@ struct ScanEntryView: View {
                 context: modelContext
             )
             try modelContext.save()
-            onFertig(doc)
-            dismiss()
+            erfassungsDokument = doc
         } catch {
             fehlermeldung = error.localizedDescription
         }
@@ -177,8 +228,7 @@ struct ScanEntryView: View {
                 return
             }
             try modelContext.save()
-            onFertig(doc)
-            dismiss()
+            erfassungsDokument = doc
         } catch {
             fehlermeldung = error.localizedDescription
         }
@@ -194,8 +244,7 @@ struct ScanEntryView: View {
                 context: modelContext
             )
             try modelContext.save()
-            onFertig(doc)
-            dismiss()
+            erfassungsDokument = doc
         } catch {
             fehlermeldung = error.localizedDescription
         }
