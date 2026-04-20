@@ -244,6 +244,69 @@ die Funktionen direkt.
 
 ---
 
+## Scan-Architektur
+
+Dokumente werden auf drei Wegen in die App gebracht: **Kamera**,
+**Mediathek**, **Datei**. Persistierung + Anzeige folgen einem
+einheitlichen Pfad — OCR und KI-Extraktion sind davon strikt getrennt
+und kommen erst in Task 1.2.
+
+### Grundsatz
+
+Apples `VNDocumentCameraViewController` (VisionKit) macht
+Kantenerkennung, Perspektivkorrektur und Multi-Page-Session bereits
+stabil. **Ein eigener Kamera-Scanner ist verboten.** Die App liefert
+nur SwiftUI-Wrapper (`DokumentScannerView`).
+
+### Entry-Points
+
+Bundle unter `Services/ScanService.swift`:
+- `ScanService.kameraScanner(onFertig:)` → `DokumentScannerView`
+- `ScanService.mediathekButton(maxAuswahl:, label:)` →
+  `GalerieImportButton` (PhotosPicker)
+- `.scanDateiImporter(isPresented:, onFertig:)` → `.fileImporter`-
+  Modifier für PDFs und Bilder
+
+### Persistierung
+
+- **Alle Dokumente werden als PDF gespeichert.** Kamera-Scans →
+  PDF (Multi-Page), Mediathek-Bilder → PDF (auch Einzelbilder),
+  Datei-Importe: PDFs 1:1, Bilder → PDF konvertiert.
+- Ablage: `Documents/Scans/<YYYY>/<dateiname>.pdf`. Jahres-
+  Unterordner wird on demand angelegt.
+- Parallel: 300×300-JPG-Thumbnail unter `Documents/Scans/Thumbnails/`.
+
+### Dateinamens-Schema
+
+`DateinameBuilder.build(from: Eingabe)` — deterministisch, rein:
+
+```
+YYYY-MM-DD_<Typ>_<Versorger>_<Kontext>[_<Betrag>EUR].pdf
+```
+
+Regeln: Umlaute → ae/oe/ue/ss, Whitespace → `_`, Sonderzeichen →
+`_`, Doppel-`_` eingedampft. Betrag: `245EUR` / `1234-56EUR` (Punkt/
+Komma → Dash). Leere Optional-Felder werden ausgelassen. Fallback
+(nur Datum + Typ .sonstiges): `YYYY-MM-DD_Dokument_<UUID-4>.pdf`.
+Kollision: 4-Chars-UUID-Suffix.
+
+### Strikte-Daten-Regel im Scan
+
+Im Nach-Scan-Sheet (`DokumentErfassungView`) ist **Dokumenttyp das
+einzige Pflichtfeld**. Versorger, Kontext, Betrag, Einheit sind
+optional. Die App macht **keine Pre-Fills und keine Vermutungen** —
+konsistent zur Abrechnungs-Pre-Flight-Regel.
+
+### Was in Task 1.1 NICHT gemacht wird
+
+- Kein OCR — kommt in 1.2.
+- Keine KI-Extraktion — kommt in 1.2.
+- Keine automatische Verknüpfung zu Rechnung/Zählerstand — kommt
+  separat in 1.2 via `rechnungId` an `GespeichertesDokument`.
+- Keine Bild-Nachbearbeitung, kein eigener Kamera-Code.
+
+---
+
 ## Datenschutz & DSGVO
 
 ### Rollen
