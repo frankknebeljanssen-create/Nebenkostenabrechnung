@@ -9,7 +9,14 @@ import SwiftData
 struct ObjektDashboardView: View {
     @Bindable var immobilie: Immobilie
 
+    @Query(sort: \Immobilie.erstelltAm) private var alleImmobilien: [Immobilie]
+    @Environment(ObjektWahl.self) private var objektWahl
+
     @State private var gewaehltePeriodeID: UUID?
+    @State private var zeigeNeuesObjektSheet = false
+    @State private var zeigeLimitAlert = false
+
+    private static let maxObjekte = 4
 
     private let spalten = [GridItem(.flexible(), spacing: 12),
                            GridItem(.flexible(), spacing: 12)]
@@ -19,6 +26,7 @@ struct ObjektDashboardView: View {
             VStack(alignment: .leading, spacing: 24) {
                 kopf
                 periodePicker
+                    .padding(.top, -12)
                 ring
                 kachelGrid
                 wohneinheitenSektion
@@ -29,6 +37,19 @@ struct ObjektDashboardView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle("Objekt")
         .onAppear(perform: waehleDefaultPeriode)
+        .sheet(isPresented: $zeigeNeuesObjektSheet) {
+            NeuesObjektSheet { angelegt in
+                objektWahl.setze(angelegt.id)
+            }
+        }
+        .alert(
+            "Objekt-Limit erreicht",
+            isPresented: $zeigeLimitAlert,
+            actions: { Button("OK", role: .cancel) {} },
+            message: {
+                Text("Im MVP können maximal \(Self.maxObjekte) Objekte angelegt werden. In Version 1.1 werden mehr Objekte möglich sein.")
+            }
+        )
     }
 
     // MARK: - Abgeleitete Werte
@@ -68,20 +89,68 @@ struct ObjektDashboardView: View {
     // MARK: - Sektionen
 
     private var kopf: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(immobilie.adresse.isEmpty ? "Unbenanntes Objekt" : immobilie.adresse)
-                .font(.callout.weight(.semibold))
-            if !immobilie.ort.isEmpty {
-                Text(immobilie.ort)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(immobilie.adresse.isEmpty ? "Unbenanntes Objekt" : immobilie.adresse)
+                    .font(.callout.weight(.semibold))
+                if !immobilie.ort.isEmpty {
+                    Text(immobilie.ort)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
             }
+            Spacer(minLength: 8)
+            objektWechselMenu
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity)
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private var objektWechselMenu: some View {
+        Menu {
+            Section {
+                ForEach(alleImmobilien) { objekt in
+                    Button {
+                        objektWahl.setze(objekt.id)
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading) {
+                                Text(objekt.adresse.isEmpty ? "Unbenanntes Objekt" : objekt.adresse)
+                                if !objekt.ort.isEmpty {
+                                    Text(objekt.ort).font(.caption)
+                                }
+                            }
+                            Spacer()
+                            if objekt.id == immobilie.id {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                }
+            }
+            Section {
+                Button {
+                    if alleImmobilien.count >= Self.maxObjekte {
+                        zeigeLimitAlert = true
+                    } else {
+                        zeigeNeuesObjektSheet = true
+                    }
+                } label: {
+                    Label("Neues Objekt anlegen…", systemImage: "plus")
+                }
+            }
+        } label: {
+            Image(systemName: "chevron.up.chevron.down")
+                .font(.callout.weight(.medium))
+                .foregroundStyle(.secondary)
+                .frame(width: 32, height: 32)
+                .background(Color(.tertiarySystemBackground))
+                .clipShape(Circle())
+        }
+        .accessibilityLabel("Objekt wechseln oder neu anlegen")
     }
 
     private var periodePicker: some View {

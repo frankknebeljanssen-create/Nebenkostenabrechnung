@@ -75,54 +75,12 @@ struct ObjektTabRoot: View {
 
     @ToolbarContentBuilder
     private var pickerToolbar: some ToolbarContent {
-        if !immobilien.isEmpty {
-            ToolbarItem(placement: .principal) {
-                Menu {
-                    Section {
-                        ForEach(immobilien) { objekt in
-                            Button {
-                                objektWahl.setze(objekt.id)
-                            } label: {
-                                HStack {
-                                    VStack(alignment: .leading) {
-                                        Text(objekt.adresse.isEmpty ? "Unbenanntes Objekt" : objekt.adresse)
-                                        if !objekt.ort.isEmpty {
-                                            Text(objekt.ort).font(.caption)
-                                        }
-                                    }
-                                    Spacer()
-                                    if objekt.id == aktivesObjekt?.id {
-                                        Image(systemName: "checkmark")
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    Section {
-                        Button {
-                            if immobilien.count >= Self.maxObjekte {
-                                zeigeLimitAlert = true
-                            } else {
-                                zeigeNeuesObjekt = true
-                            }
-                        } label: {
-                            Label("Neues Objekt anlegen…", systemImage: "plus")
-                        }
-                    }
-                } label: {
-                    HStack(spacing: 4) {
-                        Text(aktivesObjekt?.adresse.isEmpty == false
-                             ? aktivesObjekt!.adresse
-                             : "Objekt wählen")
-                            .font(.headline)
-                            .lineLimit(1)
-                        Image(systemName: "chevron.down")
-                            .font(.caption)
-                    }
-                }
-            }
-        } else {
+        // Bei leerer Objektliste: Plus-Button in Nav-Bar (Onboarding-Fall).
+        // Bei vorhandenen Objekten: keine Toolbar — der Objekt-Wechsel-
+        // Button sitzt jetzt direkt in der Objekt-Card im Dashboard
+        // (ObjektDashboardView.kopf), damit der obere Nav-Bar-Bereich
+        // ruhiger wird.
+        if immobilien.isEmpty {
             ToolbarItem(placement: .primaryAction) {
                 Button {
                     zeigeNeuesObjekt = true
