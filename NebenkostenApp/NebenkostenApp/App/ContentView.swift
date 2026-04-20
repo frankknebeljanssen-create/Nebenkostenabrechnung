@@ -15,7 +15,9 @@ struct ContentView: View {
         if users.isEmpty {
             OnboardingFlow()
         } else {
-            RootTabView()
+            // Neue App-Shell (Task UI-0). Phase-0-RootTabView bleibt
+            // über das EinstellungenSheet → Debug-Zugriff erreichbar.
+            AppShell()
         }
     }
 }
