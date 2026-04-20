@@ -68,23 +68,33 @@ struct ObjektDashboardView: View {
     // MARK: - Sektionen
 
     private var kopf: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(immobilie.adresse.isEmpty ? "Unbenanntes Objekt" : immobilie.adresse)
-                .font(.title2.bold())
-            if !immobilie.ort.isEmpty {
-                Text(immobilie.ort)
-                    .font(.callout)
-                    .foregroundStyle(.tertiary)
+        HStack(alignment: .top, spacing: 16) {
+            Text("Objekt")
+                .font(.callout.weight(.medium))
+                .foregroundStyle(.secondary)
+            Spacer()
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(immobilie.adresse.isEmpty ? "Unbenanntes Objekt" : immobilie.adresse)
+                    .font(.callout.weight(.semibold))
+                if !immobilie.ort.isEmpty {
+                    Text(immobilie.ort)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private var periodePicker: some View {
         HStack {
             Text("Abrechnungsperiode")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .font(.callout)
+                .foregroundStyle(.quaternary)
             Spacer()
             if perioden.isEmpty {
                 Text("keine Periode")
@@ -122,7 +132,7 @@ struct ObjektDashboardView: View {
 
     private var ring: some View {
         CompletionBalken(prozent: viewModel.completionProzent)
-            .padding(.top, 4)
+            .padding(.top, -8)
             .padding(.bottom, 16)
     }
 
