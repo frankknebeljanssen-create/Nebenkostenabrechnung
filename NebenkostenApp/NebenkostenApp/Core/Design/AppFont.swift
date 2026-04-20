@@ -103,6 +103,17 @@ enum AppFont {
     static func micro() -> AppFontStyle {
         .init(font: plexSans(.regular, 10), tracking: 0.2, uppercase: false)
     }
+    /// ScopePill (HAUS / KG / EG / OG) — sehr klein, bleibt
+    /// Dekorations-Label und wird nicht weiter hochskaliert.
+    static func scopePill() -> AppFontStyle {
+        .init(font: plexSans(.semibold, 10), tracking: 0.3, uppercase: true)
+    }
+    /// Label "ANFANG" / "ENDE" / "VERBRAUCH" über einer Messzeile.
+    /// UI-Fix-3: 11pt/600 tracking 0.3 — größer als Vorlage (10pt)
+    /// wegen Zielgruppe 50+.
+    static func messungLabel() -> AppFontStyle {
+        .init(font: plexSans(.semibold, 11), tracking: 0.3, uppercase: true)
+    }
 
     // MARK: - Mono
 

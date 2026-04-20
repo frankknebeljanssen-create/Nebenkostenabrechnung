@@ -101,6 +101,44 @@ enum Formatting {
         return f
     }()
 
+    // MARK: - Zählerstand + Verbrauch
+
+    /// Zählerstand-Wert für die Messzeile. Wenn nil, liefert
+    /// "— — —". Bei Werten < 10 wird auf 3 Dezimalstellen gerundet
+    /// (Wasser-m³ sind teils sehr klein), sonst 1–2 Stellen.
+    static func zaehlerstand(_ wert: Decimal?, einheit: String) -> String {
+        guard let wert else { return "— — —" }
+        let abs = NSDecimalNumber(decimal: wert).doubleValue
+        let dezimal: Int
+        if abs < 10 { dezimal = 3 }
+        else if abs < 1_000 { dezimal = 2 }
+        else { dezimal = 0 }
+        return zahlenFormatter(dezimalStellen: dezimal)
+            .string(from: NSDecimalNumber(decimal: wert)) ?? "—"
+    }
+
+    /// Verbrauch (Differenz) — bei nil liefert "—", bei kleinem
+    /// Wert (< 10) mit einer Nachkommastelle, sonst ganzzahlig.
+    static func verbrauch(_ delta: Decimal?) -> String {
+        guard let delta else { return "—" }
+        let abs = NSDecimalNumber(decimal: delta).doubleValue
+        let dezimal = abs < 10 ? 1 : 0
+        return zahlenFormatter(dezimalStellen: dezimal)
+            .string(from: NSDecimalNumber(decimal: delta)) ?? "—"
+    }
+
+    private static func zahlenFormatter(dezimalStellen: Int) -> NumberFormatter {
+        let f = NumberFormatter()
+        f.locale = locale
+        f.numberStyle = .decimal
+        f.minimumFractionDigits = dezimalStellen
+        f.maximumFractionDigits = dezimalStellen
+        f.groupingSeparator = "."
+        f.decimalSeparator = ","
+        f.usesGroupingSeparator = true
+        return f
+    }
+
     // MARK: - Prozent
 
     /// Formatiert einen Anteil 0…1 als Prozent-Text. `dezimal` ist
