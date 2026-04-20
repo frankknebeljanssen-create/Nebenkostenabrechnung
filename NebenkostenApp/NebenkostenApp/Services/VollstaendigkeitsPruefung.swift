@@ -108,7 +108,76 @@ enum VollstaendigkeitsPruefung {
             hinweis: mieterHinweis
         ))
 
+        // 4. Vorauszahlung je aktivem Mietverhältnis explizit erfasst.
+        //    Strikte-Daten-Regel: 0 € ist erlaubt (Selbstnutzer), aber
+        //    nur wenn `vorauszahlungErfasst == true`. Ein Default-0
+        //    ohne Flag blockiert.
+        let aktiveMietverhaeltnisse = einheiten
+            .flatMap { $0.mietverhaeltnisse ?? [] }
+            .filter { $0.auszugAm == nil }
+        let vzAnf = DatenAnforderung(
+            id: "stammdaten-vorauszahlung",
+            kategorie: .stammdaten,
+            titel: "Vorauszahlungen bestätigt",
+            details: "Monatsbetrag je Mieter aktiv gesetzt (0 erlaubt)",
+            erforderlich: true
+        )
+        let vzStatus: AnforderungsStatus
+        let vzHinweis: String?
+        if aktiveMietverhaeltnisse.isEmpty {
+            vzStatus = .nichtErwartet
+            vzHinweis = nil
+        } else {
+            let nichtErfasst = aktiveMietverhaeltnisse.filter { !$0.vorauszahlungErfasst }
+            if nichtErfasst.isEmpty {
+                vzStatus = .erfuellt
+                vzHinweis = nil
+            } else {
+                let n = nichtErfasst.count
+                vzStatus = .offen
+                vzHinweis = "\(n) Mieter ohne bestätigte Vorauszahlung (Defaultwert blockiert die Abrechnung)"
+            }
+        }
+        ergebnis.append(.init(
+            anforderung: vzAnf,
+            status: vzStatus,
+            hinweis: vzHinweis
+        ))
+
+        // 5. Periode-Validität: von < bis.
+        //    Der Check wird pro Periode aufgerufen — die Anforderung
+        //    landet hier in den Stammdaten, weil sie objektweit gilt.
+        let periodeAnf = DatenAnforderung(
+            id: "stammdaten-periode",
+            kategorie: .stammdaten,
+            titel: "Abrechnungsperiode plausibel",
+            details: "von-Datum liegt vor bis-Datum",
+            erforderlich: true
+        )
+        let periodeStatus: AnforderungsStatus
+        let periodeHinweis: String?
+        if aktivePeriodeVonKleinerBis(immobilie: immobilie) {
+            periodeStatus = .erfuellt
+            periodeHinweis = nil
+        } else {
+            periodeStatus = .offen
+            periodeHinweis = "Mindestens eine Periode hat von ≥ bis"
+        }
+        ergebnis.append(.init(
+            anforderung: periodeAnf,
+            status: periodeStatus,
+            hinweis: periodeHinweis
+        ))
+
         return ergebnis
+    }
+
+    /// Prüft, ob alle Abrechnungsperioden der Immobilie `von < bis`
+    /// haben. Gibt `true` zurück wenn die Immobilie keine Perioden
+    /// hat (nichtErwartet-Fall wird an anderer Stelle behandelt).
+    private static func aktivePeriodeVonKleinerBis(immobilie: Immobilie) -> Bool {
+        let perioden = immobilie.perioden ?? []
+        return perioden.allSatisfy { $0.von < $0.bis }
     }
 
     // MARK: - Zählerstände
@@ -149,10 +218,22 @@ enum VollstaendigkeitsPruefung {
         if inPeriode.isEmpty {
             return (.offen, "Anfangs- und Endstand fehlen")
         }
-        if inPeriode.count == 1 {
+        // Strikte-Daten-Regel: ein Stand zählt nur, wenn er aktiv
+        // erfasst wurde (`erfasstAm != nil`). Default-0 ohne Marker
+        // blockiert die Berechnung, damit keine stillen Platzhalter
+        // in die Abrechnung fließen.
+        let erfasste = inPeriode.filter { $0.erfasstAm != nil }
+        if erfasste.isEmpty {
+            return (.offen, "Stände in Periode vorhanden, aber nicht aktiv erfasst")
+        }
+        if erfasste.count < inPeriode.count {
+            let lose = inPeriode.count - erfasste.count
+            return (.teilweise, "\(lose) Stand\(lose == 1 ? "" : "-Einträge") ohne Bestätigung (erfasstAm fehlt)")
+        }
+        if erfasste.count == 1 {
             return (.teilweise, "Nur ein Stand erfasst, Endstand fehlt")
         }
-        if let first = inPeriode.first, let last = inPeriode.last,
+        if let first = erfasste.first, let last = erfasste.last,
            last.stand < first.stand {
             return (.teilweise, "Rücklauf: Endstand < Anfangsstand (Zählerwechsel prüfen)")
         }

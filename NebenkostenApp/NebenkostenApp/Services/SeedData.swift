@@ -204,6 +204,8 @@ enum SeedData {
             mv.einzugAm = Date(timeIntervalSince1970: 0)   // Unbekannt — MVP
             if let vz = decimal(aus: roh["vorauszahlung_monat"]) {
                 mv.vorauszahlungMonatEuro = vz
+                // Strikte-Daten: Seed-Daten zählen als aktiv erfasst.
+                mv.vorauszahlungErfasst = true
             }
             if let einheitID = roh["einheit_id"] as? String,
                let wohneinheit = einheitenNachID[einheitID] {
@@ -286,6 +288,8 @@ enum SeedData {
                 zs.ablesedatum = datum
                 zs.stand = wert
                 zs.quelle = .importiert
+                // Strikte-Daten: Seed-Importe zählen als aktiv erfasst.
+                zs.erfasstAm = datum
                 zs.zaehler = zaehler
                 context.insert(zs)
             }

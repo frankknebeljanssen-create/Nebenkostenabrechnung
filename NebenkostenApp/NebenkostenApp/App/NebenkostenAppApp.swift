@@ -16,6 +16,12 @@ struct NebenkostenAppApp: App {
         }
         MainActor.assumeIsolated {
             SeedData.seedeWennLeer(in: container.mainContext)
+            // Strikte-Daten: Bestands-Marker einmalig setzen
+            // (Zaehlerstand.erfasstAm, Mietverhaeltnis.vorauszahlungErfasst).
+            // Ohne diesen Schritt würde der PreFlight-Check nach dem
+            // Update sämtliche bestehenden Daten als „offen"
+            // blockieren.
+            StrikteDatenMigration.fuehrAusWennNoetig(in: container.mainContext)
         }
 
         // TabBar-Kontrast manuell setzen: SwiftUI-tint() wird in
