@@ -26,6 +26,9 @@ struct ObjektTabRoot: View {
                 .navigationDestination(for: Zaehler.self) { zaehler in
                     ZaehlerDetailView(zaehler: zaehler)
                 }
+                .navigationDestination(for: ZaehlerUebersichtsZiel.self) { ziel in
+                    ZaehlerUebersichtView(immobilie: ziel.immobilie)
+                }
                 .navigationDestination(for: KostenartenListenZiel.self) { ziel in
                     KostenartListeView(immobilie: ziel.immobilie)
                 }
