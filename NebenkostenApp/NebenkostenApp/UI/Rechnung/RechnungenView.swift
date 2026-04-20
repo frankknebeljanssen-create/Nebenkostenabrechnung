@@ -2,18 +2,26 @@
 //  RechnungenView.swift
 //  NebenkostenApp — UI/Rechnung
 //
-//  Rechnungen-Tab nach Design-Handoff + UI-Fix-2.
-//    - Layout: gruppiert nach Kostenart in BetrKV-Reihenfolge,
-//      Default: nur "Heizung & Warmwasser" offen. Keine Icons
-//      vor Gruppen-Headern.
-//    - Suche: .searchable am ScrollView-Root, filtert einzelne
-//      Rechnungen (nicht Gruppen-Summen).
-//    - "Neue Rechnung": Toolbar-Button (AppShellChrome.primaryAction)
-//      — keine Content-Card mehr.
-//    - Perioden-Info: kompakt in den NavBar-Subtitle ("Periode 2025 ·
-//      7 Rechnungen · 7.984,67 €").
-//    - Rechnungs-Rows: Issuer (16pt/500), Betrag (17pt/600 mono),
-//      Datum+Periode (12pt), rechts StatusPill.
+//  Rechnungen-Tab nach design_handoff/typografie-spec.html
+//  (UI-Spec-Reset).
+//
+//  Layout (Spec-Reihenfolge):
+//    1. Kompakte Perioden-Card (einzeilig, dezent).
+//    2. Eigenes Suchfeld (bgAppCompact, radius 10, Plex Sans 14/400).
+//    3. Kostenart-Gruppen in BetrKV-Reihenfolge. CollapsibleSection-
+//       Header auf bgApp (Spec: 12/600 tracking 0.5 UPPER + Mono
+//       12/600 Summe rechts). Default offen: nur Heizung & Warmwasser.
+//    4. "+ Rechnung manuell hinzufügen" als Content-Button mit
+//       dashed-border (Spec: 14/500 accent).
+//
+//  Rechnungs-Row:
+//    Zeile 1: Issuer (Plex Sans 15/500) links + Betrag (Plex Mono
+//             15/600) rechts. Bei nicht-umlagefähig: Betrag
+//             durchgestrichen in textTertiary.
+//    Zeile 2: Datum · Periode (Plex Mono 11/400 textTertiary) +
+//             StatusPill (11/600 tracking 0.1).
+//
+//  Keine Icons vor Kostenart-Labels (Spec zeigt keine).
 //
 
 import SwiftUI
@@ -39,10 +47,11 @@ struct RechnungenView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 16) {
                 if aktivePeriode != nil {
                     periodenCard
                 }
+                suchFeld
                 if alleRechnungen.isEmpty {
                     leerZustand
                 } else if gruppen.isEmpty {
@@ -52,6 +61,7 @@ struct RechnungenView: View {
                         gruppenSection(g)
                     }
                 }
+                manuellHinzufuegenButton
                 scopeHinweis
             }
             .padding(.horizontal, 16)
@@ -59,17 +69,11 @@ struct RechnungenView: View {
             .padding(.bottom, 40)
         }
         .background(DesignTokens.bgApp)
-        .searchable(text: $suchtext, prompt: "Rechnung oder Versorger suchen …")
         .appShellChrome(
             titel: "Rechnungen",
             subtitel: subtitel,
             onAdresse: { zeigeScopePicker = true },
-            onEinstellungen: { zeigeEinstellungen = true },
-            primaryAction: .init(
-                symbol: "plus",
-                label: "Neue Rechnung",
-                handler: { zeigeNeu = true }
-            )
+            onEinstellungen: { zeigeEinstellungen = true }
         )
         .sheet(isPresented: $zeigeScopePicker) { ScopePickerSheet() }
         .sheet(isPresented: $zeigeEinstellungen) { EinstellungenSheet() }
@@ -83,6 +87,61 @@ struct RechnungenView: View {
         }
     }
 
+    // MARK: - Suchfeld (eigener Input-Style laut Spec)
+
+    private var suchFeld: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 15, weight: .regular))
+                .foregroundStyle(DesignTokens.textTertiary)
+            TextField("Rechnung oder Versorger suchen …", text: $suchtext)
+                .appFont(AppFont.Rechnungen.suchFeld())
+                .foregroundStyle(DesignTokens.text)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+            if !suchtext.isEmpty {
+                Button {
+                    suchtext = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(DesignTokens.textTertiary)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(DesignTokens.bgAppCompact)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    // MARK: - Manuell hinzufügen (dashed-Button laut Spec)
+
+    private var manuellHinzufuegenButton: some View {
+        Button {
+            zeigeNeu = true
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "plus")
+                    .font(.system(size: 15, weight: .regular))
+                Text("Rechnung manuell hinzufügen")
+                    .appFont(AppFont.Rechnungen.rechnungManuellHinzu())
+            }
+            .foregroundStyle(DesignTokens.accent)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(
+                        DesignTokens.accent.opacity(0.4),
+                        style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+        .padding(.top, 4)
+    }
+
     // MARK: - Perioden-Card (kompakt, einzeilig)
 
     @ViewBuilder
@@ -93,17 +152,23 @@ struct RechnungenView: View {
             HStack(alignment: .center, spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Periode \(jahr)")
-                        .appFont(AppFont.uppercaseLabel())
+                        .appFont(AppFont.Dashboard.kartenKicker())
                         .foregroundStyle(DesignTokens.textTertiary)
                     Text(Formatting.periode(p.von, p.bis))
-                        .appFont(AppFont.monoSmall())
+                        .appFont(AppFont.Rechnungen.datumPeriode())
                         .foregroundStyle(DesignTokens.textTertiary)
                 }
                 Spacer(minLength: 8)
-                Text("\(n) Rechnung\(n == 1 ? "" : "en") · \(Formatting.euro(summeInPeriode))")
-                    .appFont(AppFont.monoBody())
-                    .foregroundStyle(DesignTokens.text)
-                    .multilineTextAlignment(.trailing)
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text("\(n) Rechnung\(n == 1 ? "" : "en")")
+                        .appFont(AppFont.Rechnungen.subZeile())
+                        .foregroundStyle(DesignTokens.textSecondary)
+                    Text("·")
+                        .foregroundStyle(DesignTokens.textTertiary)
+                    Text(Formatting.euro(summeInPeriode))
+                        .appFont(AppFont.Rechnungen.kostenartSumme())
+                        .foregroundStyle(DesignTokens.text)
+                }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
@@ -142,23 +207,22 @@ struct RechnungenView: View {
         Button {
             auswahl = r
         } label: {
-            HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(r.lieferant.isEmpty ? "Ohne Lieferant" : r.lieferant)
-                        .appFont(AppFont.bodyMedium16())
-                        .foregroundStyle(DesignTokens.text)
-                        .lineLimit(1)
-                    Text(metaZeile(r))
-                        .appFont(AppFont.captionEmphasis())
-                        .foregroundStyle(DesignTokens.textTertiary)
-                        .lineLimit(1)
-                }
-                Spacer(minLength: 8)
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text(Formatting.euro(r.betragBruttoEuro))
-                        .appFont(AppFont.monoBetrag17())
-                        .foregroundStyle(DesignTokens.text)
+            VStack(alignment: .leading, spacing: 4) {
+                // Zeile 1: Aussteller links (Sans 15/500), Betrag
+                // rechts (Mono 15/600). Keine Sans+Mono-Mischung.
+                LabelMitBetrag(
+                    label: r.lieferant.isEmpty ? "Ohne Lieferant" : r.lieferant,
+                    betrag: Formatting.euro(r.betragBruttoEuro)
+                )
+                // Zeile 2: Datum · Periode (Mono 11/400) + StatusPill.
+                HStack(spacing: 8) {
+                    DatumPeriodeZeile(
+                        rechnungsdatum: r.rechnungsdatum,
+                        periodeVon: r.leistungVon,
+                        periodeBis: r.leistungBis
+                    )
                     pillFuer(r)
+                    Spacer(minLength: 0)
                 }
             }
             .padding(.horizontal, 14)
@@ -181,17 +245,6 @@ struct RechnungenView: View {
         return ("validiert", .ok)
     }
 
-    private func metaZeile(_ r: Rechnung) -> String {
-        var parts: [String] = [Formatting.datum(r.rechnungsdatum)]
-        if r.leistungVon != r.rechnungsdatum || r.leistungBis != r.rechnungsdatum {
-            parts.append(Formatting.periode(r.leistungVon, r.leistungBis))
-        }
-        if !r.rechnungsnummer.isEmpty {
-            parts.append("Nr. \(r.rechnungsnummer)")
-        }
-        return parts.joined(separator: " · ")
-    }
-
     // MARK: - Scope-Hinweis + Leer
 
     @ViewBuilder
@@ -202,7 +255,7 @@ struct RechnungenView: View {
                     .font(.caption)
                     .foregroundStyle(DesignTokens.textTertiary)
                 Text("Rechnungen betreffen das gesamte Objekt und werden je nach Umlageschlüssel auf die Einheiten verteilt.")
-                    .appFont(AppFont.captionEmphasis())
+                    .appFont(AppFont.Basis.caption())
                     .foregroundStyle(DesignTokens.textTertiary)
                     .multilineTextAlignment(.leading)
                 Spacer()
