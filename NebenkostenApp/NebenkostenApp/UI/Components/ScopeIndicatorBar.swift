@@ -90,18 +90,17 @@ struct ScopeIndicatorBar: View {
 
     private var titel: String {
         if let e = aktuelleEinheit {
-            return e.bezeichnung.isEmpty ? "Einheit" : e.bezeichnung
+            let name = (e.mietverhaeltnisse ?? [])
+                .first(where: { $0.auszugAm == nil })?.mieterName ?? ""
+            return ScopeTexte.scopeTitel(einheitID: e.bezeichnung, mieterName: name)
         }
-        return "Gesamt-Objekt"
+        return ScopeTexte.gesamtLabel
     }
 
     private var untertitel: String {
         if let e = aktuelleEinheit {
-            let aktiv = (e.mietverhaeltnisse ?? []).first { $0.auszugAm == nil }
-            if let mv = aktiv, !mv.mieterName.isEmpty {
-                return mv.mieterName
-            }
-            return e.nutzungsart == .leerstand ? "Leerstand" : ""
+            if e.nutzungsart == .leerstand { return "Leerstand" }
+            return ""
         }
         return immobilie.adresse.isEmpty ? "" : immobilie.adresse
     }

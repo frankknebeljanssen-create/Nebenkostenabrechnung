@@ -29,7 +29,7 @@ struct ScopePickerToolbar: ToolbarContent {
                             scopeManager.scope = .objekt
                         } label: {
                             HStack {
-                                Label("Gesamtes Objekt",
+                                Label(ScopeTexte.gesamtLabel,
                                       systemImage: "building.2.fill")
                                 if scopeManager.isObjekt {
                                     Spacer()
@@ -89,18 +89,22 @@ struct ScopePickerToolbar: ToolbarContent {
     private var aktuellerTitel: String {
         switch scopeManager.scope {
         case .objekt:
-            return "Gesamt"
+            return ScopeTexte.gesamtLabel
         case .einheit(let id):
-            return id
+            let e = einheiten.first(where: { $0.bezeichnung == id })
+            let name = (e?.mietverhaeltnisse ?? [])
+                .first(where: { $0.auszugAm == nil })?.mieterName ?? ""
+            return ScopeTexte.scopeTitel(einheitID: id, mieterName: name)
         }
     }
 
     private func eintragsTitel(_ e: Wohneinheit) -> String {
         let aktiverMieter = (e.mietverhaeltnisse ?? [])
             .first { $0.auszugAm == nil }
-        let name = aktiverMieter?.mieterName ?? ""
-        if name.isEmpty { return e.bezeichnung }
-        return "\(e.bezeichnung) · \(name)"
+        return ScopeTexte.scopeTitel(
+            einheitID: e.bezeichnung,
+            mieterName: aktiverMieter?.mieterName ?? ""
+        )
     }
 
     private func sortierrang(_ bezeichnung: String) -> Int {

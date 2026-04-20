@@ -33,7 +33,9 @@ struct ObjektDashboardView: View {
                     .padding(.top, -16)
                 ring
                 kachelGrid
-                wohneinheitenSektion
+                if scopeManager.isObjekt {
+                    wohneinheitenSektion
+                }
             }
             .padding(.top, 6)
             .padding(.bottom, 16)
