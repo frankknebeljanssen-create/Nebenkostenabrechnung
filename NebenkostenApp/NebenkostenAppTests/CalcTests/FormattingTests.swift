@@ -78,6 +78,33 @@ struct FormattingTests {
         #expect(Formatting.prozent(1.0, dezimal: 0) == "100 %")
     }
 
+    // MARK: - m² Fläche
+
+    @Test("m² ganzzahlig: 79 → '79 m²' (keine 0er nachgestellt)")
+    func m2_ganzzahlig() async throws {
+        #expect(Formatting.m2(79) == "79 m²")
+    }
+
+    @Test("m² eine Nachkommastelle: 79,5 → '79,5 m²'")
+    func m2_eine_dezimale() async throws {
+        #expect(Formatting.m2(Decimal(string: "79.5")!) == "79,5 m²")
+    }
+
+    @Test("m² zwei Nachkommastellen: 79,45 → '79,45 m²'")
+    func m2_zwei_dezimale() async throws {
+        #expect(Formatting.m2(Decimal(string: "79.45")!) == "79,45 m²")
+    }
+
+    @Test("m² null: 0 → '0 m²'")
+    func m2_null() async throws {
+        #expect(Formatting.m2(0) == "0 m²")
+    }
+
+    @Test("m² mit Tausendern: 1234,5 → '1.234,5 m²'")
+    func m2_tausender() async throws {
+        #expect(Formatting.m2(Decimal(string: "1234.5")!) == "1.234,5 m²")
+    }
+
     // MARK: - Helper
 
     private func datum(_ jahr: Int, _ monat: Int, _ tag: Int) -> Date {
