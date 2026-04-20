@@ -17,10 +17,15 @@ struct MieterAbrechnungsDetailView: View {
     let immobilie: Immobilie
 
     @Query private var users: [AppUser]
+    @Query(sort: \Abrechnungsperiode.bis) private var allePerioden: [Abrechnungsperiode]
+    @Environment(\.modelContext) private var modelContext
 
     @State private var pdfURL: URL?
     @State private var laeuftPDF: Bool = false
     @State private var fehlermeldung: String?
+
+    @State private var ausstehendeWarnungen: [Warnung] = []
+    @State private var zeigeWarnungsSheet: Bool = false
 
     var body: some View {
         ScrollView {
@@ -39,6 +44,18 @@ struct MieterAbrechnungsDetailView: View {
                isPresented: .init(get: { fehlermeldung != nil }, set: { if !$0 { fehlermeldung = nil } }),
                actions: { Button("OK", role: .cancel) {} },
                message: { Text(fehlermeldung ?? "") })
+        .sheet(isPresented: $zeigeWarnungsSheet) {
+            WarnungsSheet(
+                warnungen: ausstehendeWarnungen,
+                onFortfahren: {
+                    speichereAuditLog(warnungen: ausstehendeWarnungen)
+                    erzeugePDFWirklich()
+                },
+                onAbbrechen: {
+                    ausstehendeWarnungen = []
+                }
+            )
+        }
     }
 
     // MARK: - Sektionen
@@ -170,9 +187,29 @@ struct MieterAbrechnungsDetailView: View {
         .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 
-    // MARK: - PDF-Erzeugung
+    // MARK: - PDF-Erzeugung mit vorgelagerter Validierung
 
     private func erzeugePDF() {
+        let umlageSumme = abrechnung.positionen
+            .reduce(Decimal(0)) { $0 + $1.gesamtkostenEuro }
+        let input = ValidierungsAdapter.baueInput(
+            fuerPeriode: periode,
+            immobilie: immobilie,
+            allePerioden: allePerioden,
+            umlageSummeEuro: umlageSumme > 0 ? umlageSumme : nil,
+            rechnungGesamtEuro: umlageSumme > 0 ? umlageSumme : nil
+        )
+        let warnungen = Validierung.pruefe(input)
+
+        if warnungen.isEmpty {
+            erzeugePDFWirklich()
+        } else {
+            ausstehendeWarnungen = warnungen
+            zeigeWarnungsSheet = true
+        }
+    }
+
+    private func erzeugePDFWirklich() {
         laeuftPDF = true
         let context = buildMustacheContext()
         let dateiname = "Abrechnung_\(sanitisiert(abrechnung.mieterName))_\(periodeKurz()).pdf"
@@ -188,6 +225,41 @@ struct MieterAbrechnungsDetailView: View {
                 fehlermeldung = error.localizedDescription
             }
         }
+    }
+
+    // MARK: - Audit-Log
+
+    private func speichereAuditLog(warnungen: [Warnung]) {
+        let audit = WarnungsAudit()
+        audit.userName = users.first?.name ?? ""
+        audit.periodeID = periode.id
+        audit.mieterID = abrechnung.mieterID
+        audit.mieterName = abrechnung.mieterName
+
+        let zahlen = warnungen.reduce(into: (fehler: 0, warnung: 0, hinweis: 0)) { res, w in
+            switch w.stufe {
+            case .fehler:  res.fehler += 1
+            case .warnung: res.warnung += 1
+            case .hinweis: res.hinweis += 1
+            }
+        }
+        audit.zusammenfassung = "\(warnungen.count) Warnung\(warnungen.count == 1 ? "" : "en") akzeptiert "
+            + "(\(zahlen.fehler) Fehler, \(zahlen.warnung) Warnungen, \(zahlen.hinweis) Hinweise)"
+
+        let serialisiert: [[String: String]] = warnungen.map {
+            ["stufe": $0.stufe.rawValue,
+             "kategorie": $0.kategorie,
+             "nachricht": $0.nachricht]
+        }
+        if let data = try? JSONSerialization.data(
+            withJSONObject: serialisiert,
+            options: [.sortedKeys]
+        ) {
+            audit.warnungenJSON = String(data: data, encoding: .utf8) ?? ""
+        }
+
+        modelContext.insert(audit)
+        try? modelContext.save()
     }
 
     // MARK: - Mustache-Kontext

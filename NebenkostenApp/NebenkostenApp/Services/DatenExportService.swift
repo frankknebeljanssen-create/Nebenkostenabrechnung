@@ -69,9 +69,10 @@ enum DatenExportService {
         let perioden      = (try? context.fetch(FetchDescriptor<Abrechnungsperiode>())) ?? []
         let abrechnungen  = (try? context.fetch(FetchDescriptor<Abrechnung>())) ?? []
         let positionen    = (try? context.fetch(FetchDescriptor<Abrechnungsposition>())) ?? []
+        let audits        = (try? context.fetch(FetchDescriptor<WarnungsAudit>())) ?? []
 
         return [
-            "schemaVersion":        "1.0",
+            "schemaVersion":        "1.1",
             "exportZeitpunkt":      iso8601(Date()),
             "hinweis":              "DSGVO Art. 15-konformer Export aller in der NebenkostenApp gespeicherten Daten.",
             "appUser":              users.map(dictAppUser),
@@ -84,7 +85,8 @@ enum DatenExportService {
             "rechnungen":           rechnungen.map(dictRechnung),
             "abrechnungsperioden":  perioden.map(dictPeriode),
             "abrechnungen":         abrechnungen.map(dictAbrechnung),
-            "abrechnungspositionen": positionen.map(dictAbrechnungsposition)
+            "abrechnungspositionen": positionen.map(dictAbrechnungsposition),
+            "warnungsAudit":        audits.map(dictWarnungsAudit)
         ]
     }
 
@@ -242,6 +244,27 @@ enum DatenExportService {
             "abrechnungID":            optionalUUID(p.abrechnung?.id),
             "kostenartID":             optionalUUID(p.kostenart?.id)
         ]
+    }
+
+    private static func dictWarnungsAudit(_ a: WarnungsAudit) -> [String: Any] {
+        var dict: [String: Any] = [
+            "id":              a.id.uuidString,
+            "erstelltAm":      iso8601(a.erstelltAm),
+            "userName":        a.userName,
+            "periodeID":       optionalUUID(a.periodeID),
+            "mieterID":        optionalUUID(a.mieterID),
+            "mieterName":      a.mieterName,
+            "zusammenfassung": a.zusammenfassung
+        ]
+        // warnungenJSON ist bereits JSON-Array-String → als eingebettetes
+        // Array exportieren, damit der Gesamt-Export lesbar bleibt.
+        if let data = a.warnungenJSON.data(using: .utf8),
+           let parsed = try? JSONSerialization.jsonObject(with: data) as? [[String: String]] {
+            dict["warnungen"] = parsed
+        } else {
+            dict["warnungen"] = [] as [Any]
+        }
+        return dict
     }
 
     // MARK: - Helper

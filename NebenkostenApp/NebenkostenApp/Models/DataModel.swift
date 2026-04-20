@@ -489,6 +489,33 @@ final class Abrechnung {
     init() {}
 }
 
+// MARK: - WarnungsAudit
+
+/// Protokoll über vom User ignorierte Validierungs-Warnungen vor der
+/// Abrechnungs-Erstellung. Datum + User + welche Warnungs-Kategorien
+/// bewusst akzeptiert wurden. Wird im DSGVO-Export mitgeführt.
+@Model
+final class WarnungsAudit {
+    var id: UUID = UUID()
+    var erstelltAm: Date = Date()
+
+    var userName: String = ""
+    var periodeID: UUID?
+    var mieterID: UUID?
+    var mieterName: String = ""
+
+    /// Kurzfassung, z.B. "3 Warnungen akzeptiert".
+    var zusammenfassung: String = ""
+
+    /// Alle akzeptierten Warnungen als JSON-Array-String: jedes Element
+    /// mit stufe / kategorie / nachricht. Kein separates @Model, damit
+    /// bei Schema-Änderungen der Warnungs-Struktur keine SwiftData-
+    /// Migration nötig wird.
+    var warnungenJSON: String = ""
+
+    init() {}
+}
+
 // MARK: - Abrechnungsposition (Einzelposten)
 
 @Model
