@@ -26,7 +26,8 @@ extension ModelContainer {
         Abrechnung.self,
         Abrechnungsposition.self,
         WarnungsAudit.self,
-        GespeichertesDokument.self
+        GespeichertesDokument.self,
+        AIVorschlag.self
     ]
 
     /// Schaltet den CloudKit-Sync ein/aus.

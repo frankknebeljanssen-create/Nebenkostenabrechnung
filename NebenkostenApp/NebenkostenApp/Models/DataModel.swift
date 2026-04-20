@@ -601,15 +601,52 @@ final class GespeichertesDokument {
     /// Zeitpunkt des letzten OCR-Laufs.
     var ocrDurchgefuehrtAm: Date?
 
-    // Ebene 2 Strukturiert — @Relationship auf AIVorschlag kommt in
-    // der AIVorschlag-Entity (siehe DataModel.swift weiter unten).
+    // Ebene 2 Strukturiert — AIVorschlag-Relationship
     /// Zeitpunkt der letzten AI-Extraktion.
     var aiDurchgefuehrtAm: Date?
+
+    @Relationship(deleteRule: .cascade, inverse: \AIVorschlag.dokument)
+    var aiVorschlag: AIVorschlag?
 
     /// Ebene 3 Validiert — verknüpft das Dokument mit einer Rechnung,
     /// wenn der User die AI-Vorschläge übernommen hat. nil = noch
     /// nicht übernommen (oder nie übernommen, z.B. Zählerstand-Foto).
     var rechnungId: UUID?
+
+    init() {}
+}
+
+// MARK: - AIVorschlag (Ebene 2)
+
+/// Strukturierter AI-Vorschlag für die Felder eines Dokuments.
+/// IMMER UNVALIDIERT — nur Ebene 3 (validiert, vom User bestätigt)
+/// fließt in die Abrechnung ein. Siehe CLAUDE.md Abschnitt
+/// "3-Ebenen-Datenmodell".
+@Model
+final class AIVorschlag {
+    var id: UUID = UUID()
+
+    var dokumentDatum: Date?
+    var versorger: String?
+    var betragBrutto: Decimal?
+    var mwstSatz: Decimal?
+    var rechnungsNr: String?
+    var leistungszeitraumStart: Date?
+    var leistungszeitraumEnde: Date?
+    var kostenartVorschlag: String?
+
+    /// Typ-spezifische Positionen als JSON-Array-String (z.B. bei
+    /// BWB: Trink- und Schmutzwasser mit menge_m3 und gesamt).
+    /// Struktur wird je nach Dokumenttyp vom Prompt diktiert.
+    var positionenJSON: String?
+
+    /// Konfidenz pro Feld als JSON-Data mit Dict `[Feldname: Double]`.
+    /// Felder mit Konfidenz <0,6 werden im Validierungs-UI rot
+    /// markiert.
+    var konfidenzJeFeld: Data?
+
+    // Rückverweis zum Dokument
+    var dokument: GespeichertesDokument?
 
     init() {}
 }
