@@ -2,9 +2,25 @@
 //  AppShell.swift
 //  NebenkostenApp — UI/Shell
 //
-//  Root-Tab-View mit fünf Haupt-Tabs. Ersetzt die Phase-0-
-//  RootTabView — diese bleibt als Debug-Zugriff über das
-//  EinstellungenSheet (Task UI-0 C7) erreichbar.
+//  Root-Shell mit fuenf Haupt-Tabs und eigener `NebenkostenTabBar`.
+//  Der Umstieg von SwiftUI's `TabView` auf die Custom-Bar erfolgte,
+//  weil iOS 26's neue Floating-TabBar eine ca. 145 pt hohe
+//  Reserve-Zone belegt und `systemBackgroundColor` durchleuchten
+//  laesst — fuer unsere Light-only-Warmton-Palette ein Problem,
+//  das ohne Private-API nicht sauber zu loesen war.
+//
+//  Aufbau:
+//    VStack {
+//      NavigationStack { aktiver-Tab-Inhalt }
+//      NebenkostenTabBar()
+//    }
+//
+//  Tab-Wechsel laeuft ueber `AppShellRouter.aktiverTab` —
+//  unveraendert gegenueber der frueheren TabView-Loesung.
+//  Tab-Wechsel verwirft NavigationStack-State des vorher aktiven
+//  Tabs (Switch erzeugt neue View-Instanz). Die Tab-Views lesen
+//  ihre State aus SwiftData / ScopeManager ohnehin frisch, also
+//  kein Daten-Verlust.
 //
 
 import SwiftUI
@@ -26,32 +42,16 @@ struct AppShell: View {
     }
 
     var body: some View {
-        TabView(selection: aktiveTab) {
-            ForEach(AppTab.allCases) { tab in
-                NavigationStack {
-                    tabContent(tab)
-                        .background(DesignTokens.bgApp)
-                }
-                .tabItem { Label(tab.titel, systemImage: tab.sfSymbol) }
-                .tag(tab)
-            }
+        VStack(spacing: 0) {
+            aktiverTabInhalt
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            NebenkostenTabBar(
+                aktiverTab: aktiveTab,
+                tabs: AppTab.allCases
+            )
         }
-        .background(DesignTokens.bgApp)
-        // TabBar-Farben + Hintergrund kommen aus UITabBarAppearance
-        // (NebenkostenAppApp.konfiguriereTabBar). Aber:
-        // - `.toolbarBackground(.visible, for: .tabBar)` ist
-        //   zwingend. Ohne diese Markierung schaltet iOS 26 die
-        //   TabBar bei leeren oder kurz-scrollenden Tabs auf einen
-        //   dunklen/transparenten Fallback, der dann als „schwarzer
-        //   Block" durchschlaegt.
-        // - `.tint(DesignTokens.accent)` wirkt nur auf Nicht-TabBar-
-        //   Elemente (Buttons, NavLinks etc.); die TabBar-Pill bleibt
-        //   durch UITabBarAppearance gesteuert.
-        .toolbarBackground(.visible, for: .tabBar)
-        .toolbarColorScheme(.light, for: .tabBar)
+        .background(DesignTokens.bgApp.ignoresSafeArea())
         .tint(DesignTokens.accent)
-        // UI-Fix-2 Fix 4b: Dynamic-Type-Cap auf TabBar, damit Labels
-        // bei xxxLarge nicht abgeschnitten werden.
         .dynamicTypeSize(.large ... .xLarge)
         .sheet(isPresented: $zeigeScopePicker) {
             ScopePickerSheet()
@@ -71,6 +71,8 @@ struct AppShell: View {
             }
         }
     }
+
+    // MARK: - Bindings
 
     /// Bindings-Adapter auf `router.vorauszahlungSheet` — damit
     /// `.sheet(item:)` beim User-Dismiss den Router-State auf
@@ -101,26 +103,24 @@ struct AppShell: View {
         return immobilien.first
     }
 
-    // Die frühere `validateActiveTab()`-Absicherung wird durch
-    // `AppShellRouter.init` selbst geleistet: ein unbekannter
-    // rawValue fällt auf `.uebersicht` zurück. Daher hier nicht
-    // mehr nötig.
+    // MARK: - Tab-Content
 
-    // MARK: - Tab-Content-Builder
-
+    /// Einen NavigationStack pro Tab. `@ViewBuilder` + `switch`
+    /// sorgt dafuer, dass nur der aktive Tab gerendert wird — beim
+    /// Wechsel wird der alte Tab-Stack verworfen.
     @ViewBuilder
-    private func tabContent(_ tab: AppTab) -> some View {
-        switch tab {
-        case .uebersicht:   UebersichtView()
-        case .zaehler:      ZaehlerView()
-        case .rechnungen:   RechnungenView()
-        case .belege:       BelegeView()
-        case .abrechnungen: AbrechnungenView()
+    private var aktiverTabInhalt: some View {
+        switch router.aktiverTab {
+        case .uebersicht:
+            NavigationStack { UebersichtView() }
+        case .zaehler:
+            NavigationStack { ZaehlerView() }
+        case .rechnungen:
+            NavigationStack { RechnungenView() }
+        case .belege:
+            NavigationStack { BelegeView() }
+        case .abrechnungen:
+            NavigationStack { AbrechnungenView() }
         }
-        // Der AppShellChrome-Modifier wird von den einzelnen Tab-
-        // Views selbst gesetzt — so können sie unterschiedliche
-        // Titel/Subtitel-Texte liefern, aber teilen sich die Callbacks
-        // durch die Umgebungs-Handler.
     }
 }
-
