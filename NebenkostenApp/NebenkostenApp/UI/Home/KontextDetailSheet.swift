@@ -306,10 +306,157 @@ struct KontextDetailSheet: View {
 
     // MARK: - HV-Flow
 
-    /// Platzhalter — die eigentliche Schreib-Logik kommt im
-    /// naechsten Commit. Hier nur Navigation schliessen.
+    /// Wandelt die `HVAbrechnungsRohdaten` in persistente Entities:
+    ///
+    ///   1. 1× `HVAbrechnung` (Container inkl. §35a-Summen,
+    ///      Abrechnungsspitze, Vorauszahlungen).
+    ///   2. Pro umlagefaehige Position je eine `HVPosition`
+    ///      (Rohbeleg im Container) PLUS eine `Rechnung`-Entity
+    ///      an der passenden BetrKV-Kostenart, damit der
+    ///      Abrechnungs-Service sie ganz normal umlegen kann.
+    ///   3. Pro nicht umlagefaehiger Position eine
+    ///      `HVEigentuemerKosten`-Entity — bleibt beim Eigentuemer.
+    ///
+    /// Fehlgeschlagene Speicherung → Rollback + Fehler-Alert.
     private func uebernehmeHVAbrechnung(_ rohdaten: HVAbrechnungsRohdaten) {
+        let container = HVAbrechnung()
+        container.immobilie = immobilie
+        container.hausverwaltungName = rohdaten.hausverwaltungName
+        container.hausverwaltungAdresse = rohdaten.hausverwaltungAdresse
+        container.wegName = rohdaten.wegName
+        container.gebaeudeAdresse = rohdaten.gebaeudeAdresse
+        container.meaAnteil = rohdaten.meaAnteil
+        container.meaGesamt = max(rohdaten.meaGesamt, 1)
+        if let v = rohdaten.abrechnungszeitraumVon {
+            container.abrechnungszeitraumVon = v
+        }
+        if let b = rohdaten.abrechnungszeitraumBis {
+            container.abrechnungszeitraumBis = b
+        }
+        container.abrechnungsspitzeEuro = rohdaten.abrechnungsspitzeEuro
+        container.vorauszahlungenEuro = rohdaten.vorauszahlungenEuro
+        container.erhaltungsruecklageAnteilEuro = rohdaten.erhaltungsruecklageAnteilEuro
+        container.paragraph35aHandwerkerEuro = rohdaten.paragraph35aHandwerkerEuro
+        container.paragraph35aHaushaltsnahEuro = rohdaten.paragraph35aHaushaltsnahEuro
+        modelContext.insert(container)
+
+        for positionRoh in rohdaten.umlagefaehigePositionen {
+            // HVPosition als Rohbeleg im Container
+            let position = HVPosition()
+            position.bezeichnung = positionRoh.bezeichnung
+            position.kontierung = positionRoh.kontierung
+            position.gesamtkostenGebaeude = positionRoh.gesamtkostenGebaeude
+            position.anteilEuro = positionRoh.anteilEuro
+            position.betrkvKostenart = positionRoh.betrkvKostenart
+            position.hvAbrechnung = container
+            modelContext.insert(position)
+
+            // Plus: eine echte Rechnung an die gemappte Kostenart.
+            // Wenn kein Katalog-Match: Rechnung ohne Kostenart
+            // — der User kann das spaeter zuordnen.
+            let rechnung = Rechnung()
+            rechnung.lieferant = positionRoh.bezeichnung.isEmpty
+                ? rohdaten.hausverwaltungName
+                : positionRoh.bezeichnung
+            rechnung.betragBruttoEuro = positionRoh.anteilEuro
+            if let bis = rohdaten.abrechnungszeitraumBis {
+                rechnung.rechnungsdatum = bis
+            }
+            if let von = rohdaten.abrechnungszeitraumVon {
+                rechnung.leistungVon = von
+            }
+            if let bis = rohdaten.abrechnungszeitraumBis {
+                rechnung.leistungBis = bis
+            }
+            rechnung.immobilie = immobilie
+            rechnung.kostenart = passendeKostenart(fuer: positionRoh.betrkvKostenart)
+            rechnung.validierungsStatus = .validiert
+            rechnung.extraktionsNotizen = "Aus HV-Abrechnung \(rohdaten.hausverwaltungName) "
+                + "(\(rohdaten.abrechnungszeitraumVon.map(Self.kurzDatum) ?? "–") – "
+                + "\(rohdaten.abrechnungszeitraumBis.map(Self.kurzDatum) ?? "–"))"
+            modelContext.insert(rechnung)
+        }
+
+        for kostenRoh in rohdaten.eigentuemerKosten {
+            let ek = HVEigentuemerKosten()
+            ek.bezeichnung = kostenRoh.bezeichnung
+            ek.kontierung = kostenRoh.kontierung
+            ek.anteilEuro = kostenRoh.anteilEuro
+            ek.hvAbrechnung = container
+            modelContext.insert(ek)
+        }
+
+        do {
+            try modelContext.save()
+        } catch {
+            #if DEBUG
+            print("[KontextDetail/HV] save fehlgeschlagen:", error.localizedDescription)
+            #endif
+            modelContext.rollback()
+            scanFehler = "HV-Abrechnung konnte nicht gespeichert werden: \(error.localizedDescription)"
+            return
+        }
+
         beendeHVFlow()
+    }
+
+    /// Sucht im Kostenart-Katalog der Immobilie die beste Zuordnung
+    /// fuer Claudes Mapping-Hinweis. Bewusst tolerant: case-insensitive
+    /// Substring-Match in beide Richtungen, plus ein paar Aliase
+    /// (Wasser → Be- und Entwaesserung, Hauswart → Reinigung etc.).
+    private func passendeKostenart(fuer hinweis: String) -> Kostenart? {
+        let katalog = (immobilie.kostenarten ?? []).filter { $0.aktiv }
+        guard !katalog.isEmpty else { return nil }
+        let h = hinweis.lowercased().trimmingCharacters(in: .whitespaces)
+        guard !h.isEmpty else { return nil }
+
+        // 1. Direktes Contains (beide Richtungen).
+        if let direkt = katalog.first(where: {
+            let name = $0.bezeichnung.lowercased()
+            return name.contains(h) || h.contains(name.prefix(5))
+        }) {
+            return direkt
+        }
+
+        // 2. Alias-Tabelle — oberflaechliches Synonym-Matching.
+        let aliase: [(hint: String, zielSubstring: String)] = [
+            ("wasser",     "entwässer"),
+            ("wasser",     "wasser"),
+            ("müll",       "müll"),
+            ("muell",      "müll"),
+            ("strom",      "allgemeinstrom"),
+            ("hauswart",   "reinig"),
+            ("hausmeister","reinig"),
+            ("garten",     "garten"),
+            ("grundsteu",  "grundsteu"),
+            ("versicher",  "versicher"),
+            ("heiz",       "heizung")
+        ]
+        for (hint, ziel) in aliase where h.contains(hint) {
+            if let treffer = katalog.first(where: {
+                $0.bezeichnung.lowercased().contains(ziel)
+            }) {
+                return treffer
+            }
+        }
+
+        // 3. Kein Match — die Fallback-„Sonstige"-Kostenart nehmen,
+        // wenn es sie gibt.
+        if let sonstige = katalog.first(where: {
+            $0.bezeichnung.lowercased().contains("sonstige")
+        }) {
+            return sonstige
+        }
+
+        // 4. Ansonsten nil — der User muss manuell zuordnen.
+        return nil
+    }
+
+    private static func kurzDatum(_ d: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "de_DE")
+        f.dateFormat = "dd.MM.yyyy"
+        return f.string(from: d)
     }
 
     private func beendeHVFlow() {

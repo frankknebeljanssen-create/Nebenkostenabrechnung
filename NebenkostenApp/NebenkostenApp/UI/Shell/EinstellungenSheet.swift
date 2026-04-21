@@ -41,6 +41,7 @@ struct EinstellungenSheet: View {
                 MieterSection(immobilie: immobilie)
                 UmlageSection(immobilie: immobilie)
                 VermieterSection()
+                EigentuemerKostenSection()
                 KIExtraktionSection()
                 DatenSection()
                 RechtlichesSection()
@@ -167,6 +168,46 @@ private struct AnthropicKeyView: View {
         .navigationTitle("Anthropic API-Key")
         .navigationBarTitleDisplayMode(.inline)
         .keyboardFertigButton()
+    }
+}
+
+// MARK: - Eigentuemer-Kosten-Section
+
+/// Zugang zur HV-Abrechnungs-Uebersicht (nicht umlagefaehige
+/// Kosten, §35a-Betraege pro Jahr, Erhaltungsruecklage-Anteil).
+/// Wird nur fuer Eigentuemer/WEG-Flows relevant — aber immer
+/// sichtbar, damit auch neue HV-Abrechnungen beim Scannen direkt
+/// auffindbar sind. Count-Anzeige haengt sich live an den
+/// SwiftData-Store: @Query triggert die Section bei jeder neuen
+/// HV-Abrechnung.
+struct EigentuemerKostenSection: View {
+    @Query(sort: \HVAbrechnung.abrechnungszeitraumBis, order: .reverse)
+    private var abrechnungen: [HVAbrechnung]
+
+    var body: some View {
+        Section {
+            NavigationLink {
+                EigentuemerUebersichtView()
+            } label: {
+                HStack {
+                    Text("HV-Abrechnungen & Eigentümer-Kosten")
+                    Spacer()
+                    if abrechnungen.isEmpty {
+                        Text("leer")
+                            .appFont(AppFont.caption())
+                            .foregroundStyle(DesignTokens.textTertiary)
+                    } else {
+                        Text("\(abrechnungen.count)")
+                            .appFont(AppFont.monoCaption())
+                            .foregroundStyle(DesignTokens.textSecondary)
+                    }
+                }
+            }
+        } header: {
+            Text("Eigentümer-Kosten")
+        } footer: {
+            Text("Liste aller importierten Hausverwaltungs-Einzelabrechnungen mit nicht umlagefähigen Positionen, §35a-Beträgen und Erhaltungsrücklage-Anteil pro Jahr.")
+        }
     }
 }
 
