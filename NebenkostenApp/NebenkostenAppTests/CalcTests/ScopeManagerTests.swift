@@ -88,4 +88,135 @@ struct ScopeManagerTests {
         sm.scope = .objekt
         #expect(sm.einheitID == nil)
     }
+
+    // MARK: - Kontext-Header: Immobilie-ID
+
+    @Test("aktuelleImmobilieID persistiert ueber ScopeManager-Neustart")
+    func immobilie_persistiert() async throws {
+        let ud = frischeDefaults("immo_persist")
+        let a = UUID()
+        let sm1 = ScopeManager(defaults: ud)
+        sm1.aktuelleImmobilieID = a
+
+        let sm2 = ScopeManager(defaults: ud)
+        #expect(sm2.aktuelleImmobilieID == a)
+    }
+
+    @Test("aktuelleImmobilieID Wechsel (non-nil → non-nil) setzt Scope auf .objekt")
+    func immobilie_wechsel_reset_scope() async throws {
+        let ud = frischeDefaults("immo_wechsel")
+        let a = UUID()
+        let b = UUID()
+        let sm = ScopeManager(defaults: ud)
+        sm.aktuelleImmobilieID = a
+        sm.scope = .einheit(id: "OG")
+
+        sm.aktuelleImmobilieID = b
+        #expect(sm.isObjekt)
+        #expect(sm.aktuelleImmobilieID == b)
+    }
+
+    @Test("aktuelleImmobilieID Erst-Set (nil → non-nil) laesst Scope in Ruhe")
+    func immobilie_erstset_kein_reset() async throws {
+        let ud = frischeDefaults("immo_erstset")
+        let sm = ScopeManager(defaults: ud)
+        sm.scope = .einheit(id: "EG")
+        sm.aktuelleImmobilieID = UUID()
+        #expect(sm.einheitID == "EG")
+    }
+
+    @Test("bereinigeImmobilie setzt aktuelleImmobilieID auf nil, wenn verschwunden")
+    func bereinige_immobilie() async throws {
+        let ud = frischeDefaults("immo_bereinige")
+        let a = UUID()
+        let b = UUID()
+        let sm = ScopeManager(defaults: ud)
+        sm.aktuelleImmobilieID = a
+        sm.bereinigeImmobilie(verfuegbareIDs: [b])
+        #expect(sm.aktuelleImmobilieID == nil)
+    }
+
+    // MARK: - Kontext-Header: Perioden-ID
+
+    @Test("aktuellePeriodeID wird pro Immobilie separat gemerkt")
+    func periode_pro_immobilie() async throws {
+        let ud = frischeDefaults("periode_pro")
+        let immoA = UUID()
+        let immoB = UUID()
+        let periodeA = UUID()
+        let periodeB = UUID()
+
+        let sm = ScopeManager(defaults: ud)
+        sm.aktuelleImmobilieID = immoA
+        sm.aktuellePeriodeID = periodeA
+        sm.aktuelleImmobilieID = immoB
+        sm.aktuellePeriodeID = periodeB
+
+        sm.aktuelleImmobilieID = immoA
+        #expect(sm.aktuellePeriodeID == periodeA)
+        sm.aktuelleImmobilieID = immoB
+        #expect(sm.aktuellePeriodeID == periodeB)
+    }
+
+    @Test("aktuellePeriodeID ueberlebt ScopeManager-Neustart")
+    func periode_persistiert() async throws {
+        let ud = frischeDefaults("periode_persist")
+        let immo = UUID()
+        let periode = UUID()
+        let sm1 = ScopeManager(defaults: ud)
+        sm1.aktuelleImmobilieID = immo
+        sm1.aktuellePeriodeID = periode
+
+        let sm2 = ScopeManager(defaults: ud)
+        #expect(sm2.aktuelleImmobilieID == immo)
+        #expect(sm2.aktuellePeriodeID == periode)
+    }
+
+    @Test("aktuellePeriodeID ohne Immobilie ist nil und ignoriert Setter")
+    func periode_ohne_immobilie() async throws {
+        let ud = frischeDefaults("periode_nil")
+        let sm = ScopeManager(defaults: ud)
+        sm.aktuellePeriodeID = UUID()
+        #expect(sm.aktuellePeriodeID == nil)
+    }
+
+    @Test("bereinigePeriode entfernt verschwundene Periode, behaelt gueltige")
+    func bereinige_periode() async throws {
+        let ud = frischeDefaults("periode_bereinige")
+        let immo = UUID()
+        let weg = UUID()
+        let da  = UUID()
+
+        let sm = ScopeManager(defaults: ud)
+        sm.aktuelleImmobilieID = immo
+        sm.aktuellePeriodeID = weg
+        sm.bereinigePeriode(verfuegbareIDs: [da])
+        #expect(sm.aktuellePeriodeID == nil)
+
+        sm.aktuellePeriodeID = da
+        sm.bereinigePeriode(verfuegbareIDs: [da])
+        #expect(sm.aktuellePeriodeID == da)
+    }
+
+    @Test("bereinigeImmobilie raeumt Perioden-Merker verschwundener Objekte auf")
+    func bereinige_raeumt_periodenwahl_auf() async throws {
+        let ud = frischeDefaults("immo_periode_cleanup")
+        let immoA = UUID()
+        let immoB = UUID()
+        let sm1 = ScopeManager(defaults: ud)
+        sm1.aktuelleImmobilieID = immoA
+        sm1.aktuellePeriodeID = UUID()
+        sm1.aktuelleImmobilieID = immoB
+        sm1.aktuellePeriodeID = UUID()
+
+        sm1.bereinigeImmobilie(verfuegbareIDs: [immoB])
+
+        // Nur immoB darf im Merker sein — Neustart sollte fuer immoA
+        // nichts mehr finden.
+        let sm2 = ScopeManager(defaults: ud)
+        sm2.aktuelleImmobilieID = immoA
+        #expect(sm2.aktuellePeriodeID == nil)
+        sm2.aktuelleImmobilieID = immoB
+        #expect(sm2.aktuellePeriodeID != nil)
+    }
 }

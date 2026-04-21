@@ -59,6 +59,12 @@ struct AppShellChrome: ViewModifier {
             .background(DesignTokens.bgApp)
             .safeAreaInset(edge: .top, spacing: 0) {
                 VStack(spacing: 0) {
+                    // Permanenter Kontext-Header (Objekt / Periode /
+                    // Wohneinheit-Pills). Kommt VOR die alte NavBar —
+                    // Adress-Button + ScopeStrip bleiben voruebergehend
+                    // erhalten, bis die Shell-Konsolidierung in einem
+                    // Folge-Task die Redundanz abbaut.
+                    KontextHeader()
                     navBar
                     if zeigeScopeStrip {
                         scopeStrip
