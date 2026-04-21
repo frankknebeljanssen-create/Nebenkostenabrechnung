@@ -39,15 +39,22 @@ struct AppShellChrome: ViewModifier {
         let handler: () -> Void
     }
 
+    @Environment(AppShellRouter.self) private var router
+
     func body(content: Content) -> some View {
         content
             // Frame-fuellen VOR .background: sorgt dafuer, dass der
             // bgApp-Hintergrund die komplette verfuegbare Flaeche
-            // bedeckt — auch unter einem Scroll-Inhalt, der kuerzer
-            // als die Screen-Hoehe ist. Sonst zeigt iOS unten einen
-            // schwarzen Streifen zwischen Content-Ende und TabBar.
+            // bedeckt.
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(DesignTokens.bgApp)
+            // `.ignoresSafeArea` auf dem Background-Color laesst
+            // bgApp bis zu den Bildschirmraendern durchgehen — auch
+            // in den 83-pt-Floating-TabBar-Container-Bereich unter
+            // iOS 26. Ohne das bleibt dort systemBackgroundColor
+            // (weiss im Light-Mode) sichtbar.
+            .background {
+                DesignTokens.bgApp.ignoresSafeArea()
+            }
             .safeAreaInset(edge: .top, spacing: 0) {
                 VStack(spacing: 0) {
                     // Permanenter Kontext-Header (Objekt / Periode /
@@ -61,12 +68,6 @@ struct AppShellChrome: ViewModifier {
                 }
                 .background(DesignTokens.bgApp)
             }
-            // UI-Fix-2 Fix 4a: die letzte Scroll-Zeile soll nicht vom
-            // floatenden Inspektor-FAB (48×48 + 72pt bottom padding)
-            // verdeckt werden. `contentMargins` schiebt den Scroll-
-            // Content nach oben, nicht den Container — TabBar bleibt
-            // unberührt.
-            .contentMargins(.bottom, 80, for: .scrollContent)
             .navigationBarHidden(true)
     }
 
@@ -74,7 +75,7 @@ struct AppShellChrome: ViewModifier {
 
     private var navBar: some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 10) {
+            HStack(spacing: 16) {
                 Spacer()
                 if let primary = primaryAction {
                     Button(action: primary.handler) {
@@ -83,8 +84,18 @@ struct AppShellChrome: ViewModifier {
                             .foregroundStyle(DesignTokens.text)
                     }
                     .accessibilityLabel(primary.label)
-                    .padding(.trailing, 4)
                 }
+                // Inspektor „?" Button — seit dem FAB-Rueckbau
+                // lebt er neben dem Zahnrad. Gleiche Schriftgroesse
+                // wie die Zahnrad-Icon, Abstand 16 pt.
+                Button {
+                    router.zeigeInspektor = true
+                } label: {
+                    Image(systemName: "questionmark.circle")
+                        .font(.title3)
+                        .foregroundStyle(DesignTokens.textSecondary)
+                }
+                .accessibilityLabel("Was fehlt noch?")
                 Button(action: onEinstellungen) {
                     Image(systemName: "gearshape")
                         .font(.title3)

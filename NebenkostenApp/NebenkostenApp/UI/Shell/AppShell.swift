@@ -16,7 +16,6 @@ struct AppShell: View {
     @Query(sort: \Immobilie.erstelltAm) private var immobilien: [Immobilie]
 
     @State private var zeigeScopePicker = false
-    @State private var zeigeInspektor = false
     @State private var zeigeEinstellungen = false
 
     private var aktiveTab: Binding<AppTab> {
@@ -54,20 +53,10 @@ struct AppShell: View {
         // UI-Fix-2 Fix 4b: Dynamic-Type-Cap auf TabBar, damit Labels
         // bei xxxLarge nicht abgeschnitten werden.
         .dynamicTypeSize(.large ... .xLarge)
-        .overlay(alignment: .bottomTrailing) {
-            // UI-Fix-2 Fix 4a: FAB sitzt in eigenem Overlay. TabBar-
-            // Höhe + 12pt Abstand = 72pt bottom padding. Der ScrollView-
-            // contentMargins-Anteil ist in den einzelnen Tab-Views
-            // gesetzt (80pt bottom), damit der FAB keinen Content
-            // verdeckt.
-            InspektorFAB { zeigeInspektor = true }
-                .padding(.trailing, 16)
-                .padding(.bottom, 72)
-        }
         .sheet(isPresented: $zeigeScopePicker) {
             ScopePickerSheet()
         }
-        .sheet(isPresented: $zeigeInspektor) {
+        .sheet(isPresented: inspektorBinding) {
             InspektorSheet()
         }
         .sheet(isPresented: $zeigeEinstellungen) {
@@ -91,6 +80,16 @@ struct AppShell: View {
         Binding(
             get: { router.vorauszahlungSheet },
             set: { router.vorauszahlungSheet = $0 }
+        )
+    }
+
+    /// Binding auf `router.zeigeInspektor` fuer `.sheet(isPresented:)`.
+    /// Der „?"-Button in AppShellChrome setzt `router.zeigeInspektor =
+    /// true`, das Sheet hier reagiert.
+    private var inspektorBinding: Binding<Bool> {
+        Binding(
+            get: { router.zeigeInspektor },
+            set: { router.zeigeInspektor = $0 }
         )
     }
 
@@ -125,20 +124,3 @@ struct AppShell: View {
     }
 }
 
-// MARK: - Floating Inspektor-Button
-
-struct InspektorFAB: View {
-    let action: () -> Void
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: "questionmark")
-                .font(.headline.weight(.semibold))
-                .foregroundStyle(DesignTokens.accentText)
-                .frame(width: 48, height: 48)
-                .background(DesignTokens.accent)
-                .clipShape(Circle())
-                .shadow(color: .black.opacity(0.15), radius: 6, x: 0, y: 3)
-        }
-        .accessibilityLabel("Was fehlt noch?")
-    }
-}

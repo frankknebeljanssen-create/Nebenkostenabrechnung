@@ -57,6 +57,12 @@ final class AppShellRouter {
     /// alle Einheiten ohne Fokus".
     var vorauszahlungSheet: VorauszahlungSheetKontext?
 
+    /// Toggle fuer das Inspektor-Sheet („Was fehlt noch?"). Seit
+    /// dem FAB-Rueckbau wird das Sheet ueber den „?"-Button im
+    /// NavBar-Header ausgeloest. Gebunden ist es in AppShell per
+    /// `.sheet(isPresented:)`.
+    var zeigeInspektor: Bool = false
+
     // MARK: - Init
 
     init(defaults: UserDefaults = .standard) {
