@@ -87,7 +87,9 @@ struct VorauszahlungEingabeSheet: View {
                     ) { speichern() }
                 }
             }
+            .keyboardFertigButton()
         }
+        .tint(DesignTokens.accent)
         .task { initialisiereEintraege() }
     }
 
@@ -199,6 +201,12 @@ struct VorauszahlungEingabeSheet: View {
             )
             .labelsHidden()
             .environment(\.locale, Locale(identifier: "de_DE"))
+            // `.tint(DesignTokens.text)` zwingt das Compact-
+            // DatePicker-Label auf textPrimary. iOS zeichnet die
+            // Pill sonst mit dem aktuellen Accent-Tint, was auf
+            // dem hellgrauen Pill-Background zu „blau auf grau"
+            // mit schlechtem Kontrast fuehrt.
+            .tint(DesignTokens.text)
         }
     }
 

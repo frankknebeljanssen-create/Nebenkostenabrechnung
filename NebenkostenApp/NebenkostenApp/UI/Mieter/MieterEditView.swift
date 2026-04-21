@@ -92,6 +92,7 @@ struct MieterEditView: View {
                     ) { speichern() }
                 }
             }
+            .keyboardFertigButton()
             .alert(
                 "Mietverhältnis löschen?",
                 isPresented: $zeigeLoeschen,

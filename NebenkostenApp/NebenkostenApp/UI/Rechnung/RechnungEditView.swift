@@ -96,6 +96,7 @@ struct RechnungEditView: View {
                     ) { speichern() }
                 }
             }
+            .keyboardFertigButton()
             .sheet(isPresented: $zeigeBelegVollbild) {
                 if case .bearbeiten(let r) = modus, let data = r.anhang {
                     BelegVorschauSheet(

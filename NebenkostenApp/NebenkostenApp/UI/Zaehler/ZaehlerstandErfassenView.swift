@@ -76,6 +76,7 @@ struct ZaehlerstandErfassenView: View {
                     ) { speichernMitPruefung() }
                 }
             }
+            .keyboardFertigButton()
             .alert("Rücklauf erkannt",
                    isPresented: $vm.zeigeRuecklaufAlert,
                    actions: {

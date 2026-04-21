@@ -96,6 +96,7 @@ struct NeuesObjektSheet: View {
                     ) { anlegen() }
                 }
             }
+            .keyboardFertigButton()
         }
     }
 

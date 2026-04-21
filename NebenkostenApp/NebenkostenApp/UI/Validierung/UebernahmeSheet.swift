@@ -42,13 +42,16 @@ struct UebernahmeSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Abbrechen") { dismiss() }
+                    SheetToolbar.abbrechen { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Übernehmen") { uebernehmen() }
-                        .disabled(!istGueltig)
+                    SheetToolbar.primaer(
+                        titel: "Übernehmen",
+                        istAktiv: istGueltig
+                    ) { uebernehmen() }
                 }
             }
+            .keyboardFertigButton()
             .onAppear(perform: initialisiereFelder)
             .alert(
                 "Fehler",

@@ -85,12 +85,13 @@ struct DokumentErfassungView: View {
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Speichern") {
-                        speichern()
-                    }
-                    .disabled(typ == nil)
+                    SheetToolbar.primaer(
+                        titel: "Speichern",
+                        istAktiv: typ != nil
+                    ) { speichern() }
                 }
             }
+            .keyboardFertigButton()
         }
     }
 

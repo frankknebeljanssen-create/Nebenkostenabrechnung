@@ -24,6 +24,8 @@ enum SheetToolbar {
 
     /// Abbrechen-Button mit garantiertem Kontrast. Default-Titel
     /// „Abbrechen", ueberschreibbar fuer Spezialfaelle („Schliessen").
+    /// `.fixedSize` verhindert Truncation durch enge Toolbar-
+    /// Container.
     @MainActor @ViewBuilder
     static func abbrechen(
         titel: String = "Abbrechen",
@@ -33,6 +35,7 @@ enum SheetToolbar {
             Text(titel)
                 .appFont(AppFont.bodyMedium())
                 .foregroundStyle(DesignTokens.textSecondary)
+                .fixedSize(horizontal: true, vertical: false)
         }
         .accessibilityLabel(titel)
     }
@@ -40,8 +43,12 @@ enum SheetToolbar {
     /// Primaere Aktion (Speichern, Fertig, Uebernehmen). Weiss auf
     /// Accent-Pill. `istAktiv == false` rendert die Pill in dezentem
     /// Grau, damit klar ist, warum der Button nicht tappt — das
-    /// system-default "graue Schrift" auf Accent-Tint waere sonst
+    /// system-default „graue Schrift" auf Accent-Tint waere sonst
     /// wieder der naechste Kontrast-Bug.
+    ///
+    /// Horizontal-Padding 16 pt + `.fixedSize(horizontal:)` sichern,
+    /// dass der Text auch in engen Toolbars nicht als „Speic…"
+    /// abgeschnitten wird.
     @MainActor @ViewBuilder
     static func primaer(
         titel: String,
@@ -52,7 +59,8 @@ enum SheetToolbar {
             Text(titel)
                 .appFont(AppFont.bodySemi())
                 .foregroundStyle(istAktiv ? Color.white : DesignTokens.textTertiary)
-                .padding(.horizontal, 14)
+                .fixedSize(horizontal: true, vertical: false)
+                .padding(.horizontal, 16)
                 .padding(.vertical, 6)
                 .background(
                     Capsule().fill(
