@@ -34,11 +34,11 @@ struct AppShell: View {
                 .tag(tab)
             }
         }
-        // UI-Fix-2 Fix 4c: aktives Tab-Icon kräftig (accentHover
-        // statt accent), bessere Trennung vom bgAppCompact-Background.
-        .tint(DesignTokens.accentHover)
-        .toolbarBackground(DesignTokens.bgAppCompact, for: .tabBar)
-        .toolbarBackground(.visible, for: .tabBar)
+        // TabBar-Farben + Hintergrund kommen ausschliesslich aus
+        // UITabBarAppearance (siehe NebenkostenAppApp.konfiguriereTabBar).
+        // Frueher standen hier `.tint()` + `.toolbarBackground()` —
+        // in iOS 18/26 kollidieren die mit der UIKit-Appearance und
+        // erzeugten Farb-Flashs beim Tab-Wechsel. Entfernt.
         .toolbarColorScheme(.light, for: .tabBar)
         // UI-Fix-2 Fix 4b: Dynamic-Type-Cap auf TabBar, damit Labels
         // bei xxxLarge nicht abgeschnitten werden.

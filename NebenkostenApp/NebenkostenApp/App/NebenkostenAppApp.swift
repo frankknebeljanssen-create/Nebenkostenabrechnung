@@ -25,38 +25,58 @@ struct NebenkostenAppApp: App {
             StrikteDatenMigration.fuehrAusWennNoetig(in: container.mainContext)
         }
 
-        // TabBar-Kontrast manuell setzen: SwiftUI-tint() wird in
-        // iOS 18 teils von einem hell-blauen Pill überzeichnet —
-        // UITabBarAppearance zwingt den dunklen accentHover-Ton
-        // für aktive Icons + Titel.
+        // TabBar-Konfiguration: UITabBarAppearance ist die EINZIGE
+        // Wahrheit. SwiftUI-Modifier (.tint, .toolbarBackground)
+        // wurden entfernt, damit sie nicht mit der UIKit-Appearance
+        // kollidieren (das war die Ursache des Farb-Flash beim
+        // Tab-Wechsel und des inkonsistenten Selected-State).
         Self.konfiguriereTabBar()
     }
 
     private static func konfiguriereTabBar() {
-        let app = UITabBarAppearance()
-        app.configureWithOpaqueBackground()
-        app.backgroundColor = UIColor(DesignTokens.bgAppCompact)
+        let appearance = UITabBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = UIColor(DesignTokens.bgAppCompact)
+        // Keine Translucency, kein Blur — iOS-Defaults wuerden sonst
+        // beim Scrollen die Hintergrundfarbe „aufhellen".
+        appearance.backgroundEffect = nil
+        appearance.shadowColor = UIColor(DesignTokens.separator)
 
-        let aktiv = UIColor(DesignTokens.accentHover)
+        // Selected-Farbe laut Task-Brief: Accent #3A5578 (Product-
+        // Owner-Wahl), NICHT accentHover. accentHover war ein
+        // Relikt aus UI-Fix-2.
+        let aktiv = UIColor(DesignTokens.accent)
         let inaktiv = UIColor(DesignTokens.textTertiary)
 
-        for item in [app.stackedLayoutAppearance,
-                     app.inlineLayoutAppearance,
-                     app.compactInlineLayoutAppearance] {
-            item.normal.iconColor = inaktiv
-            item.normal.titleTextAttributes = [
-                .foregroundColor: inaktiv,
-                .font: UIFont.systemFont(ofSize: 10, weight: .medium)
-            ]
-            item.selected.iconColor = aktiv
-            item.selected.titleTextAttributes = [
-                .foregroundColor: aktiv,
-                .font: UIFont.systemFont(ofSize: 10, weight: .semibold)
-            ]
-        }
+        // EINE UITabBarItemAppearance-Instanz fuer alle drei
+        // Layout-Varianten. Alle vier state-abhaengigen Attribute
+        // (iconColor + titleTextAttributes fuer normal + selected)
+        // sind explizit gesetzt — keine Luecke, die iOS mit dem
+        // System-Accent fuellen koennte.
+        let itemAppearance = UITabBarItemAppearance()
+        itemAppearance.normal.iconColor = inaktiv
+        itemAppearance.normal.titleTextAttributes = [
+            .foregroundColor: inaktiv,
+            .font: UIFont.systemFont(ofSize: 10, weight: .medium)
+        ]
+        itemAppearance.selected.iconColor = aktiv
+        itemAppearance.selected.titleTextAttributes = [
+            .foregroundColor: aktiv,
+            .font: UIFont.systemFont(ofSize: 10, weight: .semibold)
+        ]
 
-        UITabBar.appearance().standardAppearance = app
-        UITabBar.appearance().scrollEdgeAppearance = app
+        appearance.stackedLayoutAppearance = itemAppearance
+        appearance.inlineLayoutAppearance = itemAppearance
+        appearance.compactInlineLayoutAppearance = itemAppearance
+
+        // scrollEdgeAppearance MUSS identisch zu standardAppearance
+        // sein — sonst nutzt iOS beim Scroll-Edge einen translucenten
+        // Fallback, was das gemeldete Farb-Flash ausloest.
+        UITabBar.appearance().standardAppearance = appearance
+        UITabBar.appearance().scrollEdgeAppearance = appearance
+        UITabBar.appearance().tintColor = aktiv
+        UITabBar.appearance().unselectedItemTintColor = inaktiv
+        UITabBar.appearance().isTranslucent = false
     }
 
     var body: some Scene {
