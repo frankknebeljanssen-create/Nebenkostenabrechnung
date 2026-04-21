@@ -40,7 +40,7 @@ enum AnthropicClient {
 
     static let messagesURL = URL(string: "https://api.anthropic.com/v1/messages")!
     static let apiVersion = "2023-06-01"
-    static let defaultModel = "claude-opus-4-5"
+    static let defaultModel = "claude-sonnet-4-6"
 
     /// Maximale Anzahl Seiten pro Call. Multi-Page-Scans werden
     /// als separate image-Content-Bloecke uebertragen; alles
