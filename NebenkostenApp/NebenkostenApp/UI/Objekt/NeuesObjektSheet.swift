@@ -246,6 +246,7 @@ struct NeuesObjektSheet: View {
                !entwurf.mieterName.trimmingCharacters(in: .whitespaces).isEmpty {
                 let mv = Mietverhaeltnis()
                 mv.mieterName = entwurf.mieterName.trimmingCharacters(in: .whitespaces)
+                mv.mieterAnschrift = entwurf.mieterAnschrift.trimmingCharacters(in: .whitespacesAndNewlines)
                 mv.einzugAm = entwurf.einzugAm
                 if let vz = Self.parseVz(entwurf.vorauszahlungText) {
                     mv.vorauszahlungMonatEuro = vz
@@ -319,6 +320,10 @@ struct EinheitEntwurf: Identifiable, Equatable, Sendable {
     var nutzungsart: Nutzungsart = .wohnung
     var istVermietet: Bool = true
     var mieterName: String = ""
+    /// Postanschrift des Mieters (Strasse + PLZ + Ort in einer
+    /// Zeile). Wird spaeter fuer Abrechnungs-PDFs gebraucht; hier
+    /// optional.
+    var mieterAnschrift: String = ""
     var einzugAm: Date = Date()
     var vorauszahlungText: String = ""
 }
@@ -352,6 +357,9 @@ private struct EinheitZeile: View {
             if entwurf.istVermietet {
                 TextField("Mietername", text: $entwurf.mieterName)
                     .textContentType(.name)
+                TextField("Anschrift Mieter (Straße, PLZ, Ort)", text: $entwurf.mieterAnschrift, axis: .vertical)
+                    .textContentType(.fullStreetAddress)
+                    .lineLimit(1...2)
                 DatePicker(
                     "Einzug am",
                     selection: $entwurf.einzugAm,
