@@ -29,6 +29,9 @@ struct HomeView: View {
 
     @State private var zeigeScopePicker = false
     @State private var zeigeEinstellungen = false
+    /// Scope, fuer den aktuell das KontextDetailSheet offen ist.
+    /// Nil = Sheet zu. Wird per Tap auf eine Home-Card gesetzt.
+    @State private var detailScope: AppScope? = nil
 
     /// Aktuell angezeigte Immobilie — aus dem persistierten
     /// ScopeManager-Kontext, Fallback auf die erste verfuegbare.
@@ -121,6 +124,14 @@ struct HomeView: View {
         )
         .sheet(isPresented: $zeigeScopePicker) { ScopePickerSheet() }
         .sheet(isPresented: $zeigeEinstellungen) { EinstellungenSheet() }
+        .sheet(isPresented: Binding(
+            get: { detailScope != nil },
+            set: { if !$0 { detailScope = nil } }
+        )) {
+            if let immobilie = aktiveImmobilie, let s = detailScope {
+                KontextDetailSheet(immobilie: immobilie, scope: s)
+            }
+        }
         .onChange(of: router.aktuellesSprungziel) { _, neu in
             reagiereAufSprungziel(neu)
         }
@@ -141,11 +152,13 @@ struct HomeView: View {
     // MARK: - Tap auf eine Wohneinheit-Card
 
     /// Aktive Wohneinheit-Card angetippt → Scope wurde durch
-    /// Swipen schon aktualisiert, Tap öffnet die
-    /// Einstellungen-Section (als aktuelles Einheit-Detail-Ziel).
+    /// Swipen schon aktualisiert, Tap oeffnet das scope-abhaengige
+    /// KontextDetailSheet. Einstellungen wird bewusst NICHT mehr
+    /// hier geoeffnet — die sind systemweit nur ueber das Zahnrad
+    /// in der Top-Bar erreichbar.
     private func oeffneEinheit(_ scopeAuswahl: AppScope) {
         scope.current = scopeAuswahl
-        zeigeEinstellungen = true
+        detailScope = scopeAuswahl
     }
 
     // MARK: - Sprungziel-Reaktion

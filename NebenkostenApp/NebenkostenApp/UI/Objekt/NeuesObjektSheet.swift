@@ -53,6 +53,7 @@ struct NeuesObjektSheet: View {
     var body: some View {
         NavigationStack {
             Form {
+                hauptmieterSektion
                 adresseSektion
                 eckdatenSektion
                 objektTypSektion
@@ -79,6 +80,29 @@ struct NeuesObjektSheet: View {
     }
 
     // MARK: - Sections
+
+    /// Prominentes Mieter-Feld GANZ OBEN im Formular. Bindet direkt
+    /// an den Namen der ersten Einheit — das ist der typische Fall
+    /// (ein Objekt, ein Hauptmieter). Bei mehreren Einheiten bleibt
+    /// das Per-WE-Feld das Primaere; dieses Feld hier ist dann die
+    /// Schnellspur fuer Einheit 1.
+    @ViewBuilder
+    private var hauptmieterSektion: some View {
+        Section {
+            TextField("Mietername", text: Binding(
+                get: { wohneinheiten.first?.mieterName ?? "" },
+                set: { neu in
+                    guard !wohneinheiten.isEmpty else { return }
+                    wohneinheiten[0].mieterName = neu
+                }
+            ))
+            .textContentType(.name)
+        } header: {
+            Text("Mieter")
+        } footer: {
+            Text("Name des Hauptmieters. Weitere Mieter werden bei den jeweiligen Wohneinheiten eingetragen.")
+        }
+    }
 
     private var adresseSektion: some View {
         Section("Adresse") {

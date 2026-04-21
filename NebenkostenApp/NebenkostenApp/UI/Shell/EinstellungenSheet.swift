@@ -62,34 +62,23 @@ struct EinstellungenSheet: View {
     // MARK: - Kopfzeile
 
     private var kopfZeile: some View {
-        HStack(alignment: .center, spacing: 14) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(DesignTokens.accent)
-                Image(systemName: "house.fill")
-                    .font(.system(size: 22, weight: .medium))
-                    .foregroundStyle(DesignTokens.accentText)
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Nebenkostenabrechnung")
+                .appFont(AppFont.bodySemi())
+                .foregroundStyle(DesignTokens.text)
+            Text(versionZeile)
+                .appFont(AppFont.monoCaption())
+                .foregroundStyle(DesignTokens.textSecondary)
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(scope.farbe())
+                    .frame(width: 6, height: 6)
+                Text(scope.beschriftung())
+                    .appFont(AppFont.caption())
+                    .foregroundStyle(DesignTokens.textTertiary)
             }
-            .frame(width: 56, height: 56)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Nebenkostenabrechnung")
-                    .appFont(AppFont.bodySemi())
-                    .foregroundStyle(DesignTokens.text)
-                Text(versionZeile)
-                    .appFont(AppFont.monoCaption())
-                    .foregroundStyle(DesignTokens.textSecondary)
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(scope.farbe())
-                        .frame(width: 6, height: 6)
-                    Text(scope.beschriftung())
-                        .appFont(AppFont.caption())
-                        .foregroundStyle(DesignTokens.textTertiary)
-                }
-            }
-            Spacer()
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var versionZeile: String {
