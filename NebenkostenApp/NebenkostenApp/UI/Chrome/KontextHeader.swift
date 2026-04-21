@@ -44,11 +44,12 @@ struct KontextHeader: View {
         .padding(.top, 12)
         .padding(.bottom, 8)
         .background {
-            // Eine Stufe dunkler als bgAppCompact. Kein
-            // Design-Token trifft exakt — #D8D5CC ist der „warme
-            // Dunkelgrau"-Ton aus dem Task-Brief, visuell passend
-            // zur Papier-Palette der App.
-            Color(hex: "#D8D5CC")
+            // Gemeinsame Braun-Stufe fuer Header + Footer
+            // (`DesignTokens.bgHeaderFooter` = #E4DFD3). Eine Stufe
+            // dunkler als bgAppCompact — die beiden Chrome-Raender
+            // oben + unten gehoeren visuell zusammen und heben sich
+            // deutlich vom Content ab.
+            DesignTokens.bgHeaderFooter
                 .ignoresSafeArea(.container, edges: .top)
         }
         .overlay(alignment: .bottom) {
@@ -237,18 +238,21 @@ struct KontextHeader: View {
 
 // MARK: - WohneinheitPillReihe
 
-/// „Gesamt" + eine Pill pro Wohneinheit. Gleichmaessig verteilt
-/// ueber die verfuegbare Breite (HStack mit `.frame(maxWidth:
-/// .infinity)` je Pill); bei vier Pills ist jede exakt
-/// `(screenBreite - 32 - 3 × 8) / 4` breit.
+/// „Gesamt" + eine Pill pro Wohneinheit. Pro Pill-Breite: 1/3 der
+/// Container-Breite (via `.containerRelativeFrame`) — damit passen
+/// genau drei Pills in den sichtbaren Bereich, die vierte und
+/// weitere werden per horizontaler ScrollView erreicht.
+///
+/// Label-Format:
+/// - „Gesamt" fuer den Objekt-Scope.
+/// - „<EinheitID> · <Mieter-Abkuerzung>" fuer Einheit-Scopes,
+///   wenn ein aktives Mietverhaeltnis existiert.
+/// - Nur „<EinheitID>" wenn kein aktiver Mieter (Leerstand).
 ///
 /// Layout:
-/// - Pill-Hoehe ~36 pt (durch `.padding(.vertical, 10)` + Text +
-///   Icon).
-/// - Unselected: textPrimary auf transparentem Grund, dezenter
-///   separator-Rand.
-/// - Selected: weiss auf Accent-Pill (#3A5578). Einheitliche
-///   Markierung, unabhaengig von der Unit-Farbe.
+/// - Pill-Hoehe ~36 pt (Icon + Text + vertical Padding 10).
+/// - Unselected: textPrimary auf transparentem Grund.
+/// - Selected: weiss auf Accent-Pill (#3A5578).
 struct WohneinheitPillReihe: View {
     let immobilie: Immobilie
     @Environment(ScopeManager.self) private var scope
@@ -258,33 +262,43 @@ struct WohneinheitPillReihe: View {
     }
 
     var body: some View {
-        // Kein ScrollView mehr um die Pill-Reihe: `.frame(maxWidth:
-        // .infinity)` je Pill benoetigt einen bounded-width Container,
-        // damit iOS die verfuegbare Breite gleichmaessig aufteilen
-        // kann. Eine horizontale ScrollView bietet unbounded width an
-        // und wuerde die Pills jeweils auf volle Screenbreite
-        // aufblasen. Fuer die aktuell max. 4 Pills (Gesamt + 3 WEs)
-        // ist das ok; falls spaeter viele Einheiten hinzukommen, kann
-        // ein ViewThatFits-Fallback nachgezogen werden.
-        HStack(spacing: 8) {
-            pill(
-                label: "Gesamt",
-                icon: "square.stack.3d.up",
-                aktiv: scope.isObjekt
-            ) {
-                scope.scope = .objekt
-            }
-            ForEach(einheiten) { e in
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
                 pill(
-                    label: e.bezeichnung,
-                    icon: ScopeFarbe.icon(fuer: e),
-                    aktiv: scope.einheitID == e.bezeichnung
+                    label: "Gesamt",
+                    icon: "square.stack.3d.up",
+                    aktiv: scope.isObjekt
                 ) {
-                    scope.scope = .einheit(id: e.bezeichnung)
+                    scope.scope = .objekt
+                }
+                .containerRelativeFrame(.horizontal, count: 3, spacing: 8)
+
+                ForEach(einheiten) { e in
+                    pill(
+                        label: pillLabel(fuer: e),
+                        icon: ScopeFarbe.icon(fuer: e),
+                        aktiv: scope.einheitID == e.bezeichnung
+                    ) {
+                        scope.scope = .einheit(id: e.bezeichnung)
+                    }
+                    .containerRelativeFrame(.horizontal, count: 3, spacing: 8)
                 }
             }
+            .scrollTargetLayout()
+            .padding(.horizontal, 16)
         }
-        .padding(.horizontal, 16)
+        .scrollTargetBehavior(.viewAligned)
+    }
+
+    /// Label-Builder fuer Einheit-Pills. „OG · Fam. Pfaffenbach"
+    /// wenn aktives Mietverhaeltnis da ist, sonst nur die
+    /// Bezeichnung (z.B. bei Leerstand).
+    private func pillLabel(fuer e: Wohneinheit) -> String {
+        let aktiv = (e.mietverhaeltnisse ?? []).first(where: { $0.auszugAm == nil })
+        guard let mv = aktiv else { return e.bezeichnung }
+        let kurz = ScopeTexte.abkuerzungName(mv.mieterName)
+        guard !kurz.isEmpty else { return e.bezeichnung }
+        return "\(e.bezeichnung) · \(kurz)"
     }
 
     private func pill(
@@ -300,10 +314,12 @@ struct WohneinheitPillReihe: View {
                 Text(label)
                     .appFont(Self.pillLabelStyle)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.9)
+                    .truncationMode(.tail)
             }
             .foregroundStyle(aktiv ? Color.white : DesignTokens.text)
             .frame(maxWidth: .infinity)
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 14)
             .padding(.vertical, 10)
             .background(aktiv ? DesignTokens.accent : Color.clear)
             .overlay(

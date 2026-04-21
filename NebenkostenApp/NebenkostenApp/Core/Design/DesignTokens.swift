@@ -22,6 +22,12 @@ enum DesignTokens {
     static let bgSurface       = Color(hex: "#FBF8F1")
     static let bgSurfaceAlt    = Color(hex: "#F1ECDF")
     static let bgSheet         = Color(hex: "#F5F1E8")
+    /// Warmer Braunton fuer Header (KontextHeader) und Footer
+    /// (NebenkostenTabBar-Pill). Eine Stufe dunkler als
+    /// bgAppCompact, damit die beiden Chrome-Elemente oben + unten
+    /// deutlich vom Content abgesetzt sind und visuell zueinander
+    /// gehoeren.
+    static let bgHeaderFooter  = Color(hex: "#E4DFD3")
 
     static let separator       = Color(hex: "#3C3228", alpha: 0.12)
     static let separatorStrong = Color(hex: "#3C3228", alpha: 0.22)

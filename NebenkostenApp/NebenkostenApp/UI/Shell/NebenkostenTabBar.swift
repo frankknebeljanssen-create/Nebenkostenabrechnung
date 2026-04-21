@@ -43,7 +43,7 @@ struct NebenkostenTabBar: View {
         .padding(.vertical, 6)
         .background {
             Capsule(style: .continuous)
-                .fill(DesignTokens.bgAppCompact)
+                .fill(DesignTokens.bgHeaderFooter)
                 .overlay(
                     Capsule(style: .continuous)
                         .stroke(DesignTokens.separatorStrong, lineWidth: 0.5)
@@ -73,7 +73,7 @@ struct NebenkostenTabBar: View {
         }
         .foregroundStyle(aktiv ? Color.white : DesignTokens.textSecondary)
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 6)
+        .padding(.vertical, 10)
         .padding(.horizontal, 4)
         .background {
             if aktiv {
