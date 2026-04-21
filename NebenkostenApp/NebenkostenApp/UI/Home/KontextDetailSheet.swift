@@ -9,12 +9,15 @@
 //  Anschrift, Vorauszahlung) — genau der Einheit, die der User
 //  antippt, ohne Daten der anderen Mieter.
 //
-//  Neu: Scan-Card "Neue Daten hinzufuegen / ergaenzen" ganz oben.
-//  Fuehrt den User durch Scanner → Analyse → Uebernahme-Vorschau,
-//  aktualisiert das Mietverhaeltnis der getroffenen Einheit bzw.
-//  (im Objekt-Scope) die erste passende Einheit. Der M1-Stub
-//  nutzt `MietvertragsExtraktionService.extrahiere`; M2 ersetzt
-//  den Stub durch den echten Claude-Call.
+//  Scan-Flow (Dokumenten-Intelligenz):
+//  Die Card „Neue Daten hinzufuegen / ergaenzen" startet eine
+//  `AnalyseSitzung` fuer die getroffene Einheit. Nach jedem
+//  Scan laeuft der `DokumentAnalyseService` und pusht den User
+//  auf den `AnalyseBefundView`-Screen. Die Sitzung akkumuliert
+//  alle Scans — jeder weitere Scan wird in denselben Kontext
+//  gemergt, sodass ein Mietvertrag + ein spaeteres Erhoehungs-
+//  schreiben als zusammengefuehrtes Bild landen und der alte
+//  Wert als „vorher …" ausgewiesen wird.
 //
 //  Architektur-Regel (systemweit): Einstellungen erreicht man
 //  AUSSCHLIESSLICH ueber das Zahnrad in `AppShellChrome`. Taps
@@ -38,8 +41,13 @@ struct KontextDetailSheet: View {
 
     @State private var zeigeScanner: Bool = false
     @State private var zeigeAnalyse: Bool = false
-    @State private var uebernahme: UebernahmeKontext? = nil
     @State private var scanFehler: String? = nil
+    /// Aktive Analyse-Sitzung — mit dem ersten Scan initialisiert,
+    /// waechst mit jedem weiteren Scan. Auf nil setzen beendet die
+    /// Sitzung (Uebernehmen oder Abbrechen).
+    @State private var sitzung: AnalyseSitzung? = nil
+    /// Steuert Navigation-Push zum AnalyseBefundView.
+    @State private var zeigeAnalyseScreen: Bool = false
 
     var body: some View {
         NavigationStack {
@@ -82,6 +90,17 @@ struct KontextDetailSheet: View {
                     SheetToolbar.abbrechen(titel: "Fertig") { dismiss() }
                 }
             }
+            .navigationDestination(isPresented: $zeigeAnalyseScreen) {
+                if let sitzung {
+                    AnalyseBefundView(
+                        sitzung: sitzung,
+                        onWeiterScannen: { oeffneScannerErneut() },
+                        onManuellEintragen: { manuellEintragen() },
+                        onUebernehmen: { uebernehmeSitzung() },
+                        onAbbrechen: { beendeSitzung() }
+                    )
+                }
+            }
         }
         .tint(DesignTokens.accent)
         .fullScreenCover(isPresented: $zeigeScanner) {
@@ -99,13 +118,6 @@ struct KontextDetailSheet: View {
             .ignoresSafeArea()
         }
         .overlay { analyseOverlay }
-        .sheet(item: $uebernahme) { kontext in
-            MietvertragUebernahmeSheet(
-                kontext: kontext,
-                onUebernehmen: { ziel in uebernehme(extraktion: kontext.extraktion, auf: ziel) },
-                onAbbrechen: { uebernahme = nil }
-            )
-        }
         .alert(
             "Fehler beim Scan",
             isPresented: Binding(
@@ -193,14 +205,59 @@ struct KontextDetailSheet: View {
         zeigeScanner = true
     }
 
+    private func oeffneScannerErneut() {
+        // User steht auf AnalyseBefundView, will weiter scannen.
+        // Nav zurueck, dann Scanner oeffnen. `sitzung` bleibt am
+        // Leben, damit der naechste Scan in denselben Kontext
+        // gemergt wird.
+        zeigeAnalyseScreen = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            zeigeScanner = true
+        }
+    }
+
+    private func manuellEintragen() {
+        // User will fehlende Felder selbst eintragen → Sitzung
+        // verwerfen (kein DB-Schreiben), Analyse-Screen schliessen;
+        // der User bleibt auf dem Detail-Sheet und tippt die
+        // zu editierenden Zeilen direkt an (z.B. VZ).
+        beendeSitzung()
+    }
+
+    private func beendeSitzung() {
+        zeigeAnalyseScreen = false
+        sitzung = nil
+    }
+
+    /// Startet die Analyse fuer einen frischen Scan-Stapel.
+    /// Initialisiert die `AnalyseSitzung` beim allerersten Scan,
+    /// anschliessend wird in die bestehende Sitzung gemergt.
     private func starteAnalyse(bilder: [UIImage]) {
         guard !bilder.isEmpty else { return }
+        guard let zielEinheit = resolveZielEinheit() else {
+            scanFehler = "Keine Wohneinheit zum Aktualisieren vorhanden."
+            return
+        }
+
+        let aktuelle = sitzung ?? AnalyseSitzung(einheit: zielEinheit)
+        sitzung = aktuelle
+
         zeigeAnalyse = true
         Task {
             do {
-                let ergebnis = try await MietvertragsExtraktionService.extrahiere(ausBildern: bilder)
+                let befund = try await DokumentAnalyseService.analysiere(
+                    bilder: bilder,
+                    sitzung: aktuelle,
+                    einheit: zielEinheit
+                )
+                aktuelle.integriere(befund)
                 zeigeAnalyse = false
-                praesentiereUebernahme(ergebnis)
+                // Nach dem ersten Scan pushen, bei Folge-Scans ist
+                // der Screen bereits sichtbar und aktualisiert
+                // sich ueber @Bindable automatisch.
+                if !zeigeAnalyseScreen {
+                    zeigeAnalyseScreen = true
+                }
             } catch {
                 zeigeAnalyse = false
                 scanFehler = error.localizedDescription
@@ -208,41 +265,59 @@ struct KontextDetailSheet: View {
         }
     }
 
-    /// Nach erfolgreicher Extraktion: Ziel-Einheit resolven und
-    /// Uebernahme-Sheet oeffnen.
-    private func praesentiereUebernahme(_ e: MietvertragsExtraktion) {
+    /// Die Einheit, auf die die Sitzung schreibt. Im Einheit-Scope
+    /// steht sie fest, im Objekt-Scope nehmen wir die erste Einheit
+    /// nach Rang — das M1-Stub liefert ohnehin nur eine Einheit pro
+    /// Mietvertrag, mehrere Einheiten auswaehlbar zu machen lohnt
+    /// sich erst mit M2 (echter Claude-Call + Einheit-Match).
+    private func resolveZielEinheit() -> Wohneinheit? {
         let alle = (immobilie.wohneinheiten ?? []).sorted {
             ScopeFilter.einheitRang($0.bezeichnung) < ScopeFilter.einheitRang($1.bezeichnung)
         }
-        guard !alle.isEmpty else {
-            scanFehler = "Keine Wohneinheit zum Aktualisieren vorhanden."
-            return
+        guard !alle.isEmpty else { return nil }
+        switch scope {
+        case .einheit(let id):
+            return alle.first { $0.bezeichnung == id } ?? alle[0]
+        case .objekt:
+            return alle[0]
         }
-        let vorgewaehlt: Wohneinheit = {
-            switch scope {
-            case .einheit(let id):
-                return alle.first { $0.bezeichnung == id } ?? alle[0]
-            case .objekt:
-                if let kandidat = e.einheitBezeichnung.wert,
-                   let treffer = alle.first(where: { $0.bezeichnung.caseInsensitiveCompare(kandidat) == .orderedSame }) {
-                    return treffer
-                }
-                return alle[0]
-            }
-        }()
-        uebernahme = UebernahmeKontext(
-            extraktion: e,
-            alleEinheiten: alle,
-            zielEinheit: vorgewaehlt,
-            scope: scope
-        )
     }
 
-    /// Schreibt die Extraktion in die Ziel-Einheit bzw. das aktive
-    /// Mietverhaeltnis. Legt ein neues Mietverhaeltnis an, falls
-    /// noch keines existiert (Leerstand → Vermietet).
-    private func uebernehme(extraktion e: MietvertragsExtraktion, auf einheit: Wohneinheit) {
-        // Einheit-Felder
+    /// „So uebernehmen" aus dem AnalyseBefundView: schreibt den
+    /// in der Sitzung gemergten Stand in die Ziel-Einheit.
+    private func uebernehmeSitzung() {
+        guard let sitzung,
+              let einheit = (immobilie.wohneinheiten ?? []).first(where: { $0.id == sitzung.einheitID })
+        else {
+            beendeSitzung()
+            return
+        }
+
+        // Wir nutzen die letzte Roh-Extraktion als Grundlage —
+        // die enthaelt die in der Sitzung gemergten Werte (VZ-
+        // Update wird dort via `patch` gesetzt).
+        if let roh = sitzung.letzterBefund?.rohExtraktion {
+            schreibe(extraktion: roh, auf: einheit)
+        }
+
+        do {
+            try modelContext.save()
+        } catch {
+            #if DEBUG
+            print("[KontextDetail] save fehlgeschlagen:", error.localizedDescription)
+            #endif
+            modelContext.rollback()
+            scanFehler = "Speichern fehlgeschlagen: \(error.localizedDescription)"
+            return
+        }
+
+        beendeSitzung()
+    }
+
+    /// Schreibt eine `MietvertragsExtraktion` in die Ziel-Einheit
+    /// bzw. das aktive Mietverhaeltnis. Legt ein neues Miet-
+    /// verhaeltnis an, falls noch keines existiert.
+    private func schreibe(extraktion e: MietvertragsExtraktion, auf einheit: Wohneinheit) {
         if let bez = e.einheitBezeichnung.wert, !bez.isEmpty {
             einheit.bezeichnung = bez
         }
@@ -250,8 +325,7 @@ struct KontextDetailSheet: View {
             einheit.flaecheM2 = flaeche
         }
 
-        // Objekt-Felder — Gesamtflaeche nur wenn aktuell 0 (Bestand nicht
-        // ueberschreiben, waere zu ueberraschend).
+        // Objekt-Felder — nur Bestand auffuellen, nie ueberschreiben.
         if let adr = e.adresse.wert, immobilie.adresse.isEmpty {
             immobilie.adresse = adr
         }
@@ -265,7 +339,6 @@ struct KontextDetailSheet: View {
             immobilie.gesamtflaecheM2 = gesamt
         }
 
-        // Mietverhaeltnis resolven (oder anlegen)
         let aktiv = (einheit.mietverhaeltnisse ?? []).first { $0.auszugAm == nil }
         let mv = aktiv ?? {
             let neu = Mietverhaeltnis()
@@ -290,227 +363,6 @@ struct KontextDetailSheet: View {
                 mv.vorauszahlungGueltigAb = mv.einzugAm
             }
         }
-
-        do {
-            try modelContext.save()
-        } catch {
-            #if DEBUG
-            print("[KontextDetail] save fehlgeschlagen:", error.localizedDescription)
-            #endif
-            modelContext.rollback()
-            scanFehler = "Speichern fehlgeschlagen: \(error.localizedDescription)"
-        }
-
-        uebernahme = nil
-    }
-}
-
-// MARK: - Uebernahme-Kontext
-
-struct UebernahmeKontext: Identifiable {
-    let id: UUID = UUID()
-    let extraktion: MietvertragsExtraktion
-    let alleEinheiten: [Wohneinheit]
-    var zielEinheit: Wohneinheit
-    let scope: AppScope
-}
-
-// MARK: - Uebernahme-Vorschau-Sheet
-
-private struct MietvertragUebernahmeSheet: View {
-    @State var kontext: UebernahmeKontext
-    let onUebernehmen: (Wohneinheit) -> Void
-    let onAbbrechen: () -> Void
-
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    if kontext.alleEinheiten.count > 1 {
-                        zielEinheitCard
-                    }
-                    deltaCard
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-            }
-            .background(DesignTokens.bgApp)
-            .navigationTitle("Neue Daten übernehmen")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    SheetToolbar.abbrechen {
-                        onAbbrechen()
-                        dismiss()
-                    }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    SheetToolbar.primaer(titel: "Übernehmen") {
-                        onUebernehmen(kontext.zielEinheit)
-                        dismiss()
-                    }
-                }
-            }
-        }
-        .tint(DesignTokens.accent)
-    }
-
-    @ViewBuilder
-    private var zielEinheitCard: some View {
-        Card {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("ZIEL-EINHEIT")
-                    .appFont(AppFont.Dashboard.kartenKicker())
-                    .foregroundStyle(DesignTokens.textTertiary)
-                Picker("Einheit", selection: $kontext.zielEinheit) {
-                    ForEach(kontext.alleEinheiten) { e in
-                        Text(e.bezeichnung).tag(e)
-                    }
-                }
-                .pickerStyle(.menu)
-                .tint(DesignTokens.accent)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var deltaCard: some View {
-        Card(tiefe: .flach, balkenFarbe: ScopeFarbe.farbe(fuer: kontext.zielEinheit)) {
-            VStack(alignment: .leading, spacing: 10) {
-                Text("ERKANNTE ÄNDERUNGEN")
-                    .appFont(AppFont.Dashboard.kartenKicker())
-                    .foregroundStyle(DesignTokens.textTertiary)
-
-                let zeilen = deltaZeilen
-                if zeilen.isEmpty {
-                    Text("Der Scan enthält keine neuen Werte, die hier Platz finden.")
-                        .appFont(AppFont.bodyMedium())
-                        .foregroundStyle(DesignTokens.textSecondary)
-                } else {
-                    ForEach(zeilen.indices, id: \.self) { idx in
-                        let z = zeilen[idx]
-                        UebernahmeZeile(
-                            label: z.label,
-                            alt: z.alt,
-                            neu: z.neu,
-                            konfidenz: z.konfidenz
-                        )
-                        if idx < zeilen.count - 1 {
-                            DividerLine()
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // MARK: - Delta-Berechnung
-
-    private struct DeltaZeile {
-        let label: String
-        let alt: String
-        let neu: String
-        let konfidenz: Double
-    }
-
-    private var deltaZeilen: [DeltaZeile] {
-        let e = kontext.extraktion
-        let einheit = kontext.zielEinheit
-        let mv = (einheit.mietverhaeltnisse ?? []).first { $0.auszugAm == nil }
-
-        var out: [DeltaZeile] = []
-
-        if let wert = e.mieterName.wert, !wert.isEmpty {
-            out.append(.init(
-                label: "Mieter",
-                alt: mv?.mieterName.isEmpty == false ? mv!.mieterName : "—",
-                neu: wert,
-                konfidenz: e.mieterName.konfidenz
-            ))
-        }
-        if let wert = e.mieterAnschrift.wert, !wert.isEmpty {
-            out.append(.init(
-                label: "Anschrift",
-                alt: mv?.mieterAnschrift.isEmpty == false ? mv!.mieterAnschrift : "—",
-                neu: wert,
-                konfidenz: e.mieterAnschrift.konfidenz
-            ))
-        }
-        if let wert = e.einzugAm.wert {
-            out.append(.init(
-                label: "Einzug",
-                alt: mv.map { Self.datum($0.einzugAm) } ?? "—",
-                neu: Self.datum(wert),
-                konfidenz: e.einzugAm.konfidenz
-            ))
-        }
-        if let wert = e.vorauszahlungMonatEuro.wert, wert > 0 {
-            out.append(.init(
-                label: "Vorauszahlung",
-                alt: (mv?.vorauszahlungErfasst == true) ? Formatting.euro(mv!.vorauszahlungMonatEuro) : "—",
-                neu: Formatting.euro(wert),
-                konfidenz: e.vorauszahlungMonatEuro.konfidenz
-            ))
-        }
-        if let wert = e.einheitFlaecheM2.wert, wert > 0, wert != einheit.flaecheM2 {
-            out.append(.init(
-                label: "Fläche",
-                alt: einheit.flaecheM2 > 0 ? Formatting.m2(einheit.flaecheM2) : "—",
-                neu: Formatting.m2(wert),
-                konfidenz: e.einheitFlaecheM2.konfidenz
-            ))
-        }
-        return out
-    }
-
-    private static func datum(_ d: Date) -> String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "de_DE")
-        f.dateFormat = "dd.MM.yyyy"
-        return f.string(from: d)
-    }
-}
-
-private struct UebernahmeZeile: View {
-    let label: String
-    let alt: String
-    let neu: String
-    let konfidenz: Double
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 8) {
-                Text(label)
-                    .appFont(AppFont.caption())
-                    .foregroundStyle(DesignTokens.textSecondary)
-                Spacer()
-                Circle()
-                    .fill(konfidenzFarbe)
-                    .frame(width: 8, height: 8)
-            }
-            HStack(alignment: .top, spacing: 10) {
-                Text(alt)
-                    .appFont(AppFont.bodyMedium())
-                    .foregroundStyle(DesignTokens.textTertiary)
-                    .strikethrough(alt != "—", color: DesignTokens.textTertiary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Image(systemName: "arrow.right")
-                    .font(.caption)
-                    .foregroundStyle(DesignTokens.textTertiary)
-                Text(neu)
-                    .appFont(AppFont.bodySemi())
-                    .foregroundStyle(DesignTokens.text)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-    }
-
-    private var konfidenzFarbe: Color {
-        if konfidenz >= 0.8 { return DesignTokens.statusOk }
-        if konfidenz >= 0.5 { return DesignTokens.statusWarn }
-        return DesignTokens.statusError
     }
 }
 
