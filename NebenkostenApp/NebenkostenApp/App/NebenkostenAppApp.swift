@@ -36,14 +36,22 @@ struct NebenkostenAppApp: App {
     private static func konfiguriereTabBar() {
         let appearance = UITabBarAppearance()
         appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = UIColor(DesignTokens.bgAppCompact)
+
+        // Explizite RGB-UIColors statt `UIColor(SwiftUI.Color)` —
+        // der SwiftUI→UIKit-Converter hat unter iOS 26 in manchen
+        // Konstellationen den sRGB-Colorspace verloren und die
+        // TabBar schwarz gezeichnet. Werte sind 1:1 aus den
+        // DesignTokens (Hex → dezimal / 255).
+        let bgCompact   = UIColor(red: 239/255, green: 234/255, blue: 224/255, alpha: 1.0) // #EFEAE0
+        let akzentBlau  = UIColor(red:  58/255, green:  85/255, blue: 120/255, alpha: 1.0) // #3A5578
+        let inaktiv     = UIColor(red: 138/255, green: 133/255, blue: 120/255, alpha: 1.0) // #8A8578
+        let trenner     = UIColor(red:  60/255, green:  50/255, blue:  40/255, alpha: 0.12) // #3C3228 @12%
+
+        appearance.backgroundColor = bgCompact
         // Keine Translucency, kein Blur — iOS-Defaults wuerden sonst
         // beim Scrollen die Hintergrundfarbe „aufhellen".
         appearance.backgroundEffect = nil
-        appearance.shadowColor = UIColor(DesignTokens.separator)
-
-        let akzentBlau = UIColor(DesignTokens.accent)
-        let inaktiv    = UIColor(DesignTokens.textTertiary)
+        appearance.shadowColor = trenner
 
         // Selected rendert jetzt als weisse Schrift+Icon auf blauer
         // Pill (Accent #3A5578). Die Pill haengt an der TabBar-

@@ -36,12 +36,19 @@ struct AppShell: View {
             }
         }
         .background(DesignTokens.bgApp)
-        // TabBar-Farben + Hintergrund kommen ausschliesslich aus
-        // UITabBarAppearance (siehe NebenkostenAppApp.konfiguriereTabBar).
-        // Frueher standen hier `.tint()` + `.toolbarBackground()` —
-        // in iOS 18/26 kollidieren die mit der UIKit-Appearance und
-        // erzeugten Farb-Flashs beim Tab-Wechsel. Entfernt.
+        // TabBar-Farben + Hintergrund kommen aus UITabBarAppearance
+        // (NebenkostenAppApp.konfiguriereTabBar). Aber:
+        // - `.toolbarBackground(.visible, for: .tabBar)` ist
+        //   zwingend. Ohne diese Markierung schaltet iOS 26 die
+        //   TabBar bei leeren oder kurz-scrollenden Tabs auf einen
+        //   dunklen/transparenten Fallback, der dann als „schwarzer
+        //   Block" durchschlaegt.
+        // - `.tint(DesignTokens.accent)` wirkt nur auf Nicht-TabBar-
+        //   Elemente (Buttons, NavLinks etc.); die TabBar-Pill bleibt
+        //   durch UITabBarAppearance gesteuert.
+        .toolbarBackground(.visible, for: .tabBar)
         .toolbarColorScheme(.light, for: .tabBar)
+        .tint(DesignTokens.accent)
         // UI-Fix-2 Fix 4b: Dynamic-Type-Cap auf TabBar, damit Labels
         // bei xxxLarge nicht abgeschnitten werden.
         .dynamicTypeSize(.large ... .xLarge)

@@ -41,6 +41,12 @@ struct AppShellChrome: ViewModifier {
 
     func body(content: Content) -> some View {
         content
+            // Frame-fuellen VOR .background: sorgt dafuer, dass der
+            // bgApp-Hintergrund die komplette verfuegbare Flaeche
+            // bedeckt — auch unter einem Scroll-Inhalt, der kuerzer
+            // als die Screen-Hoehe ist. Sonst zeigt iOS unten einen
+            // schwarzen Streifen zwischen Content-Ende und TabBar.
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(DesignTokens.bgApp)
             .safeAreaInset(edge: .top, spacing: 0) {
                 VStack(spacing: 0) {
