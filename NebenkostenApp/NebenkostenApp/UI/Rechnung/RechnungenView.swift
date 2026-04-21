@@ -43,6 +43,10 @@ struct RechnungenView: View {
     /// Der Router kann durch Sprungziel einen Rang erzwingen.
     @State private var offeneRaenge: Set<Int> = []
     @State private var initialLayoutGeladen = false
+    /// Ziel-Rang, zu dem gescrollt werden soll. Wird vom Sprungziel-
+    /// Handler gesetzt, von `.onChange` in ScrollViewReader
+    /// verarbeitet, dann auf nil zurueck.
+    @State private var scrollZiel: Int?
 
     private var immobilie: Immobilie? { immobilien.first }
 
@@ -53,27 +57,42 @@ struct RechnungenView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                if aktivePeriode != nil {
-                    periodenCard
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    if aktivePeriode != nil {
+                        periodenCard
+                    }
+                    suchFeld
+                    if alleRechnungen.isEmpty {
+                        leerZustand
+                    } else if gruppen.isEmpty {
+                        sucheLeerZustand
+                    } else {
+                        ForEach(gruppen) { g in
+                            gruppenSection(g)
+                                .id(g.rang)
+                        }
+                    }
+                    manuellHinzufuegenButton
+                    scopeHinweis
                 }
-                suchFeld
-                if alleRechnungen.isEmpty {
-                    leerZustand
-                } else if gruppen.isEmpty {
-                    sucheLeerZustand
-                } else {
-                    ForEach(gruppen) { g in
-                        gruppenSection(g)
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 40)
+            }
+            .onChange(of: scrollZiel) { _, neu in
+                guard let rang = neu else { return }
+                // Leichte Verzoegerung, damit die Section vor dem
+                // Scroll ihre Expanded-Hoehe kennt (Toggle von
+                // istOffenExtern -> Layout-Runde -> dann scrollen).
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    withAnimation(.easeOut(duration: 0.3)) {
+                        proxy.scrollTo(rang, anchor: .top)
                     }
                 }
-                manuellHinzufuegenButton
-                scopeHinweis
+                scrollZiel = nil
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 12)
-            .padding(.bottom, 40)
         }
         .background(DesignTokens.bgApp)
         .appShellChrome(
@@ -123,9 +142,10 @@ struct RechnungenView: View {
         offeneRaenge = raenge
     }
 
-    /// Antwort auf ein vom Router gesetztes Sprungziel: Wenn wir
-    /// eine Kostenart-Navigation bekommen, klappen wir den
-    /// passenden Rang auf und quittieren den Router.
+    /// Antwort auf ein vom Router gesetztes Sprungziel. 100 %-
+    /// Nutzerfuehrung: die Ziel-Kostenart wird isoliert geoeffnet
+    /// (alle anderen Sections zuklappen) und die View scrollt zu
+    /// ihr — der User landet direkt auf dem, was er adressiert hat.
     private func reagiereAufSprungziel(_ ziel: Sprungziel?) {
         guard case .rechnungKostenart(let id) = ziel else { return }
         guard let ka = (immobilie?.kostenarten ?? []).first(where: { $0.id == id }) else {
@@ -133,8 +153,19 @@ struct RechnungenView: View {
             return
         }
         let rang = Self.betrKvRang(ka.bezeichnung)
-        offeneRaenge.insert(rang)
-        UserDefaults.standard.set(true, forKey: "rechnungen.kostenart.\(rang).open")
+        // Exklusiv: nur die Ziel-Kategorie bleibt offen.
+        offeneRaenge = [rang]
+        // Persistenz — damit der User den gleichen Zustand
+        // wiederfindet, wenn er den Tab erneut oeffnet.
+        for def in Self.betrKvDefinition {
+            UserDefaults.standard.set(
+                def.rang == rang,
+                forKey: "rechnungen.kostenart.\(def.rang).open"
+            )
+        }
+        // Trigger fuer den Scroll — verarbeitet im ScrollViewReader-
+        // `.onChange`.
+        scrollZiel = rang
         router.quittiere()
     }
 

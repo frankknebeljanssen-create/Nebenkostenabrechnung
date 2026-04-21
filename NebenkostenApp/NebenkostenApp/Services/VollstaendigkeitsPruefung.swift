@@ -309,15 +309,15 @@ enum VollstaendigkeitsPruefung {
                         && r.rechnungsdatum <= periode.bis
                 }
                 let kaName = ka.bezeichnung.isEmpty ? "Kostenart" : ka.bezeichnung
+                let (status, hinweis, aktion) = rechnungStatus(
+                    kostenart: ka, rechnungen: relevante
+                )
                 let anf = DatenAnforderung(
                     id: "rechnung-\(ka.id.uuidString)",
                     kategorie: .rechnung,
-                    titel: "Rechnung prüfen: \(kaName)",
+                    titel: "\(aktion): \(kaName)",
                     details: rechnungsDetails(kostenart: ka, rechnungen: relevante),
                     erforderlich: true
-                )
-                let (status, hinweis) = rechnungStatus(
-                    kostenart: ka, rechnungen: relevante
                 )
                 return .init(
                     anforderung: anf,
@@ -338,11 +338,25 @@ enum VollstaendigkeitsPruefung {
         return "\(n) Rechnung\(n == 1 ? "" : "en") · \(betrag)"
     }
 
+    /// Liefert zusaetzlich zum Status + Hinweis auch einen passenden
+    /// `aktion`-Verb fuer den Titel: „Rechnung hinzufügen" wenn
+    /// fuer die Periode noch keine existiert, sonst „Rechnung prüfen".
+    /// Damit ist dem User sofort klar, WARUM er aufgefordert wird —
+    /// 100 %-Nutzerfuehrung nach Device-Feedback: „es steht: Rechnung
+    /// pruefen Grundsteuer, aber die ist doch schon validiert — warum
+    /// werde ich aufgefordert?" (Antwort: weil in der aktuellen Periode
+    /// noch keine Grundsteuer-Rechnung liegt.)
     private static func rechnungStatus(
         kostenart: Kostenart,
         rechnungen: [Rechnung]
-    ) -> (AnforderungsStatus, String?) {
-        if rechnungen.isEmpty { return (.offen, nil) }
+    ) -> (AnforderungsStatus, String?, String) {
+        if rechnungen.isEmpty {
+            return (
+                .offen,
+                "Noch keine Rechnung in dieser Periode erfasst",
+                "Rechnung hinzufügen"
+            )
+        }
 
         // STRIKTE-DATEN-Regel: AI-Vorschlags-Rechnungen sind NICHT
         // berechnungstauglich. Eine einzige unvalidierte Rechnung
@@ -350,24 +364,36 @@ enum VollstaendigkeitsPruefung {
         // keine halb-geratenen Zahlen in die Abrechnung nimmt.
         let unvalidiert = rechnungen.filter { !$0.validierungsStatus.istBerechnungstauglich }
         if !unvalidiert.isEmpty {
-            return (.offen, "\(unvalidiert.count) KI-Vorschlag\(unvalidiert.count == 1 ? "" : "-Rechnungen") noch nicht validiert")
+            return (
+                .offen,
+                "\(unvalidiert.count) KI-Vorschlag\(unvalidiert.count == 1 ? "" : "-Rechnungen") noch nicht validiert",
+                "Rechnung validieren"
+            )
         }
 
         // Kostenart §35a-relevant: Warnung, wenn Lohnanteil fehlt.
         if kostenart.paragraph35a {
             let ohneLohn = rechnungen.filter { $0.lohnanteilBruttoEuro == nil }
             if !ohneLohn.isEmpty {
-                return (.teilweise, "§35a-relevant, aber Lohnanteil bei \(ohneLohn.count) Rechnung\(ohneLohn.count == 1 ? "" : "en") fehlt")
+                return (
+                    .teilweise,
+                    "§35a-relevant, aber Lohnanteil bei \(ohneLohn.count) Rechnung\(ohneLohn.count == 1 ? "" : "en") fehlt",
+                    "Lohnanteil ergänzen"
+                )
             }
         }
 
         // Ungeprüfte Rechnungen zählen als "in Arbeit".
         let ungeprueft = rechnungen.filter { !$0.geprueft }
         if !ungeprueft.isEmpty {
-            return (.teilweise, "\(ungeprueft.count) Rechnung\(ungeprueft.count == 1 ? "" : "en") noch nicht geprüft")
+            return (
+                .teilweise,
+                "\(ungeprueft.count) Rechnung\(ungeprueft.count == 1 ? "" : "en") noch nicht geprüft",
+                "Rechnung prüfen"
+            )
         }
 
-        return (.erfuellt, nil)
+        return (.erfuellt, nil, "Rechnung prüfen")
     }
 
     private static func formatiere(_ d: Decimal) -> String {
