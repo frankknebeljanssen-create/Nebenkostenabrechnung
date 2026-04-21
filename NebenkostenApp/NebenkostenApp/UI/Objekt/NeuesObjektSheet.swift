@@ -25,7 +25,8 @@ struct NeuesObjektSheet: View {
     // MARK: - Adresse / Eckdaten
 
     @State private var adresse: String = ""
-    @State private var ort: String = ""
+    @State private var plz: String = ""
+    @State private var stadt: String = ""
     @State private var gesamtflaecheText: String = ""
 
     // MARK: - Objekt-Typ
@@ -83,7 +84,10 @@ struct NeuesObjektSheet: View {
         Section("Adresse") {
             TextField("Straße und Hausnummer", text: $adresse)
                 .textContentType(.streetAddressLine1)
-            TextField("PLZ und Ort", text: $ort)
+            TextField("PLZ", text: $plz)
+                .textContentType(.postalCode)
+                .keyboardType(.numberPad)
+            TextField("Ort / Stadt", text: $stadt)
                 .textContentType(.addressCity)
         }
     }
@@ -209,7 +213,14 @@ struct NeuesObjektSheet: View {
         // 1. Immobilie
         let objekt = Immobilie()
         objekt.adresse = adresse.trimmingCharacters(in: .whitespaces)
-        objekt.ort = ort.trimmingCharacters(in: .whitespaces)
+        // Immobilie.ort speichert PLZ + Ort als EIN String — die
+        // UI hat zwei Felder, die wir hier mergen. Fehlende Teile
+        // werden ausgelassen.
+        let plzTrim = plz.trimmingCharacters(in: .whitespaces)
+        let stadtTrim = stadt.trimmingCharacters(in: .whitespaces)
+        objekt.ort = [plzTrim, stadtTrim]
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
         objekt.gesamtflaecheM2 = gesamtflaecheDecimal ?? 0
         let kal = Calendar(identifier: .gregorian)
         objekt.abrechnungsstartMonat = kal.component(.month, from: periodeVon)
