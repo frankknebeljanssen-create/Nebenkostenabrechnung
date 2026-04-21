@@ -27,7 +27,10 @@ extension ModelContainer {
         Abrechnungsposition.self,
         WarnungsAudit.self,
         GespeichertesDokument.self,
-        AIVorschlag.self
+        AIVorschlag.self,
+        HVAbrechnung.self,
+        HVPosition.self,
+        HVEigentuemerKosten.self
     ]
 
     /// Schaltet den CloudKit-Sync ein/aus.

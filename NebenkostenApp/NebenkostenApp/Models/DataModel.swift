@@ -129,6 +129,13 @@ final class Immobilie {
     @Relationship(deleteRule: .cascade, inverse: \Kostenart.immobilie)
     var kostenarten: [Kostenart]? = []
 
+    /// HV-Abrechnungen (WEG-Einzelabrechnungen) die diesem Objekt
+    /// zugeordnet sind. Cascade-Delete: wird das Objekt geloescht,
+    /// gehen die HV-Abrechnungen inkl. ihrer Positionen und
+    /// Eigentuemerkosten mit.
+    @Relationship(deleteRule: .cascade, inverse: \HVAbrechnung.immobilie)
+    var hvAbrechnungen: [HVAbrechnung]? = []
+
     init() {}
 }
 
