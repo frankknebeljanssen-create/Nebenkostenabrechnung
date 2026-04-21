@@ -30,7 +30,7 @@ struct HomeStatusCard: View {
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
                     Text("Status")
-                        .appFont(AppFont.Dashboard.kartenKicker())
+                        .appFont(Self.kickerStyle)
                         .foregroundStyle(DesignTokens.textTertiary)
                     Spacer()
                     StatusPill(text: statusKurz, style: statusPillStyle)
@@ -39,6 +39,16 @@ struct HomeStatusCard: View {
             }
         }
     }
+
+    /// 14 pt / 600 / tracking 0.6 UPPER — Kicker. +2 pt gegenueber
+    /// `AppFont.Dashboard.kartenKicker` (12 pt). Identisch zum
+    /// Kicker in `NaechsterSchrittCard` — beide Home-Cards teilen
+    /// sich dieselbe Typografie-Rolle.
+    private static let kickerStyle = AppFontStyle(
+        font: AppFont.plexSans(.semibold, 14),
+        tracking: 0.6,
+        uppercase: true
+    )
 
     // MARK: - Kennzahlen
 

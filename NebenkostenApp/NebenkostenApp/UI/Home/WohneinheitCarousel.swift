@@ -35,7 +35,7 @@ struct WohneinheitCarousel: View {
                 ForEach(Array(scopeOptionen.enumerated()), id: \.offset) { idx, option in
                     WohneinheitCard(
                         option: option,
-                        adresse: immobilie.adresse,
+                        adresse: vollAdresse,
                         onTap: { onOeffnen(option.scope) }
                     )
                     .padding(.vertical, 4)
@@ -134,6 +134,19 @@ struct WohneinheitCarousel: View {
         e.flaecheM2 > 0 ? Formatting.m2(e.flaecheM2) : ""
     }
 
+    /// „Bahnhofstr. 37, 12207 Berlin" — Strasse + Ort auf einer
+    /// Zeile. Fehlende Teile werden ausgelassen.
+    private var vollAdresse: String {
+        let adr = immobilie.adresse.trimmingCharacters(in: .whitespaces)
+        let ort = immobilie.ort.trimmingCharacters(in: .whitespaces)
+        switch (adr.isEmpty, ort.isEmpty) {
+        case (false, false): return "\(adr), \(ort)"
+        case (false, true):  return adr
+        case (true, false):  return ort
+        case (true, true):   return ""
+        }
+    }
+
     private var initialerIndex: Int {
         scopeOptionen.firstIndex(where: { $0.scope == scope }) ?? 0
     }
@@ -183,18 +196,18 @@ fileprivate struct WohneinheitCard: View {
         .buttonStyle(.plain)
     }
 
-    /// 14 pt / 600 / tracking 0.6 UPPER — Kicker.
-    /// +2 pt gegenueber `AppFont.Dashboard.kartenKicker` (12 pt).
+    /// 15 pt / 600 / tracking 0.6 UPPER — Kicker.
+    /// +3 pt gegenueber `AppFont.Dashboard.kartenKicker` (12 pt).
     private static let kickerStyle = AppFontStyle(
-        font: AppFont.plexSans(.semibold, 14),
+        font: AppFont.plexSans(.semibold, 15),
         tracking: 0.6,
         uppercase: true
     )
 
-    /// 18 pt / 600 — Name. +1 pt gegenueber
+    /// 19 pt / 600 — Name. +2 pt gegenueber
     /// `AppFont.Abrechnung.kopfName` (17 pt).
     private static let nameStyle = AppFontStyle(
-        font: AppFont.plexSans(.semibold, 18),
+        font: AppFont.plexSans(.semibold, 19),
         tracking: 0,
         uppercase: false
     )

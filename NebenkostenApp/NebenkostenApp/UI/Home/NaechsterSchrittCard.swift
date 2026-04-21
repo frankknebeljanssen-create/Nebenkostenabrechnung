@@ -33,9 +33,9 @@ struct NaechsterSchrittCard: View {
         if !anforderungen.isEmpty {
             Card(tiefe: .erhoben, balkenFarbe: balkenFarbe) {
                 VStack(alignment: .leading, spacing: 14) {
-                    Text("Nächster Schritt")
-                        .appFont(AppFont.bodySemi())
-                        .foregroundStyle(DesignTokens.text)
+                    Text("Nächste Schritte")
+                        .appFont(Self.kickerStyle)
+                        .foregroundStyle(DesignTokens.textTertiary)
                     if unvollstaendig.isEmpty {
                         ctaButton
                     } else {
@@ -45,6 +45,15 @@ struct NaechsterSchrittCard: View {
             }
         }
     }
+
+    /// 14 pt / 600 / tracking 0.6 UPPER — identisch zu
+    /// `HomeStatusCard.kickerStyle`, damit beide Home-Cards den
+    /// gleichen Kicker-Look tragen.
+    private static let kickerStyle = AppFontStyle(
+        font: AppFont.plexSans(.semibold, 14),
+        tracking: 0.6,
+        uppercase: true
+    )
 
     // MARK: - CTA (100 %)
 

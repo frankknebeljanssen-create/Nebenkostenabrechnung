@@ -45,7 +45,11 @@ struct Card<Content: View>: View {
     var body: some View {
         innereHuelle
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 14)
+            // Oben 14 pt, unten 10 pt — der untere Teil faellt
+            // visuell etwas flacher aus, damit die Cards weniger
+            // Hoehe verbrauchen.
+            .padding(.top, 14)
+            .padding(.bottom, 10)
             .padding(.horizontal, 16)
             .background(DesignTokens.bgSurface)
             .overlay(
