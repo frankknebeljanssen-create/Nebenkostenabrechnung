@@ -2,18 +2,21 @@
 //  NaechsterSchrittCard.swift
 //  NebenkostenApp — UI/Home
 //
-//  Eigene Card fuer den "Naechsten Schritt" der Periode. War zuvor
-//  Teil der HomeStatusCard — ausgelagert, damit sie visuell gleich
-//  gewichtet ist wie die uebrigen Home-Cards (gleiche Breite, gleiche
-//  Tiefe) und das Sprungziel als eigenstaendige Handlungs-Karte
-//  erkennbar bleibt.
+//  Eigene Card unter der Status-Card. Zwei Zustaende:
 //
-//  Die Card zeigt die erste offene (oder teilweise erfuellte)
-//  Anforderung aus der Vollstaendigkeitspruefung samt Hinweis und
-//  ruft bei Tap `onSprung` mit dem zugehoerigen Sprungziel.
-//  Keine Anforderung → Card rendert EmptyView (die View stellt
-//  also selbst sicher, dass sie nur erscheint, wenn es was zu tun
-//  gibt).
+//  1. Completion < 100 %  → Liste aller unvollstaendigen Punkte
+//     (offen + teilweise, jeder mit Sprungziel). Jede Zeile ist
+//     tappbar und ruft `onSprung` mit ihrem Sprungziel — der
+//     AppShellRouter entscheidet, welcher Tab / Sheet geoeffnet
+//     wird.
+//
+//  2. Completion == 100 % → prominenter CTA-Button
+//     „Abrechnungsdokumente erstellen" (Accent #3A5578, weisse
+//     Schrift) — ruft `onFinalAktion`, HomeView wechselt auf den
+//     Abrechnungen-Tab.
+//
+//  Keine Anforderungen → Card rendert ein EmptyView (defensiv:
+//  etwa waehrend Store-Load).
 //
 
 import SwiftUI
@@ -21,57 +24,124 @@ import SwiftUI
 struct NaechsterSchrittCard: View {
     let anforderungen: [AnforderungMitStatus]
     let onSprung: (Sprungziel) -> Void
+    let onFinalAktion: () -> Void
 
     var body: some View {
-        if let anf = naechsterSchritt, let ziel = anf.sprungZiel {
+        if !anforderungen.isEmpty {
             Card(tiefe: .erhoben) {
-                Button {
-                    onSprung(ziel)
-                } label: {
-                    HStack(alignment: .top, spacing: 12) {
-                        Image(systemName: "arrow.forward.circle.fill")
-                            .font(.system(size: 22))
-                            .foregroundStyle(DesignTokens.accent)
-                            .padding(.top, 2)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Nächster Schritt")
-                                .appFont(AppFont.Basis.micro())
-                                .foregroundStyle(DesignTokens.textTertiary)
-                                .textCase(.uppercase)
-                            Text(anf.anforderung.titel)
-                                .appFont(AppFont.Abrechnung.kopfName())
-                                .foregroundStyle(DesignTokens.text)
-                                .multilineTextAlignment(.leading)
-                            if let hinweis = anf.hinweis {
-                                Text(hinweis)
-                                    .appFont(AppFont.Basis.caption())
-                                    .foregroundStyle(DesignTokens.textSecondary)
-                                    .multilineTextAlignment(.leading)
-                                    .lineLimit(2)
-                            }
-                        }
-                        Spacer(minLength: 4)
-                        Image(systemName: "chevron.right")
-                            .font(.caption)
-                            .foregroundStyle(DesignTokens.textTertiary)
-                            .padding(.top, 6)
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("Nächster Schritt")
+                        .appFont(AppFont.bodySemi())
+                        .foregroundStyle(DesignTokens.text)
+                    if unvollstaendig.isEmpty {
+                        ctaButton
+                    } else {
+                        liste
                     }
-                    .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
             }
         }
     }
 
-    private var offeneAnforderungen: [AnforderungMitStatus] {
-        anforderungen.filter { $0.status == .offen && $0.sprungZiel != nil }
+    // MARK: - CTA (100 %)
+
+    private var ctaButton: some View {
+        Button(action: onFinalAktion) {
+            HStack(spacing: 10) {
+                Image(systemName: "doc.text.fill")
+                    .font(.system(size: 15, weight: .semibold))
+                Text("Abrechnungsdokumente erstellen")
+                    .appFont(AppFont.bodySemi())
+                    .multilineTextAlignment(.leading)
+                Spacer(minLength: 4)
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 13, weight: .semibold))
+            }
+            .foregroundStyle(Color.white)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity)
+            .background(DesignTokens.accent)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Abrechnungsdokumente erstellen")
     }
 
-    private var teilweiseAnforderungen: [AnforderungMitStatus] {
-        anforderungen.filter { $0.status == .teilweise && $0.sprungZiel != nil }
+    // MARK: - Liste (unter 100 %)
+
+    private var liste: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(unvollstaendig.enumerated()), id: \.element.id) { idx, anf in
+                if idx > 0 {
+                    DividerLine()
+                }
+                if let ziel = anf.sprungZiel {
+                    Button { onSprung(ziel) } label: {
+                        zeile(anf)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
     }
 
-    private var naechsterSchritt: AnforderungMitStatus? {
-        offeneAnforderungen.first ?? teilweiseAnforderungen.first
+    private func zeile(_ anf: AnforderungMitStatus) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: iconName(for: anf.status))
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(farbe(for: anf.status))
+                .frame(width: 16, alignment: .center)
+                .padding(.top, 3)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(anf.anforderung.titel)
+                    .appFont(AppFont.bodyMedium())
+                    .foregroundStyle(DesignTokens.text)
+                    .multilineTextAlignment(.leading)
+                if let hinweis = anf.hinweis, !hinweis.isEmpty {
+                    Text(hinweis)
+                        .appFont(AppFont.caption())
+                        .foregroundStyle(DesignTokens.textSecondary)
+                        .multilineTextAlignment(.leading)
+                        .lineLimit(2)
+                }
+            }
+            Spacer(minLength: 4)
+            Image(systemName: "chevron.right")
+                .font(.caption)
+                .foregroundStyle(DesignTokens.textTertiary)
+                .padding(.top, 5)
+        }
+        .padding(.vertical, 10)
+        .contentShape(Rectangle())
+    }
+
+    // MARK: - Ableitungen
+
+    /// Alle nicht erfuellten Anforderungen mit einem Sprungziel —
+    /// die Liste zeigt nur, was der User tatsaechlich adressieren
+    /// kann.
+    private var unvollstaendig: [AnforderungMitStatus] {
+        anforderungen.filter {
+            $0.sprungZiel != nil
+                && $0.status != .erfuellt
+                && $0.status != .nichtErwartet
+        }
+    }
+
+    private func iconName(for status: AnforderungsStatus) -> String {
+        switch status {
+        case .teilweise: return "circle.lefthalf.filled"
+        case .offen:     return "circle"
+        default:         return "circle"
+        }
+    }
+
+    private func farbe(for status: AnforderungsStatus) -> Color {
+        switch status {
+        case .teilweise: return DesignTokens.statusWarn
+        case .offen:     return DesignTokens.statusError
+        default:         return DesignTokens.textSecondary
+        }
     }
 }
