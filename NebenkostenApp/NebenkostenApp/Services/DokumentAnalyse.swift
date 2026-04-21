@@ -38,6 +38,8 @@ enum DokumentTyp: String, Sendable, Codable, CaseIterable, Hashable {
     case personalausweis
     case rechnung
     case bescheid
+    /// Hausverwaltungs-Einzelabrechnung fuer WEG-Eigentuemer.
+    case hvAbrechnung
     case unbekannt
 
     var anzeige: String {
@@ -52,6 +54,7 @@ enum DokumentTyp: String, Sendable, Codable, CaseIterable, Hashable {
         case .personalausweis:          return "Personalausweis"
         case .rechnung:                 return "Rechnung"
         case .bescheid:                 return "Bescheid"
+        case .hvAbrechnung:             return "HV-Abrechnung"
         case .unbekannt:                return "Unbekannter Typ"
         }
     }
@@ -67,6 +70,7 @@ enum DokumentTyp: String, Sendable, Codable, CaseIterable, Hashable {
         case .personalausweis:                   return "person.text.rectangle"
         case .rechnung:                          return "eurosign.circle"
         case .bescheid:                          return "doc.badge.gearshape"
+        case .hvAbrechnung:                      return "building.2.crop.circle"
         case .unbekannt:                         return "questionmark.folder"
         }
     }

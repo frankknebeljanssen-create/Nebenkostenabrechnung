@@ -126,6 +126,52 @@ struct MietvertragsAnalyse: Equatable, Sendable {
     /// „Ueberschrift schlecht lesbar"). Werden als Warnungen im
     /// AnalyseBefundView angezeigt.
     var hinweise: [String]
+    /// Nur gefuellt, wenn `erkannterTyp == .hvAbrechnung`. Enthaelt
+    /// die strukturierte Rohdaten-Extraktion der HV-Abrechnung
+    /// (wird vom HVAnalyseBefundView gerendert und vom
+    /// Uebernahme-Flow in SwiftData-Entities uebersetzt).
+    var hvDaten: HVAbrechnungsRohdaten?
+}
+
+// MARK: - HV-Abrechnungs-Rohdaten (Transport)
+
+/// Reine Transport-Structs — keine @Model-Klassen. Werden beim
+/// „So uebernehmen"-Flow in `HVAbrechnung` + `HVPosition` +
+/// `HVEigentuemerKosten` uebersetzt.
+struct HVAbrechnungsRohdaten: Equatable, Sendable {
+    var hausverwaltungName: String
+    var hausverwaltungAdresse: String
+    var wegName: String
+    var gebaeudeAdresse: String
+    var meaAnteil: Int
+    var meaGesamt: Int
+    var abrechnungszeitraumVon: Date?
+    var abrechnungszeitraumBis: Date?
+    var abrechnungsspitzeEuro: Decimal
+    var vorauszahlungenEuro: Decimal
+    var erhaltungsruecklageAnteilEuro: Decimal
+    var paragraph35aHandwerkerEuro: Decimal
+    var paragraph35aHaushaltsnahEuro: Decimal
+    var umlagefaehigePositionen: [HVPositionRohdaten]
+    var eigentuemerKosten: [HVEigentuemerKostenRohdaten]
+}
+
+struct HVPositionRohdaten: Equatable, Sendable, Identifiable {
+    let id: UUID = UUID()
+    var bezeichnung: String
+    var kontierung: String
+    var gesamtkostenGebaeude: Decimal
+    var anteilEuro: Decimal
+    /// Claudes Mapping-Vorschlag (z.B. „Wasser", „Müll"). Der User
+    /// kann das beim Uebernehmen korrigieren.
+    var betrkvKostenart: String
+}
+
+struct HVEigentuemerKostenRohdaten: Equatable, Sendable, Identifiable {
+    let id: UUID = UUID()
+    var bezeichnung: String
+    var kontierung: String
+    var anteilEuro: Decimal
 }
 
 // MARK: - Service
@@ -190,25 +236,42 @@ enum MietvertragsExtraktionService {
 
     // MARK: - Prompt
 
-    /// System-Prompt: Rolle + Antwort-Format.
+    /// System-Prompt: Rolle + Antwort-Format. Deckt Mietdokumente
+    /// UND HV-Einzelabrechnungen (WEG) ab. Claude setzt zuerst
+    /// `dokumentTyp`, dann die passenden Felder je Typ.
     private static let systemPrompt = """
     Du bist ein Assistent für die Extraktion von Feldern aus deutschen
-    Mietdokumenten (Mietvertrag, Mietvertrags-Nachtrag, NK-Erhöhungs-
-    schreiben, Übergabeprotokoll). Antworte AUSSCHLIESSLICH mit einem
-    gültigen JSON-Objekt, keine Prosa, kein Markdown. Datumsfelder im
-    Format "YYYY-MM-DD". Felder, die du nicht erkennst, sind null.
-    Pro gefuelltem Feld gib zusätzlich eine Konfidenz 0…1 in
+    Immobilien-Dokumenten — Mietdokumenten (Mietvertrag, Mietvertrags-
+    Nachtrag, NK-Erhöhungsschreiben, Übergabeprotokoll) UND
+    Hausverwaltungs-Einzelabrechnungen (WEG-Einzelabrechnung für
+    Eigentümer). Antworte AUSSCHLIESSLICH mit einem gültigen
+    JSON-Objekt, keine Prosa, kein Markdown. Datumsfelder im Format
+    "YYYY-MM-DD". Felder, die du nicht erkennst, sind null. Pro
+    gefuelltem Top-Level-Feld gib zusätzlich eine Konfidenz 0…1 in
     konfidenz[FELDNAME] an.
     """
 
-    /// User-Prompt mit konkretem JSON-Schema.
+    /// User-Prompt mit konkretem JSON-Schema. Gemeinsamer Wrapper
+    /// fuer alle unterstuetzten Dokument-Typen (Variante A —
+    /// Ein-Prompt-Mehrzweck).
     private static let userPrompt = """
-    Analysiere das beigefuegte deutsche Mietdokument und extrahiere
-    alle relevanten Felder.
+    Analysiere das beigefuegte deutsche Dokument. Es kann ein
+    Mietdokument oder eine Hausverwaltungs-Abrechnung sein. Entscheide
+    zuerst anhand des Inhalts den Typ und fuelle dann die passenden
+    Felder. Lass Felder, die fuer den gewaehlten Typ nicht passen,
+    null.
 
-    Gib ausschliesslich folgendes JSON-Objekt zurueck:
+    HAUSVERWALTUNGS-ABRECHNUNG erkennst du an:
+    - Absender ist eine Hausverwaltung / Verwaltungsgesellschaft
+    - „Eigentuemergemeinschaft", „WEG", „Hausgeld"
+    - MEA-Umlageschluessel (z.B. 21297/1000000 oder Prozentsatz)
+    - Abschnitte „umlagefaehig" / „nicht umlagefaehig"
+
+    Gib ausschliesslich folgendes JSON zurueck:
     {
-      "dokumentTyp": "mietvertrag|nachtrag|erhoehungsschreiben|uebergabeprotokoll|sonstiges",
+      "dokumentTyp": "mietvertrag|nachtrag|erhoehungsschreiben|uebergabeprotokoll|hvAbrechnung|sonstiges",
+
+      // ----- FELDER FUER MIETDOKUMENTE -----
       "mieterName": "...",
       "mieterAnschrift": "...",
       "objektStrasse": "...",
@@ -226,26 +289,78 @@ enum MietvertragsExtraktionService {
       "abrechnungsturnus": "jaehrlich|halbjaehrlich|monatlich",
       "kaution": 1500.0,
       "dokumentDatum": "YYYY-MM-DD",
+
+      // ----- FELDER FUER HV-ABRECHNUNG -----
+      "hausverwaltungName": "...",
+      "hausverwaltungAdresse": "...",
+      "wegName": "...",
+      "gebaeudeAdresse": "...",
+      "meaAnteil": 21297,
+      "meaGesamt": 1000000,
+      "abrechnungszeitraumVon": "YYYY-MM-DD",
+      "abrechnungszeitraumBis": "YYYY-MM-DD",
+      "abrechnungsspitzeEuro": -227.44,
+      "vorauszahlungenEuro": 4020.00,
+      "erhaltungsruecklageAnteilEuro": 638.92,
+      "paragraph35aHandwerkerEuro": 405.45,
+      "paragraph35aHaushaltsnahEuro": 109.60,
+      "umlagefaehigePositionen": [
+        {
+          "bezeichnung": "Wasserversorgung",
+          "kontierung": "804000000",
+          "gesamtkostenGebaeude": 13459.78,
+          "anteilEuro": 286.55,
+          "betrkvKostenart": "Wasser"
+        }
+      ],
+      "eigentuemerKosten": [
+        {
+          "bezeichnung": "Verwaltervergütung",
+          "kontierung": "809000000",
+          "anteilEuro": 314.16
+        }
+      ],
+
       "konfidenz": {
         "mieterName": 0.95,
-        "vorauszahlungNKEuro": 0.7,
-        "kaltmieteEuro": 0.85
+        "meaAnteil": 0.99,
+        "abrechnungsspitzeEuro": 0.9
       },
       "hinweise": ["z.B. 'Seite 2 unscharf'"]
     }
 
-    Regeln:
+    Regeln — allgemein:
     - Felder, die nicht im Dokument stehen: null.
     - Alle Euro- und Flaechen-Werte sind Zahlen, nicht Strings.
-    - Bei schlechter Lesbarkeit: Konfidenz < 0.5 und ein passender Hinweis.
-    - Bei Mieterhoehungsschreiben: extrahiere SOWOHL den alten als auch
-      den neuen Betrag fuer Kaltmiete UND NK-Vorauszahlung, plus das
-      Datum ab dem der neue Betrag gilt (*Vorher, *GueltigAb). Der alte
-      Wert gehoert in *Vorher, der neue in *Euro — niemals umgekehrt.
-    - „vorauszahlungNK*" bezieht sich ausschliesslich auf die
-      Nebenkosten-Vorauszahlung; „kaltmiete*" ist die Netto-Kaltmiete
-      ohne NK und ohne Heizkosten.
+    - Bei schlechter Lesbarkeit: Konfidenz < 0.5 und passenden Hinweis.
     - Nur JSON, kein Text drumherum, kein Markdown-Codeblock.
+
+    Regeln — Mietdokumente:
+    - Bei Mieterhoehungsschreiben: SOWOHL alter als auch neuer Betrag
+      fuer Kaltmiete UND NK-Vorauszahlung + Datum ab dem der neue
+      Betrag gilt (*Vorher, *GueltigAb). Alter Wert in *Vorher, neuer
+      in *Euro — niemals umgekehrt.
+    - „vorauszahlungNK*" = NK-Vorauszahlung; „kaltmiete*" = Netto-
+      Kaltmiete ohne NK und ohne Heizkosten.
+
+    Regeln — HV-Abrechnung:
+    - `umlagefaehigePositionen` enthaelt ausschliesslich Posten aus
+      dem Abschnitt „umlagefaehige Betriebskosten" (auf Mieter
+      uebertragbar).
+    - `eigentuemerKosten` enthaelt ausschliesslich Posten aus
+      „nicht umlagefaehige Kosten" (Eigentuemer-Anteil, nie auf
+      Mieter uebertragbar).
+    - `erhaltungsruecklageAnteilEuro` ist KEIN Posten in den beiden
+      Listen, sondern ein eigenes Feld.
+    - `abrechnungsspitzeEuro`: NEGATIV = Guthaben fuer den Eigentuemer,
+      POSITIV = Nachzahlung an die Hausverwaltung.
+    - `meaAnteil` und `meaGesamt` sind ganze Zahlen. Bei Prozent-
+      angabe (z.B. „2,1297 %") rechne in ppm: meaAnteil=21297,
+      meaGesamt=1000000.
+    - Jede Position braucht `betrkvKostenart` — ein Stichwort aus
+      dem BetrKV-Katalog (z.B. „Wasser", „Muell", „Grundsteuer",
+      „Gartenpflege", „Hauswart", „Allgemeinstrom") — als
+      Mapping-Vorschlag. Wenn unklar: „Sonstige".
     """
 
     // MARK: - Mapping
@@ -280,6 +395,40 @@ enum MietvertragsExtraktionService {
         let dokumentDatum: String?
         let konfidenz: [String: Double]?
         let hinweise: [String]?
+
+        // MARK: HV-Abrechnung (Variante A — gleicher JSON-Wrapper)
+
+        let hausverwaltungName: String?
+        let hausverwaltungAdresse: String?
+        let wegName: String?
+        let gebaeudeAdresse: String?
+        let meaAnteil: Int?
+        let meaGesamt: Int?
+        let abrechnungszeitraumVon: String?
+        let abrechnungszeitraumBis: String?
+        let abrechnungsspitzeEuro: Double?
+        let vorauszahlungenEuro: Double?
+        let erhaltungsruecklageAnteilEuro: Double?
+        let paragraph35aHandwerkerEuro: Double?
+        let paragraph35aHaushaltsnahEuro: Double?
+        let umlagefaehigePositionen: [HVPositionRoh]?
+        let eigentuemerKosten: [HVEigentuemerKostenRoh]?
+    }
+
+    private struct HVPositionRoh: Decodable {
+        let bezeichnung: String?
+        let kontierung: String?
+        let gesamtkostenGebaeude: Double?
+        let anteilEuro: Double?
+        let betrkvKostenart: String?
+        /// Alt-Feldname-Fallback (fruehere Prompt-Version).
+        let betrkvZuordnung: String?
+    }
+
+    private struct HVEigentuemerKostenRoh: Decodable {
+        let bezeichnung: String?
+        let kontierung: String?
+        let anteilEuro: Double?
     }
 
     private static func mappe(_ a: ClaudeAntwort) -> MietvertragsAnalyse {
@@ -327,10 +476,47 @@ enum MietvertragsExtraktionService {
             besondereNKVereinbarungen: .leer
         )
 
+        let typ = typVon(a.dokumentTyp)
+        let hvDaten: HVAbrechnungsRohdaten? = {
+            guard typ == .hvAbrechnung else { return nil }
+            return .init(
+                hausverwaltungName:            a.hausverwaltungName ?? "",
+                hausverwaltungAdresse:         a.hausverwaltungAdresse ?? "",
+                wegName:                       a.wegName ?? "",
+                gebaeudeAdresse:               a.gebaeudeAdresse ?? "",
+                meaAnteil:                     a.meaAnteil ?? 0,
+                meaGesamt:                     a.meaGesamt ?? 1,
+                abrechnungszeitraumVon:        isoDatum(a.abrechnungszeitraumVon ?? ""),
+                abrechnungszeitraumBis:        isoDatum(a.abrechnungszeitraumBis ?? ""),
+                abrechnungsspitzeEuro:         decimal(a.abrechnungsspitzeEuro),
+                vorauszahlungenEuro:           decimal(a.vorauszahlungenEuro),
+                erhaltungsruecklageAnteilEuro: decimal(a.erhaltungsruecklageAnteilEuro),
+                paragraph35aHandwerkerEuro:    decimal(a.paragraph35aHandwerkerEuro),
+                paragraph35aHaushaltsnahEuro:  decimal(a.paragraph35aHaushaltsnahEuro),
+                umlagefaehigePositionen:       (a.umlagefaehigePositionen ?? []).map {
+                    HVPositionRohdaten(
+                        bezeichnung:           $0.bezeichnung ?? "",
+                        kontierung:            $0.kontierung ?? "",
+                        gesamtkostenGebaeude:  decimal($0.gesamtkostenGebaeude),
+                        anteilEuro:            decimal($0.anteilEuro),
+                        betrkvKostenart:       $0.betrkvKostenart ?? $0.betrkvZuordnung ?? ""
+                    )
+                },
+                eigentuemerKosten:             (a.eigentuemerKosten ?? []).map {
+                    HVEigentuemerKostenRohdaten(
+                        bezeichnung: $0.bezeichnung ?? "",
+                        kontierung:  $0.kontierung ?? "",
+                        anteilEuro:  decimal($0.anteilEuro)
+                    )
+                }
+            )
+        }()
+
         return .init(
             extraktion: extraktion,
-            erkannterTyp: typVon(a.dokumentTyp),
-            hinweise: a.hinweise ?? []
+            erkannterTyp: typ,
+            hinweise: a.hinweise ?? [],
+            hvDaten: hvDaten
         )
     }
 
@@ -342,8 +528,18 @@ enum MietvertragsExtraktionService {
              "erhoehungsschreiben",
              "nk-erhoehung":            return .nkErhoehungsschreiben
         case "uebergabeprotokoll":      return .uebergabeprotokollEinzug
+        case "hvabrechnung",
+             "hv-abrechnung",
+             "hausverwaltungsabrechnung",
+             "wegabrechnung",
+             "weg-abrechnung":          return .hvAbrechnung
         default:                        return .unbekannt
         }
+    }
+
+    private static func decimal(_ d: Double?) -> Decimal {
+        guard let d else { return 0 }
+        return Decimal(d)
     }
 
     private static func isoDatum(_ s: String) -> Date? {
