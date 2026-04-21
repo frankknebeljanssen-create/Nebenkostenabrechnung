@@ -85,6 +85,14 @@ struct ZaehlerView: View {
         .sheet(item: $erfassenZaehler) { z in
             NavigationStack { ZaehlerstandErfassenView(zaehler: z) }
         }
+        .onAppear {
+            // Beim Tab-Wechsel aus der HomeView wird
+            // `router.aktuellesSprungziel` oft SCHON gesetzt, bevor
+            // ZaehlerView erstmalig rendert. `.onChange(of:)` feuert
+            // in dem Fall nicht (nur fuer nachfolgende Aenderungen).
+            // Deshalb initial-check im `.onAppear`.
+            reagiereAufSprungziel(router.aktuellesSprungziel)
+        }
         .onChange(of: router.aktuellesSprungziel) { _, neu in
             reagiereAufSprungziel(neu)
         }

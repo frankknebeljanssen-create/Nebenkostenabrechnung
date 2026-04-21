@@ -269,7 +269,7 @@ struct RechnungenView: View {
     private func gruppenSection(_ g: Gruppe) -> some View {
         CollapsibleSection(
             titel: g.titel,
-            summary: Formatting.euro(g.summe),
+            summary: g.rechnungen.isEmpty ? nil : Formatting.euro(g.summe),
             count: g.rechnungen.count,
             persistKey: "rechnungen.kostenart.\(g.rang).open",
             defaultOffen: g.rang == 1,  // Heizung & Warmwasser
@@ -279,15 +279,38 @@ struct RechnungenView: View {
                 else   { offeneRaenge.remove(g.rang) }
             }
         ) {
-            VStack(spacing: 0) {
-                ForEach(Array(g.rechnungen.enumerated()), id: \.element.id) { idx, r in
-                    rechnungZeile(r)
-                    if idx < g.rechnungen.count - 1 {
-                        DividerLine()
+            if g.rechnungen.isEmpty {
+                leereKategorie
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(g.rechnungen.enumerated()), id: \.element.id) { idx, r in
+                        rechnungZeile(r)
+                        if idx < g.rechnungen.count - 1 {
+                            DividerLine()
+                        }
                     }
                 }
             }
         }
+    }
+
+    /// Empty-State in einer Kostenart-Section. Greift, wenn die
+    /// Kategorie aktiv ist, aber noch keine Rechnungen hat — dann
+    /// steht der User hier, nachdem er aus der Home-„Naechste
+    /// Schritte"-Liste zu dieser Kategorie gesprungen ist, und kann
+    /// direkt „Rechnung hinzufuegen" unten im Screen tippen.
+    private var leereKategorie: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "tray")
+                .font(.system(size: 14))
+                .foregroundStyle(DesignTokens.textTertiary)
+            Text("Noch keine Rechnung in dieser Periode.")
+                .appFont(AppFont.caption())
+                .foregroundStyle(DesignTokens.textSecondary)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
     }
 
     private func rechnungZeile(_ r: Rechnung) -> some View {
@@ -422,13 +445,28 @@ struct RechnungenView: View {
         let nachKat = Dictionary(grouping: gefiltert) { r -> Int in
             Self.betrKvRang(r.kostenart?.bezeichnung ?? "ohne")
         }
+        // Alle Ränge aufsammeln, die entweder Rechnungen haben
+        // ODER eine aktive Kostenart definiert — damit jede
+        // Kostenart, fuer die der User ueberhaupt Rechnungen
+        // erfassen koennte, eine Section mit `.id(rang)` bekommt.
+        // Ohne das zeigt ein Sprung auf einen leeren Rang keinen
+        // Effekt (kein Scroll-Target), und der User landet bei
+        // der falschen Section.
+        var raenge = Set<Int>()
+        for ka in (immobilie?.kostenarten ?? []) where ka.aktiv {
+            raenge.insert(Self.betrKvRang(ka.bezeichnung))
+        }
+        for rang in nachKat.keys {
+            raenge.insert(rang)
+        }
         return Self.betrKvDefinition
-            .compactMap { def -> Gruppe? in
-                guard let rechnungen = nachKat[def.rang], !rechnungen.isEmpty else { return nil }
-                return Gruppe(
+            .filter { raenge.contains($0.rang) }
+            .map { def in
+                Gruppe(
                     rang: def.rang,
                     titel: def.titel,
-                    rechnungen: rechnungen.sorted { $0.rechnungsdatum > $1.rechnungsdatum }
+                    rechnungen: (nachKat[def.rang] ?? [])
+                        .sorted { $0.rechnungsdatum > $1.rechnungsdatum }
                 )
             }
     }

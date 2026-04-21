@@ -124,7 +124,7 @@ struct NaechsterSchrittCard: View {
                 .foregroundStyle(DesignTokens.textTertiary)
                 .padding(.top, 5)
         }
-        .padding(.vertical, 10)
+        .padding(.vertical, 6)
         .contentShape(Rectangle())
     }
 
