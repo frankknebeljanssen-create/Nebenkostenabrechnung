@@ -31,6 +31,26 @@ struct NebenkostenAppApp: App {
         // kollidieren (das war die Ursache des Farb-Flash beim
         // Tab-Wechsel und des inkonsistenten Selected-State).
         Self.konfiguriereTabBar()
+        // Window-Hintergrund explizit auf bgApp setzen. Der Streifen
+        // zwischen Content-Ende und TabBar war nicht in einem
+        // einzelnen SwiftUI-View, sondern lag auf der UIWindow-
+        // Ebene durch — iOS defaultet UIWindow.backgroundColor bei
+        // kaltem Start auf Schwarz. Mit `UIWindow.appearance()` setzen
+        // wir den Default fuer alle zukuenftig erzeugten Windows und
+        // iterieren zusaetzlich ueber bereits verbundene Scenes, um
+        // den Fall „Scene ist schon da, Appearance nicht" abzudecken.
+        Self.konfiguriereWindowHintergrund()
+    }
+
+    private static func konfiguriereWindowHintergrund() {
+        let bgApp = UIColor(red: 245/255, green: 241/255, blue: 232/255, alpha: 1.0) // #F5F1E8
+        UIWindow.appearance().backgroundColor = bgApp
+        DispatchQueue.main.async {
+            UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .flatMap(\.windows)
+                .forEach { $0.backgroundColor = bgApp }
+        }
     }
 
     private static func konfiguriereTabBar() {
