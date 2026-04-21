@@ -238,15 +238,18 @@ struct KontextHeader: View {
 
 // MARK: - WohneinheitPillReihe
 
-/// „Gesamt" + eine Pill pro Wohneinheit. Pro Pill-Breite: 1/3 der
-/// Container-Breite (via `.containerRelativeFrame`) — damit passen
-/// genau drei Pills in den sichtbaren Bereich, die vierte und
-/// weitere werden per horizontaler ScrollView erreicht.
+/// „Gesamt" + eine Pill pro Wohneinheit. Pro Pill-Breite: 72 %
+/// der Container-Breite (via `.containerRelativeFrame`) — damit
+/// ist die aktive Pill komplett sichtbar, die naechste Pill
+/// peekt rechts ein Stueck rein als Scroll-Hinweis. Die Reihe
+/// snap-scrollt zwischen den Pills.
 ///
 /// Label-Format:
 /// - „Gesamt" fuer den Objekt-Scope.
 /// - „<EinheitID> · <Mieter-Abkuerzung>" fuer Einheit-Scopes,
-///   wenn ein aktives Mietverhaeltnis existiert.
+///   wenn ein aktives Mietverhaeltnis existiert. Mit 72 % Pill-
+///   Breite passt der komplette Mieter-Name („Fam. Pfaffenbach")
+///   ohne Truncation.
 /// - Nur „<EinheitID>" wenn kein aktiver Mieter (Leerstand).
 ///
 /// Layout:
@@ -261,6 +264,11 @@ struct WohneinheitPillReihe: View {
         immobilie.wohneinheiten ?? []
     }
 
+    /// Relative Pill-Breite in Bruchteilen der Container-Breite.
+    /// 0.72 = 72 % — aktive Pill voll sichtbar, die naechste
+    /// peekt mit ~20 % rein.
+    private let pillBreiteAnteil: CGFloat = 0.72
+
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
@@ -271,7 +279,9 @@ struct WohneinheitPillReihe: View {
                 ) {
                     scope.scope = .objekt
                 }
-                .containerRelativeFrame(.horizontal, count: 3, spacing: 8)
+                .containerRelativeFrame(.horizontal) { laenge, _ in
+                    laenge * pillBreiteAnteil
+                }
 
                 ForEach(einheiten) { e in
                     pill(
@@ -281,7 +291,9 @@ struct WohneinheitPillReihe: View {
                     ) {
                         scope.scope = .einheit(id: e.bezeichnung)
                     }
-                    .containerRelativeFrame(.horizontal, count: 3, spacing: 8)
+                    .containerRelativeFrame(.horizontal) { laenge, _ in
+                        laenge * pillBreiteAnteil
+                    }
                 }
             }
             .scrollTargetLayout()
