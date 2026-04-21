@@ -42,26 +42,30 @@ struct NebenkostenAppApp: App {
         appearance.backgroundEffect = nil
         appearance.shadowColor = UIColor(DesignTokens.separator)
 
-        // Selected-Farbe laut Task-Brief: Accent #3A5578 (Product-
-        // Owner-Wahl), NICHT accentHover. accentHover war ein
-        // Relikt aus UI-Fix-2.
-        let aktiv = UIColor(DesignTokens.accent)
-        let inaktiv = UIColor(DesignTokens.textTertiary)
+        let akzentBlau = UIColor(DesignTokens.accent)
+        let inaktiv    = UIColor(DesignTokens.textTertiary)
 
-        // EINE UITabBarItemAppearance-Instanz fuer alle drei
-        // Layout-Varianten. Alle vier state-abhaengigen Attribute
-        // (iconColor + titleTextAttributes fuer normal + selected)
-        // sind explizit gesetzt — keine Luecke, die iOS mit dem
-        // System-Accent fuellen koennte.
+        // Selected rendert jetzt als weisse Schrift+Icon auf blauer
+        // Pill (Accent #3A5578). Die Pill haengt an der TabBar-
+        // Appearance selbst (UITabBarAppearance.
+        // selectionIndicatorImage) — nicht am Item-State — und ist
+        // stretchable, damit iOS sie auf die jeweilige Item-Breite
+        // skaliert.
+        appearance.selectionIndicatorImage = Self.pillBild(
+            farbe: akzentBlau,
+            radius: 10,
+            hoehe: 32
+        )
+
         let itemAppearance = UITabBarItemAppearance()
         itemAppearance.normal.iconColor = inaktiv
         itemAppearance.normal.titleTextAttributes = [
             .foregroundColor: inaktiv,
             .font: UIFont.systemFont(ofSize: 10, weight: .medium)
         ]
-        itemAppearance.selected.iconColor = aktiv
+        itemAppearance.selected.iconColor = .white
         itemAppearance.selected.titleTextAttributes = [
-            .foregroundColor: aktiv,
+            .foregroundColor: UIColor.white,
             .font: UIFont.systemFont(ofSize: 10, weight: .semibold)
         ]
 
@@ -74,9 +78,28 @@ struct NebenkostenAppApp: App {
         // Fallback, was das gemeldete Farb-Flash ausloest.
         UITabBar.appearance().standardAppearance = appearance
         UITabBar.appearance().scrollEdgeAppearance = appearance
-        UITabBar.appearance().tintColor = aktiv
+        UITabBar.appearance().tintColor = .white
         UITabBar.appearance().unselectedItemTintColor = inaktiv
         UITabBar.appearance().isTranslucent = false
+    }
+
+    /// Erzeugt ein stretchbares Pill-Image in der uebergebenen Farbe.
+    /// Die `capInsets` sind so gesetzt, dass die Rundung erhalten
+    /// bleibt, wenn iOS das Bild auf die Item-Breite skaliert.
+    private static func pillBild(farbe: UIColor, radius: CGFloat, hoehe: CGFloat) -> UIImage {
+        let breite = radius * 2 + 2
+        let groesse = CGSize(width: breite, height: hoehe)
+        let renderer = UIGraphicsImageRenderer(size: groesse)
+        let bild = renderer.image { _ in
+            let rect = CGRect(origin: .zero, size: groesse)
+            let pfad = UIBezierPath(roundedRect: rect, cornerRadius: radius)
+            farbe.setFill()
+            pfad.fill()
+        }
+        return bild.resizableImage(
+            withCapInsets: UIEdgeInsets(top: radius, left: radius, bottom: radius, right: radius),
+            resizingMode: .stretch
+        )
     }
 
     var body: some Scene {
