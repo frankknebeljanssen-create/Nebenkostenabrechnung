@@ -44,12 +44,16 @@ struct KontextHeader: View {
         .padding(.top, 12)
         .padding(.bottom, 12)
         .background {
-            DesignTokens.bgAppCompact
+            // Eine Stufe dunkler als bgAppCompact. Kein
+            // Design-Token trifft exakt — #D8D5CC ist der „warme
+            // Dunkelgrau"-Ton aus dem Task-Brief, visuell passend
+            // zur Papier-Palette der App.
+            Color(hex: "#D8D5CC")
                 .ignoresSafeArea(.container, edges: .top)
         }
         .overlay(alignment: .bottom) {
             Rectangle()
-                .fill(DesignTokens.separatorStrong)
+                .fill(DesignTokens.separator)
                 .frame(height: 0.5)
         }
         .sheet(isPresented: $zeigeObjektPicker) {
@@ -74,17 +78,22 @@ struct KontextHeader: View {
     private var objektZeile: some View {
         Button { zeigeObjektPicker = true } label: {
             HStack(spacing: 6) {
+                // Label + Wert gleiche Groesse + gleiches Gewicht
+                // (Plex Sans semibold 16 pt). Der Task-Brief nennt
+                // „bold 700" — Plex Sans 700 ist in der App nicht
+                // gebundelt (siehe CLAUDE.md Typografie-Policy), 600
+                // ist das maximale verfuegbare Gewicht.
                 Text("Objekt:")
-                    .appFont(AppFont.bodySemi())
-                    .foregroundStyle(DesignTokens.textSecondary)
+                    .appFont(Self.objektStyle)
+                    .foregroundStyle(DesignTokens.text)
                 Text(objektLabel)
-                    .appFont(AppFont.bodySemi())
-                    .foregroundStyle(DesignTokens.accent)
+                    .appFont(Self.objektStyle)
+                    .foregroundStyle(DesignTokens.text)
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(DesignTokens.accent)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(DesignTokens.text)
             }
             .contentShape(Rectangle())
         }
@@ -100,11 +109,11 @@ struct KontextHeader: View {
         } label: {
             HStack(spacing: 6) {
                 Text("Abrechnungszeitraum:")
-                    .appFont(AppFont.bodyMedium())
+                    .appFont(Self.periodenLabelStyle)
                     .foregroundStyle(DesignTokens.textSecondary)
                 Text(periodenLabel)
-                    .appFont(AppFont.Basis.monoBody())
-                    .foregroundStyle(DesignTokens.text)
+                    .appFont(Self.periodenWertStyle)
+                    .foregroundStyle(DesignTokens.textSecondary)
                     .lineLimit(1)
                 Image(systemName: "chevron.down")
                     .font(.system(size: 10, weight: .regular))
@@ -116,6 +125,31 @@ struct KontextHeader: View {
         .disabled(aktuelleImmobilie == nil)
         .accessibilityLabel("Abrechnungsperiode waehlen, aktuell \(periodenLabel)")
     }
+
+    // MARK: - Header-spezifische Typografie
+
+    /// Plex Sans semibold 16 pt — Objekt-Zeile (+1 pt gegenueber
+    /// dem vorherigen 15er Body, maximales verfuegbares Gewicht).
+    private static let objektStyle = AppFontStyle(
+        font: AppFont.plexSans(.semibold, 16),
+        tracking: 0,
+        uppercase: false
+    )
+
+    /// Plex Sans medium 14 pt — Perioden-Label (-1 pt).
+    private static let periodenLabelStyle = AppFontStyle(
+        font: AppFont.plexSans(.medium, 14),
+        tracking: 0,
+        uppercase: false
+    )
+
+    /// Plex Mono regular 14 pt — Perioden-Wert (-1 pt), weiter
+    /// Mono, weil Datum ein numerischer Wert ist.
+    private static let periodenWertStyle = AppFontStyle(
+        font: AppFont.plexMono(.regular, 14),
+        tracking: 0,
+        uppercase: false
+    )
 
     // MARK: - Ableitungen
 
