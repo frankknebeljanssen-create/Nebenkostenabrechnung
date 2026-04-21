@@ -143,13 +143,34 @@ struct VorauszahlungEingabeSheet: View {
 /// Eine Zeile im Vorauszahlungs-Sheet. Haelt `@Bindable mv`, damit
 /// onChange direkt auf das @Model-Objekt schreibt — keine Umwege
 /// ueber Dictionaries oder Custom-Bindings.
+///
+/// **Kritisch:** die @State-Felder (`betragText`, `gueltigAb`)
+/// werden im `init` aus dem mv-Objekt gesetzt, NICHT in einem
+/// `.onAppear`. Grund: jedes nachtraegliche Aendern eines @State
+/// loest das jeweilige `.onChange` aus. Frueher hat
+/// `ladenFallsNoetig()` den State von Default auf mv-Wert
+/// geaendert und damit BEI JEDEM OPEN fuer jede Row
+/// `mv.vorauszahlungErfasst = true` gesetzt — selbst wenn der
+/// User die Row nie getippt hat. Ergebnis war, dass nach dem
+/// Speichern einer einzigen Einheit alle MVs faelschlich als
+/// erfasst galten.
 private struct VorauszahlungRow: View {
     @Bindable var mv: Mietverhaeltnis
     let defaultGueltigAb: Date
 
-    @State private var betragText: String = ""
-    @State private var gueltigAb: Date = Date()
-    @State private var geladen: Bool = false
+    @State private var betragText: String
+    @State private var gueltigAb: Date
+
+    init(mv: Mietverhaeltnis, defaultGueltigAb: Date) {
+        self.mv = mv
+        self.defaultGueltigAb = defaultGueltigAb
+        _betragText = State(initialValue:
+            mv.vorauszahlungErfasst ? Self.format(mv.vorauszahlungMonatEuro) : ""
+        )
+        _gueltigAb = State(initialValue:
+            mv.vorauszahlungGueltigAb ?? defaultGueltigAb
+        )
+    }
 
     var body: some View {
         Card(tiefe: .flach) {
@@ -164,16 +185,6 @@ private struct VorauszahlungRow: View {
                 }
             }
         }
-        .onAppear { ladenFallsNoetig() }
-    }
-
-    private func ladenFallsNoetig() {
-        guard !geladen else { return }
-        betragText = mv.vorauszahlungErfasst
-            ? Self.format(mv.vorauszahlungMonatEuro)
-            : ""
-        gueltigAb = mv.vorauszahlungGueltigAb ?? defaultGueltigAb
-        geladen = true
     }
 
     // MARK: - Unterviews
@@ -241,10 +252,13 @@ private struct VorauszahlungRow: View {
             .environment(\.locale, Locale(identifier: "de_DE"))
             .tint(DesignTokens.text)
             .onChange(of: gueltigAb) { _, neu in
+                // Nur das Datum schreiben — `vorauszahlungErfasst`
+                // bleibt unberuehrt. Allein ein Datum zu aendern
+                // (oder ein Load-Default auf gueltigAb zu setzen)
+                // darf die VZ NICHT als „aktiv bestaetigt" markieren.
+                // Das passiert ausschliesslich in `schreibeBetrag`,
+                // wenn der User einen gueltigen Euro-Betrag tippt.
                 mv.vorauszahlungGueltigAb = neu
-                // Datum zaehlt als aktive Bestaetigung: wenn der
-                // User ein Datum setzt, ist die VZ „erfasst".
-                mv.vorauszahlungErfasst = true
             }
         }
     }
