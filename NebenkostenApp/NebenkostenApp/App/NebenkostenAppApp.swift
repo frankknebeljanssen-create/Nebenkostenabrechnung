@@ -40,6 +40,15 @@ struct NebenkostenAppApp: App {
         // iterieren zusaetzlich ueber bereits verbundene Scenes, um
         // den Fall „Scene ist schon da, Appearance nicht" abzudecken.
         Self.konfiguriereWindowHintergrund()
+        #if DEBUG
+        // TEMPORAER: View-Hierarchie nach 3 s in die Konsole drucken.
+        // Findet schwarze Views (bg == .black), markiert sie mit
+        // „>>>> BLACK <<<<" — so finden wir die verbleibende
+        // schwarze Flaeche ueber der floating TabBar ohne den
+        // GUI-View-Debugger, der unter iOS 26 haengt. Entfernen nach
+        // Diagnose.
+        Self.debugDruckViewHierarchieNachDelay()
+        #endif
     }
 
     private static func konfiguriereWindowHintergrund() {
@@ -110,6 +119,58 @@ struct NebenkostenAppApp: App {
         UITabBar.appearance().unselectedItemTintColor = inaktiv
         UITabBar.appearance().isTranslucent = false
     }
+
+    // MARK: - Debug (temporaer)
+
+    #if DEBUG
+    /// TEMPORAERE Diagnose: druckt die UIView-Hierarchie des ersten
+    /// verbundenen Windows 3 s nach App-Start in die Xcode-Konsole.
+    /// Jede Zeile: `<Einrueckung> <ClassName> frame=... bg=...`.
+    /// Zeilen mit schwarzem Hintergrund zusaetzlich mit
+    /// „>>>> BLACK <<<<" markiert, damit man sie im Output einfach
+    /// per Suche findet.
+    private static func debugDruckViewHierarchieNachDelay() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            guard let window = UIApplication.shared.connectedScenes
+                .compactMap({ $0 as? UIWindowScene })
+                .flatMap(\.windows)
+                .first
+            else {
+                print("[DBG-Hierarchy] Kein Window gefunden.")
+                return
+            }
+            print("====================== VIEW HIERARCHY ======================")
+            debugDruckView(window, einrueckung: 0)
+            print("============================================================")
+        }
+    }
+
+    private static func debugDruckView(_ view: UIView, einrueckung: Int) {
+        guard einrueckung < 15 else { return } // Safety-Cap
+        let pad = String(repeating: "  ", count: einrueckung)
+        let cls = String(describing: type(of: view))
+        let frame = view.frame
+        let bg = view.backgroundColor
+        let bgStr = bg?.description ?? "nil"
+        let schwarzMarker: String = {
+            guard let c = bg else { return "" }
+            if c == UIColor.black { return " >>>> BLACK <<<<" }
+            // Auch „UIExtendedGrayColorSpace 0 1" ist schwarz
+            if bgStr.contains("UIExtendedGrayColorSpace 0 1") { return " >>>> BLACK <<<<" }
+            // Generische RGB-Black-Erkennung
+            var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+            if c.getRed(&r, green: &g, blue: &b, alpha: &a),
+               r < 0.05, g < 0.05, b < 0.05, a > 0.5 {
+                return " >>>> BLACK <<<<"
+            }
+            return ""
+        }()
+        print("\(pad)\(cls) frame=\(frame) bg=\(bgStr)\(schwarzMarker)")
+        for sub in view.subviews {
+            debugDruckView(sub, einrueckung: einrueckung + 1)
+        }
+    }
+    #endif
 
     /// Erzeugt ein stretchbares Pill-Image in der uebergebenen Farbe.
     /// Die `capInsets` sind so gesetzt, dass die Rundung erhalten
