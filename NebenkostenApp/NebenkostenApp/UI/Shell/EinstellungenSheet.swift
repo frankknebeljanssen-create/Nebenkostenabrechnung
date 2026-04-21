@@ -41,6 +41,7 @@ struct EinstellungenSheet: View {
                 MieterSection(immobilie: immobilie)
                 UmlageSection(immobilie: immobilie)
                 VermieterSection()
+                KIExtraktionSection()
                 DatenSection()
                 RechtlichesSection()
                 UeberSection()
@@ -102,9 +103,6 @@ struct EinstellungenSheet: View {
             NavigationLink("Altes Objekt-Dashboard") {
                 Phase0RootWrapper()
             }
-            NavigationLink("Anthropic API-Key (Scan)") {
-                AnthropicKeyView()
-            }
         } header: {
             Text("Debug")
         } footer: {
@@ -116,7 +114,6 @@ struct EinstellungenSheet: View {
     #endif
 }
 
-#if DEBUG
 private struct AnthropicKeyView: View {
     @AppStorage("anthropic.apiKey") private var key: String = ""
     @State private var maskiert: Bool = true
@@ -160,7 +157,34 @@ private struct AnthropicKeyView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 }
-#endif
+
+// MARK: - KI-Extraktion-Section
+
+/// Oeffentliche Einstellungs-Section fuer den Anthropic-API-Key.
+/// Bewusst NICHT hinter `#if DEBUG` — ohne Key funktioniert der
+/// Scan-Flow gar nicht. Wird eingehaengt, bis der Cloudflare-
+/// Worker-Proxy steht; danach faellt sie weg.
+struct KIExtraktionSection: View {
+    var body: some View {
+        Section {
+            NavigationLink {
+                AnthropicKeyView()
+            } label: {
+                HStack {
+                    Text("Anthropic API-Key (Scan)")
+                    Spacer()
+                    Text(AnthropicClient.istKonfiguriert ? "konfiguriert" : "fehlt")
+                        .appFont(AppFont.caption())
+                        .foregroundStyle(AnthropicClient.istKonfiguriert ? DesignTokens.statusOk : DesignTokens.statusError)
+                }
+            }
+        } header: {
+            Text("KI-Extraktion")
+        } footer: {
+            Text("Ohne Key schlägt jeder Dokument-Scan mit einem Fehler fehl. Der Key wird lokal in UserDefaults gespeichert; in Zukunft übernimmt der Cloudflare-Worker-Proxy diese Aufgabe.")
+        }
+    }
+}
 
 // MARK: - Objekt-Section (readonly)
 

@@ -18,14 +18,14 @@
 //  hier ins domainspezifische `MietvertragsExtraktion`-Modell
 //  gemappt wird.
 //
-//  Fallback im DEBUG-Build
-//  -----------------------
-//  Wenn kein API-Key konfiguriert ist (weder UserDefaults noch
-//  ANTHROPIC_API_KEY-ENV gesetzt), faellt der Service in DEBUG-
-//  Builds auf deterministische Demo-Daten zurueck, damit der
-//  UI-Flow ohne Netzwerk testbar bleibt. In RELEASE-Builds wird
-//  ein `Fehler.keinAPIKey` geworfen — Mock-Daten duerfen
-//  niemals im produktiven Pfad landen.
+//  Keine Fake-Daten im Code-Pfad — AUCH NICHT in DEBUG
+//  ---------------------------------------------------
+//  Ohne konfigurierten API-Key wirft `extrahiere` IMMER
+//  `Fehler.keinAPIKey` — auch im DEBUG-Build. Die UI zeigt den
+//  User-lesbaren Text; der User setzt den Key in den Einstellungen
+//  (Debug-Section: „Anthropic API-Key (Scan)"). Frueher gab es in
+//  DEBUG einen Fallback auf Demo-Daten („Hans Beispielmieter"),
+//  der ist jetzt weg — Mock-Daten in keiner Build-Variante.
 //
 
 import Foundation
@@ -135,19 +135,11 @@ enum MietvertragsExtraktionService {
     static func extrahiere(ausBildern bilder: [UIImage]) async throws -> MietvertragsAnalyse {
         guard !bilder.isEmpty else { throw Fehler.keineBilder }
 
-        // Fallback-Logik: ohne API-Key in DEBUG auf Demo-Daten.
+        // Ohne API-Key: IMMER Fehler, auch in DEBUG. Kein Fake-
+        // Daten-Fallback mehr — der User muss den Key in den
+        // Einstellungen setzen, sonst geht der Scan nicht.
         guard AnthropicClient.istKonfiguriert else {
-            #if DEBUG
-            print("[MietvertragsExtraktion] Kein API-Key — fallback auf Demo-Daten (DEBUG-only).")
-            try? await Task.sleep(nanoseconds: 1_200_000_000)
-            return .init(
-                extraktion: demoExtraktion,
-                erkannterTyp: .mietvertrag,
-                hinweise: ["Demo-Daten — kein echter API-Call (kein API-Key gesetzt)"]
-            )
-            #else
             throw Fehler.keinAPIKey
-            #endif
         }
 
         let antwortText: String
@@ -304,30 +296,4 @@ enum MietvertragsExtraktionService {
         return f.date(from: s)
     }
 
-    // MARK: - Demo-Daten (nur DEBUG)
-
-    #if DEBUG
-    /// Deterministische Demo-Extraktion fuer den UI-Flow ohne
-    /// konfigurierten API-Key. Liegt bewusst hinter `#if DEBUG`,
-    /// damit in Release-Builds keine Fake-Namen im Binary sind.
-    private static var demoExtraktion: MietvertragsExtraktion {
-        let kal = Calendar(identifier: .gregorian)
-        let einzug = kal.date(from: DateComponents(year: 2024, month: 3, day: 1)) ?? Date()
-        return MietvertragsExtraktion(
-            adresse:                   .init(wert: "Am Dorfteich 4",            konfidenz: 0.93),
-            plz:                       .init(wert: "16818",                     konfidenz: 0.95),
-            stadt:                     .init(wert: "Schmachtenhagen",           konfidenz: 0.91),
-            gesamtflaecheM2:           .init(wert: 65,                          konfidenz: 0.74),
-            einheitBezeichnung:        .init(wert: "Datsche",                   konfidenz: 0.62),
-            einheitFlaecheM2:          .init(wert: 65,                          konfidenz: 0.74),
-            mieterName:                .init(wert: "Hans Beispielmieter",       konfidenz: 0.88),
-            mieterAnschrift:           .init(wert: "Musterweg 12, 10115 Berlin", konfidenz: 0.71),
-            einzugAm:                  .init(wert: einzug,                      konfidenz: 0.84),
-            vorauszahlungMonatEuro:    .init(wert: 120,                         konfidenz: 0.79),
-            abrechnungsturnus:         .init(wert: "jährlich",                  konfidenz: 0.46),
-            kaution:                   .init(wert: 900,                         konfidenz: 0.38),
-            besondereNKVereinbarungen: .leer
-        )
-    }
-    #endif
 }
