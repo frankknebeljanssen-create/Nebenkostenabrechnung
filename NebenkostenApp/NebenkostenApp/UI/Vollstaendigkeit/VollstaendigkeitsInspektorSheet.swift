@@ -31,25 +31,14 @@ struct VollstaendigkeitsInspektorSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     statusHeader
-                    if !fehlendeRechnungen.isEmpty {
-                        sektion(
-                            titel: "Rechnungen, die noch fehlen",
-                            farbe: .gray,
-                            eintraege: fehlendeRechnungen
-                        ) { eintrag in
-                            zeileFehlendeRechnung(eintrag)
-                        }
-                    }
-                    if !fehlendeZaehler.isEmpty {
-                        sektion(
-                            titel: "Zählerstände, die fehlen",
-                            farbe: .gray,
-                            eintraege: fehlendeZaehler
-                        ) { eintrag in
-                            zeileFehlenderZaehler(eintrag)
-                        }
-                    }
+
+                    // STAMMDATEN-GRUPPE
                     if !fehlendeStammdaten.isEmpty {
+                        gruppenHeader(
+                            titel: "Stammdaten",
+                            untertitel: "Objekt · Mieter · Vermieter",
+                            symbol: "person.text.rectangle"
+                        )
                         sektion(
                             titel: "Stammdaten, die fehlen",
                             farbe: .gray,
@@ -58,6 +47,37 @@ struct VollstaendigkeitsInspektorSheet: View {
                             zeileInfoOnly(eintrag)
                         }
                     }
+
+                    // ABRECHNUNGSDATEN-GRUPPE
+                    if !fehlendeZaehler.isEmpty || !fehlendeRechnungen.isEmpty {
+                        gruppenHeader(
+                            titel: "Abrechnungsdaten diese Periode",
+                            untertitel: "Belege · Zählerstände · Vorauszahlungen",
+                            symbol: "doc.text.magnifyingglass"
+                        )
+                        if !fehlendeRechnungen.isEmpty {
+                            sektion(
+                                titel: "Rechnungen, die noch fehlen",
+                                farbe: .gray,
+                                eintraege: fehlendeRechnungen
+                            ) { eintrag in
+                                zeileFehlendeRechnung(eintrag)
+                            }
+                        }
+                        if !fehlendeZaehler.isEmpty {
+                            sektion(
+                                titel: "Zählerstände, die fehlen",
+                                farbe: .gray,
+                                eintraege: fehlendeZaehler
+                            ) { eintrag in
+                                zeileFehlenderZaehler(eintrag)
+                            }
+                        }
+                    }
+
+                    // UEBERGREIFEND (keine saubere Einordnung — evtl.
+                    // WMZ-Plausi-Warnungen, die sowohl Stamm als auch
+                    // Laufend beruehren). Wir halten den Block separat.
                     if !inArbeit.isEmpty {
                         sektion(
                             titel: "In Arbeit / Unklar",
@@ -83,6 +103,34 @@ struct VollstaendigkeitsInspektorSheet: View {
                 }
             }
         }
+    }
+
+    /// Uppercase-Kategorie-Header zwischen den Sektionen. Visuell
+    /// deutlich abgesetzt von den Sektions-Titeln („Stammdaten,
+    /// die fehlen" usw.), damit der User die beiden Daten-Welten
+    /// klar trennen kann.
+    private func gruppenHeader(
+        titel: String,
+        untertitel: String,
+        symbol: String
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                Image(systemName: symbol)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                Text(titel.uppercased())
+                    .font(.footnote.weight(.semibold))
+                    .tracking(0.6)
+                    .foregroundStyle(.secondary)
+            }
+            Text(untertitel)
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 4)
+        .padding(.top, 8)
     }
 
     // MARK: - Daten

@@ -43,7 +43,7 @@ struct WohneinheitCarousel: View {
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: 124)
+            .frame(height: 160)
 
             if scopeOptionen.count > 1 {
                 PaginationDots(anzahl: scopeOptionen.count, aktiv: index)
@@ -158,10 +158,11 @@ struct WohneinheitCarousel: View {
 /// NaechsterSchrittCard (alle drei nutzen `Card(tiefe: .erhoben,
 /// balkenFarbe:)` mit dem aktiven Scope-Farbbalken).
 ///
-/// Inhalte (vertikal): Kicker „WOHNEINHEIT" (14 pt) → Name
-/// (18 pt semibold) → Flaeche (13 pt) → Adresse (12 pt). Der
-/// Chevron rechts ist entfallen — die gesamte Card ist tappbar
-/// und oeffnet die Einstellungen.
+/// Tap oeffnet das Stammdaten-Detail (KontextDetailSheet). Der
+/// Kicker signalisiert das explizit: „STAMMDATEN" + kleine
+/// Bereichs-Auflistung, damit der User sieht, was sich hinter
+/// der Card verbirgt. Darunter die gewaehlte Scope-Info (Einheit
+/// bzw. Gesamtes Objekt) mit Flaeche + Adresse.
 fileprivate struct WohneinheitCard: View {
     let option: WohneinheitCarousel.ScopeOption
     let adresse: String
@@ -171,13 +172,23 @@ fileprivate struct WohneinheitCard: View {
         Button(action: onTap) {
             Card(tiefe: .erhoben, balkenFarbe: option.farbe) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("WOHNEINHEIT")
-                        .appFont(Self.kickerStyle)
+                    HStack(spacing: 6) {
+                        Image(systemName: "person.text.rectangle")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(DesignTokens.textTertiary)
+                        Text("STAMMDATEN")
+                            .appFont(Self.kickerStyle)
+                            .foregroundStyle(DesignTokens.textTertiary)
+                    }
+                    Text("Objekt · Mieter · Vermieter")
+                        .appFont(AppFont.Basis.caption())
                         .foregroundStyle(DesignTokens.textTertiary)
+                        .lineLimit(1)
                     Text(option.titel)
                         .appFont(Self.nameStyle)
                         .foregroundStyle(DesignTokens.text)
                         .lineLimit(1)
+                        .padding(.top, 2)
                     if !option.flaeche.isEmpty {
                         Text(option.flaeche)
                             .appFont(AppFont.Rechnungen.subZeile())

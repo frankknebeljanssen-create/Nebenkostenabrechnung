@@ -32,6 +32,8 @@ struct HomeView: View {
     /// Scope, fuer den aktuell das KontextDetailSheet offen ist.
     /// Nil = Sheet zu. Wird per Tap auf eine Home-Card gesetzt.
     @State private var detailScope: AppScope? = nil
+    /// Steuert das AbrechnungsDatenSheet (zweit-Nav-Card).
+    @State private var zeigeAbrechnungsDaten: Bool = false
 
     /// Aktuell angezeigte Immobilie — aus dem persistierten
     /// ScopeManager-Kontext, Fallback auf die erste verfuegbare.
@@ -91,6 +93,9 @@ struct HomeView: View {
                         ),
                         onOeffnen: oeffneEinheit
                     )
+                    AbrechnungsdatenCard {
+                        zeigeAbrechnungsDaten = true
+                    }
                     HomeStatusCard(
                         anforderungen: anforderungen,
                         immobilie: immobilie,
@@ -124,6 +129,11 @@ struct HomeView: View {
         )
         .sheet(isPresented: $zeigeScopePicker) { ScopePickerSheet() }
         .sheet(isPresented: $zeigeEinstellungen) { EinstellungenSheet() }
+        .sheet(isPresented: $zeigeAbrechnungsDaten) {
+            AbrechnungsDatenSheet(onVorauszahlungen: {
+                router.oeffneVorauszahlungSheet(einheitID: nil)
+            })
+        }
         .sheet(isPresented: Binding(
             get: { detailScope != nil },
             set: { if !$0 { detailScope = nil } }

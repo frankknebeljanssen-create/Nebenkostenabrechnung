@@ -83,7 +83,11 @@ struct AnalyseBefundView: View {
     @ViewBuilder
     private var erkanntBlock: some View {
         let felder = sitzung.erkannteFelderSortiert()
-        VStack(alignment: .leading, spacing: 8) {
+        let stammdaten = felder.filter { Self.istStammdatum($0.label) }
+        let nkDaten    = felder.filter { Self.istNKDatum($0.label) }
+        let rest       = felder.filter { !Self.istStammdatum($0.label) && !Self.istNKDatum($0.label) }
+
+        VStack(alignment: .leading, spacing: 12) {
             SectionHeaderZeile(
                 titel: "Was wurde erkannt",
                 anzahl: felder.count
@@ -95,17 +99,73 @@ struct AnalyseBefundView: View {
                         .foregroundStyle(DesignTokens.textSecondary)
                 }
             } else {
-                Card {
-                    VStack(alignment: .leading, spacing: 10) {
-                        ForEach(Array(felder.enumerated()), id: \.element.id) { idx, feld in
-                            ErkanntZeile(feld: feld)
-                            if idx < felder.count - 1 {
-                                DividerLine()
-                            }
-                        }
+                if !stammdaten.isEmpty {
+                    erkanntSubCard(
+                        titel: "Stammdaten erkannt",
+                        symbol: "person.text.rectangle",
+                        felder: stammdaten
+                    )
+                }
+                if !nkDaten.isEmpty {
+                    erkanntSubCard(
+                        titel: "NK-Daten erkannt",
+                        symbol: "doc.text.magnifyingglass",
+                        felder: nkDaten
+                    )
+                }
+                if !rest.isEmpty {
+                    erkanntSubCard(
+                        titel: "Weitere Felder",
+                        symbol: "ellipsis.rectangle",
+                        felder: rest
+                    )
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func erkanntSubCard(titel: String, symbol: String, felder: [ErkanntesFeld]) -> some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 6) {
+                    Image(systemName: symbol)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(DesignTokens.textTertiary)
+                    Text(titel.uppercased())
+                        .appFont(AppFont.Dashboard.kartenKicker())
+                        .foregroundStyle(DesignTokens.textTertiary)
+                }
+                ForEach(Array(felder.enumerated()), id: \.element.id) { idx, feld in
+                    ErkanntZeile(feld: feld)
+                    if idx < felder.count - 1 {
+                        DividerLine()
                     }
                 }
             }
+        }
+    }
+
+    /// Klassifikation, die sich strikt an der User-Spec orientiert
+    /// (docs/stammdaten-vs-nk-daten.md, Stufe 2).
+    /// Labels kommen aus `DokumentAnalyseService.baueFelder` —
+    /// wenn dort neue Labels hinzukommen, muessen sie hier zugeordnet
+    /// werden.
+    private static func istStammdatum(_ label: String) -> Bool {
+        switch label {
+        case "Mieter", "Anschrift", "Adresse", "Fläche", "Einzug", "Kaution":
+            return true
+        default:
+            return false
+        }
+    }
+
+    private static func istNKDatum(_ label: String) -> Bool {
+        switch label {
+        case "NK-Vorauszahlung", "Kaltmiete":
+            return true
+        default:
+            return false
         }
     }
 
