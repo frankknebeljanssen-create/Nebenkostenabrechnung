@@ -65,7 +65,7 @@ struct PeriodenPickerSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Fertig") { dismiss() }
+                    SheetToolbar.abbrechen(titel: "Fertig") { dismiss() }
                 }
             }
         }

@@ -83,11 +83,13 @@ struct MieterEditView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Abbrechen") { dismiss() }
+                    SheetToolbar.abbrechen { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Speichern") { speichern() }
-                        .disabled(!istGueltig)
+                    SheetToolbar.primaer(
+                        titel: "Speichern",
+                        istAktiv: istGueltig
+                    ) { speichern() }
                 }
             }
             .alert(

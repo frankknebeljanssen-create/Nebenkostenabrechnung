@@ -87,11 +87,13 @@ struct NeuesObjektSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Abbrechen") { dismiss() }
+                    SheetToolbar.abbrechen { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Anlegen") { anlegen() }
-                        .disabled(!istGueltig)
+                    SheetToolbar.primaer(
+                        titel: "Anlegen",
+                        istAktiv: istGueltig
+                    ) { anlegen() }
                 }
             }
         }

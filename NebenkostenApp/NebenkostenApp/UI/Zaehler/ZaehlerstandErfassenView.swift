@@ -67,11 +67,13 @@ struct ZaehlerstandErfassenView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Abbrechen") { dismiss() }
+                    SheetToolbar.abbrechen { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Speichern") { speichernMitPruefung() }
-                        .disabled(!vm.istGueltig)
+                    SheetToolbar.primaer(
+                        titel: "Speichern",
+                        istAktiv: vm.istGueltig
+                    ) { speichernMitPruefung() }
                 }
             }
             .alert("Rücklauf erkannt",

@@ -30,6 +30,7 @@ struct RechnungEditView: View {
     @State private var geprueft: Bool
 
     @State private var zeigeLoeschen = false
+    @State private var zeigeBelegVollbild = false
 
     init(modus: Modus) {
         self.modus = modus
@@ -65,6 +66,9 @@ struct RechnungEditView: View {
     var body: some View {
         NavigationStack {
             Form {
+                if case .bearbeiten = modus {
+                    belegSektion
+                }
                 lieferantSektion
                 zeitraumSektion
                 betragSektion
@@ -83,11 +87,22 @@ struct RechnungEditView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Abbrechen") { dismiss() }
+                    SheetToolbar.abbrechen { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Speichern") { speichern() }
-                        .disabled(!istGueltig)
+                    SheetToolbar.primaer(
+                        titel: "Speichern",
+                        istAktiv: istGueltig
+                    ) { speichern() }
+                }
+            }
+            .sheet(isPresented: $zeigeBelegVollbild) {
+                if case .bearbeiten(let r) = modus, let data = r.anhang {
+                    BelegVorschauSheet(
+                        anhang: data,
+                        anhangTyp: r.anhangTyp,
+                        titel: r.lieferant.isEmpty ? "Originalbeleg" : r.lieferant
+                    )
                 }
             }
             .alert(
@@ -101,6 +116,29 @@ struct RechnungEditView: View {
                     Text("Die Rechnung wird unwiderruflich entfernt.")
                 }
             )
+        }
+    }
+
+    // MARK: - Beleg-Sektion
+
+    @ViewBuilder
+    private var belegSektion: some View {
+        if case .bearbeiten(let r) = modus {
+            Section {
+                BelegVorschauCard(
+                    anhang: r.anhang,
+                    anhangTyp: r.anhangTyp,
+                    onTap: {
+                        if r.anhang != nil {
+                            zeigeBelegVollbild = true
+                        }
+                    }
+                )
+                .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+                .listRowBackground(Color.clear)
+            } header: {
+                Text("Originalbeleg")
+            }
         }
     }
 
