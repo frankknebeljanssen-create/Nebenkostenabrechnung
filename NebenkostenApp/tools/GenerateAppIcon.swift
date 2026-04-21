@@ -3,10 +3,10 @@
 //  tools
 //
 //  Standalone-Script, das die App-Icons fuer den Asset-Catalog
-//  erzeugt. Ausgangspunkt ist der accent-blaue Hintergrund
-//  (#3A5578) + ein weisses Haus mit gestricheltem Dach, kleinem
-//  Schornstein auf der rechten Dachseite, gefuelltem Body und
-//  einem Tuer-Cutout in Accent-Farbe.
+//  erzeugt. Entwurf angelehnt an die User-Vorlage vom 21.04.2026:
+//  heller Blau-Gradient, grosses weisses Haus mit spitzem Dach,
+//  zentriertem Schornstein, zwei hellblauen Sprossenfenstern und
+//  einer dunkelblauen Tuer mit weissem Euro-Symbol.
 //
 //  Aufruf:
 //      swift tools/GenerateAppIcon.swift \
@@ -14,31 +14,19 @@
 //        NebenkostenApp/NebenkostenApp/Assets.xcassets/AppIcon.appiconset/AppIcon-Dark.png \
 //        NebenkostenApp/NebenkostenApp/Assets.xcassets/AppIcon.appiconset/AppIcon-Tinted.png
 //
-//  Die drei Pfade erhalten identische Bilder — iOS handhabt
-//  Light/Dark/Tinted eigenstaendig. Wenn wir spaeter wirklich
-//  unterschiedliche Varianten brauchen, hier verzweigen.
-//
 
 import AppKit
 import Foundation
 
 let size: CGFloat = 1024
 
-// Farben: Accent aus DesignTokens.swift (#3A5578), "Papier"
-// leicht gebrochen weiss (#F5EFE3) — derselbe Papier-Ton wie
-// der Background-Token, damit das Haus nicht steril wirkt.
-let accent = NSColor(
-    red: 0x3A / 255.0,
-    green: 0x55 / 255.0,
-    blue: 0x78 / 255.0,
-    alpha: 1
-)
-let paper = NSColor(
-    red: 0xF5 / 255.0,
-    green: 0xEF / 255.0,
-    blue: 0xE3 / 255.0,
-    alpha: 1
-)
+// Farben (aus der Vorlage ausgemessen).
+let bgTop = NSColor(red: 0x52 / 255.0, green: 0x91 / 255.0, blue: 0xF5 / 255.0, alpha: 1) // #5291F5
+let bgBottom = NSColor(red: 0x2A / 255.0, green: 0x64 / 255.0, blue: 0xD8 / 255.0, alpha: 1) // #2A64D8
+let weiss = NSColor.white
+let fensterFuellung = NSColor(red: 0xBF / 255.0, green: 0xD5 / 255.0, blue: 0xF0 / 255.0, alpha: 1) // #BFD5F0
+let tuerFarbe = NSColor(red: 0x2A / 255.0, green: 0x55 / 255.0, blue: 0xB0 / 255.0, alpha: 1) // #2A55B0
+let griffDot = NSColor(red: 0x5B / 255.0, green: 0x9A / 255.0, blue: 0xF5 / 255.0, alpha: 1)
 
 func makeIconData() -> Data {
     guard let rep = NSBitmapImageRep(
@@ -62,73 +50,104 @@ func makeIconData() -> Data {
     NSGraphicsContext.saveGraphicsState()
     NSGraphicsContext.current = ctx
 
-    // Canvas komplett mit Accent fuellen — iOS maskiert den
-    // Radius beim Anzeigen selbst.
-    accent.setFill()
-    NSBezierPath(rect: NSRect(x: 0, y: 0, width: size, height: size)).fill()
+    // Canvas: 0,0 = unten links (AppKit-Standard).
 
-    // Haus-Proportionen. AppKit-Koordinaten: 0 = unten.
-    let cx: CGFloat = size / 2            // 512
-    let cy: CGFloat = size * 0.48         // leicht unter Mitte
-
-    // Body
-    let bodyWidth: CGFloat = 460
-    let bodyHeight: CGFloat = 330
-    let bodyRect = NSRect(
-        x: cx - bodyWidth / 2,
-        y: cy - bodyHeight / 2 - 40,
-        width: bodyWidth,
-        height: bodyHeight
+    // 1. Hintergrund-Gradient (Top-Links heller, Bottom-Rechts dunkler)
+    let gradient = NSGradient(starting: bgTop, ending: bgBottom)!
+    gradient.draw(
+        in: NSRect(x: 0, y: 0, width: size, height: size),
+        angle: -45   // von links oben nach rechts unten
     )
-    paper.setFill()
-    NSBezierPath(roundedRect: bodyRect, xRadius: 28, yRadius: 28).fill()
 
-    // Dach: Zwei Strokes ueber die Body-Top-Kante gesetzt, sodass
-    // das Dach klar "auf" dem Body sitzt (nicht in ihn hinein).
-    // LineCap/Join rund, damit die Ecken weich sind.
-    let roofStroke: CGFloat = 44
-    let roofLeftX: CGFloat = bodyRect.minX - 28
-    let roofRightX: CGFloat = bodyRect.maxX + 28
-    let roofBaseY: CGFloat = bodyRect.maxY
-    let roofPeakY: CGFloat = cy + 258
+    // 2. Haus-Body (Rechteck)
+    //    Breite ~ 780, Hoehe ~ 450, zentriert X, unterer Rand ca. 60
+    let bodyX: CGFloat = 122
+    let bodyY: CGFloat = 60
+    let bodyWidth: CGFloat = 780
+    let bodyHeight: CGFloat = 450
+    weiss.setFill()
+    NSBezierPath(rect: NSRect(x: bodyX, y: bodyY, width: bodyWidth, height: bodyHeight)).fill()
 
+    // 3. Dach (gefuelltes Dreieck, steile Giebel-Form)
+    let roofLeftX: CGFloat = bodyX - 40
+    let roofRightX: CGFloat = bodyX + bodyWidth + 40
+    let roofBaseY: CGFloat = bodyY + bodyHeight      // sitzt auf dem Body auf
+    let roofPeakY: CGFloat = bodyY + bodyHeight + 380
     let roof = NSBezierPath()
     roof.move(to: NSPoint(x: roofLeftX, y: roofBaseY))
-    roof.line(to: NSPoint(x: cx, y: roofPeakY))
+    roof.line(to: NSPoint(x: size / 2, y: roofPeakY))
     roof.line(to: NSPoint(x: roofRightX, y: roofBaseY))
-    roof.lineCapStyle = .round
-    roof.lineJoinStyle = .round
-    roof.lineWidth = roofStroke
-    paper.setStroke()
-    roof.stroke()
+    roof.close()
+    weiss.setFill()
+    roof.fill()
 
-    // Schornstein: schlanker Rechteck-Stab auf der rechten
-    // Dachschraegen-Haelfte, naeher Richtung Firstspitze. Der
-    // Fuss tangiert die Dachlinie, der Kopf steht sichtbar drueber.
-    let chimneyWidth: CGFloat = 40
-    let chimneyX = cx + 130
-    let chimneyBaseY: CGFloat = cy + 165
-    let chimneyTopY: CGFloat = cy + 260
-    let chimneyRect = NSRect(
-        x: chimneyX,
-        y: chimneyBaseY,
-        width: chimneyWidth,
-        height: chimneyTopY - chimneyBaseY
-    )
-    paper.setFill()
-    NSBezierPath(roundedRect: chimneyRect, xRadius: 6, yRadius: 6).fill()
+    // 4. Schornstein (weisser Block mit kleiner oberer Krempe)
+    //    Steht auf der linken Haelfte des Daches, ragt sichtbar
+    //    ueber die Spitze hinaus.
+    let schornsteinX: CGFloat = 438
+    let schornsteinWidth: CGFloat = 56
+    let schornsteinStand: CGFloat = roofBaseY + 180
+    let schornsteinTop: CGFloat = roofPeakY + 70
+    let schornstein = NSBezierPath(rect: NSRect(
+        x: schornsteinX,
+        y: schornsteinStand,
+        width: schornsteinWidth,
+        height: schornsteinTop - schornsteinStand
+    ))
+    weiss.setFill()
+    schornstein.fill()
+    // Krempe oben (leicht breiter als der Stab)
+    let krempe = NSBezierPath(rect: NSRect(
+        x: schornsteinX - 6,
+        y: schornsteinTop - 24,
+        width: schornsteinWidth + 12,
+        height: 24
+    ))
+    krempe.fill()
 
-    // Tuer: Accent-Farbe, flush mit Body-Boden, mittig.
-    let doorWidth: CGFloat = 100
-    let doorHeight: CGFloat = 175
-    let doorRect = NSRect(
-        x: cx - doorWidth / 2,
-        y: bodyRect.minY + 4,
-        width: doorWidth,
-        height: doorHeight
+    // 5. Fenster (zwei hellblaue Sprossenfenster mit weissem Kreuz)
+    zeichneFenster(mittelpunkt: NSPoint(x: 290, y: 340), groesse: 170)
+    zeichneFenster(mittelpunkt: NSPoint(x: 734, y: 340), groesse: 170)
+
+    // 6. Tuer — dunkelblaues Rechteck mit runden OBEREN Ecken.
+    //    Breite ~ 240, Hoehe ~ 330, zentriert, unten buendig mit Body.
+    let tuerWidth: CGFloat = 240
+    let tuerHeight: CGFloat = 340
+    let tuerX: CGFloat = (size - tuerWidth) / 2
+    let tuerY: CGFloat = bodyY            // buendig mit Body-Unterkante
+    let tuerRadius: CGFloat = 34
+    let tuerPfad = pfadMitRundenOberkanten(
+        x: tuerX, y: tuerY,
+        width: tuerWidth, height: tuerHeight,
+        radius: tuerRadius
     )
-    accent.setFill()
-    NSBezierPath(roundedRect: doorRect, xRadius: 12, yRadius: 12).fill()
+    tuerFarbe.setFill()
+    tuerPfad.fill()
+
+    // 7. Euro-Symbol weiss in der Mitte der Tuer
+    let euro = "€" as NSString
+    let attrs: [NSAttributedString.Key: Any] = [
+        .font: NSFont.systemFont(ofSize: 176, weight: .bold),
+        .foregroundColor: weiss
+    ]
+    let euroSize = euro.size(withAttributes: attrs)
+    let euroX = tuerX + (tuerWidth - euroSize.width) / 2
+    let euroY = tuerY + (tuerHeight - euroSize.height) / 2 + 18
+    euro.draw(at: NSPoint(x: euroX, y: euroY), withAttributes: attrs)
+
+    // 8. Tuergriff-Dot (kleines helles Blau, rechts oben auf der Tuer)
+    let dotRadius: CGFloat = 14
+    let dotCenter = NSPoint(
+        x: tuerX + tuerWidth - 32,
+        y: tuerY + tuerHeight - 100
+    )
+    griffDot.setFill()
+    NSBezierPath(ovalIn: NSRect(
+        x: dotCenter.x - dotRadius,
+        y: dotCenter.y - dotRadius,
+        width: dotRadius * 2,
+        height: dotRadius * 2
+    )).fill()
 
     NSGraphicsContext.restoreGraphicsState()
 
@@ -136,6 +155,63 @@ func makeIconData() -> Data {
         fatalError("PNG-Encoding fehlgeschlagen")
     }
     return data
+}
+
+/// Sprossen-Fenster: hellblaue Fuellung + weisses Kreuz mit
+/// Kreuzungs-Lichteffekt.
+func zeichneFenster(mittelpunkt m: NSPoint, groesse g: CGFloat) {
+    let rect = NSRect(x: m.x - g / 2, y: m.y - g / 2, width: g, height: g)
+    let pfad = NSBezierPath(roundedRect: rect, xRadius: 8, yRadius: 8)
+    fensterFuellung.setFill()
+    pfad.fill()
+
+    // Weisses Kreuz (ca. 14 pt breit fuer 170er Fenster — etwa 8 %)
+    let balken: CGFloat = 14
+    weiss.setFill()
+    // horizontal
+    NSBezierPath(rect: NSRect(
+        x: rect.minX, y: m.y - balken / 2,
+        width: rect.width, height: balken
+    )).fill()
+    // vertikal
+    NSBezierPath(rect: NSRect(
+        x: m.x - balken / 2, y: rect.minY,
+        width: balken, height: rect.height
+    )).fill()
+}
+
+/// Pfad fuer Rechteck mit runden OBEREN Ecken (unten spitz).
+/// AppKit-Koordinaten: y waechst nach oben.
+func pfadMitRundenOberkanten(
+    x: CGFloat, y: CGFloat,
+    width w: CGFloat, height h: CGFloat,
+    radius r: CGFloat
+) -> NSBezierPath {
+    let p = NSBezierPath()
+    // Start unten-links, gegen den Uhrzeigersinn
+    p.move(to: NSPoint(x: x, y: y))
+    p.line(to: NSPoint(x: x + w, y: y))                     // Unterkante
+    p.line(to: NSPoint(x: x + w, y: y + h - r))             // rechts hoch bis Rundung
+    // obere rechte Ecke (90°-Bogen)
+    p.appendArc(
+        withCenter: NSPoint(x: x + w - r, y: y + h - r),
+        radius: r,
+        startAngle: 0,
+        endAngle: 90,
+        clockwise: false
+    )
+    p.line(to: NSPoint(x: x + r, y: y + h))                 // Oberkante
+    // obere linke Ecke
+    p.appendArc(
+        withCenter: NSPoint(x: x + r, y: y + h - r),
+        radius: r,
+        startAngle: 90,
+        endAngle: 180,
+        clockwise: false
+    )
+    p.line(to: NSPoint(x: x, y: y))                         // links runter
+    p.close()
+    return p
 }
 
 let args = CommandLine.arguments
