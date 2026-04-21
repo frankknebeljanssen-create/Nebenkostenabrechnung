@@ -128,10 +128,17 @@ struct KontextHeader: View {
 
     // MARK: - Header-spezifische Typografie
 
-    /// Plex Sans semibold 16 pt — Objekt-Zeile (+1 pt gegenueber
-    /// dem vorherigen 15er Body, maximales verfuegbares Gewicht).
+    /// Plex Sans semibold 17 pt — Objekt-Zeile. +2 pt gegenueber
+    /// dem urspruenglichen 15er Body, +1 pt gegenueber der ersten
+    /// Header-Iteration. Damit ist der Objekt-Name deutlich das
+    /// dominante Element im Header.
+    ///
+    /// Plex Sans 700 (bold) ist in der App nicht gebundelt (siehe
+    /// CLAUDE.md Typografie-Policy), `600` ist das maximale
+    /// verfuegbare Gewicht; das groessere Size-Plus kompensiert
+    /// den fehlenden Weight-Sprung.
     private static let objektStyle = AppFontStyle(
-        font: AppFont.plexSans(.semibold, 16),
+        font: AppFont.plexSans(.semibold, 17),
         tracking: 0,
         uppercase: false
     )
@@ -230,11 +237,18 @@ struct KontextHeader: View {
 
 // MARK: - WohneinheitPillReihe
 
-/// "Gesamt" + eine Pill pro Wohneinheit. Zentriert, wenn alle
-/// Pills in die Breite passen; sonst horizontal scrollbar (ohne
-/// Indikator). Farbgebung folgt `ScopeFarbe` / `DesignTokens.
-/// unitObjekt` — aktive Pill bekommt Soft-Hintergrund + 0.5 pt
-/// farbigen Strich.
+/// „Gesamt" + eine Pill pro Wohneinheit. Immer horizontal scrollbar
+/// (auch wenn alle Pills aktuell in die Breite passen) — die Basis
+/// ist damit vorbereitet fuer Objekte mit vielen Einheiten.
+///
+/// Layout:
+/// - Pill-Hoehe ~36 pt (durch `.padding(.vertical, 10)` + Text +
+///   Icon).
+/// - Horizontal-Padding innen 16 pt (gute Tap-Flaeche).
+/// - Unselected: textPrimary auf transparentem Grund, dezenter
+///   separator-Rand.
+/// - Selected: weiss auf Accent-Pill (#3A5578). Einheitliche
+///   Markierung, unabhaengig von der Unit-Farbe.
 struct WohneinheitPillReihe: View {
     let immobilie: Immobilie
     @Environment(ScopeManager.self) private var scope
@@ -244,64 +258,49 @@ struct WohneinheitPillReihe: View {
     }
 
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            pillenHStack
-                .frame(maxWidth: .infinity)   // zentriert, wenn passt
-            ScrollView(.horizontal, showsIndicators: false) {
-                pillenHStack
-                    .padding(.horizontal, 16)
-            }
-        }
-    }
-
-    private var pillenHStack: some View {
-        HStack(spacing: 8) {
-            pill(
-                label: "Gesamt",
-                icon: "square.stack.3d.up",
-                farbe: DesignTokens.unitObjekt,
-                soft: DesignTokens.unitObjektSoft,
-                aktiv: scope.isObjekt
-            ) {
-                scope.scope = .objekt
-            }
-            ForEach(einheiten) { e in
-                let farbe = ScopeFarbe.farbe(fuer: e)
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
                 pill(
-                    label: e.bezeichnung,
-                    icon: ScopeFarbe.icon(fuer: e),
-                    farbe: farbe,
-                    soft: farbe.opacity(0.12),
-                    aktiv: scope.einheitID == e.bezeichnung
+                    label: "Gesamt",
+                    icon: "square.stack.3d.up",
+                    aktiv: scope.isObjekt
                 ) {
-                    scope.scope = .einheit(id: e.bezeichnung)
+                    scope.scope = .objekt
+                }
+                ForEach(einheiten) { e in
+                    pill(
+                        label: e.bezeichnung,
+                        icon: ScopeFarbe.icon(fuer: e),
+                        aktiv: scope.einheitID == e.bezeichnung
+                    ) {
+                        scope.scope = .einheit(id: e.bezeichnung)
+                    }
                 }
             }
+            .padding(.horizontal, 16)
         }
     }
 
     private func pill(
         label: String,
         icon: String,
-        farbe: Color,
-        soft: Color,
         aktiv: Bool,
         aktion: @escaping () -> Void
     ) -> some View {
         Button(action: aktion) {
-            HStack(spacing: 5) {
+            HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: 11, weight: .semibold))
                 Text(label)
-                    .appFont(AppFont.captionMedium())
+                    .appFont(Self.pillLabelStyle)
             }
-            .foregroundStyle(aktiv ? farbe : DesignTokens.textSecondary)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(aktiv ? soft : Color.clear)
+            .foregroundStyle(aktiv ? Color.white : DesignTokens.text)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(aktiv ? DesignTokens.accent : Color.clear)
             .overlay(
                 Capsule().stroke(
-                    aktiv ? farbe.opacity(0.5) : DesignTokens.separator,
+                    aktiv ? DesignTokens.accent : DesignTokens.separatorStrong,
                     lineWidth: 0.5
                 )
             )
@@ -311,4 +310,13 @@ struct WohneinheitPillReihe: View {
         .accessibilityLabel(label)
         .accessibilityAddTraits(aktiv ? .isSelected : [])
     }
+
+    /// Plex Sans semibold 13 pt — die Pill-Label sollen klar lesbar
+    /// und kraeftig wirken; 600 ist das maximale verfuegbare Gewicht
+    /// in der App (Plex Sans 700 ist nicht gebundelt).
+    private static let pillLabelStyle = AppFontStyle(
+        font: AppFont.plexSans(.semibold, 13),
+        tracking: 0.1,
+        uppercase: false
+    )
 }
