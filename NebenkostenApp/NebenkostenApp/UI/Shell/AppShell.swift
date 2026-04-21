@@ -8,10 +8,12 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct AppShell: View {
     @Environment(ScopeManager.self) private var scope
     @Environment(AppShellRouter.self) private var router
+    @Query(sort: \Immobilie.erstelltAm) private var immobilien: [Immobilie]
 
     @State private var zeigeScopePicker = false
     @State private var zeigeInspektor = false
@@ -71,6 +73,33 @@ struct AppShell: View {
         .sheet(isPresented: $zeigeEinstellungen) {
             EinstellungenSheet()
         }
+        .sheet(item: vorauszahlungBinding) { kontext in
+            if let immo = aktuelleImmobilie {
+                VorauszahlungEingabeSheet(
+                    immobilie: immo,
+                    fokusEinheitID: kontext.einheitID
+                )
+            }
+        }
+    }
+
+    /// Bindings-Adapter auf `router.vorauszahlungSheet` — damit
+    /// `.sheet(item:)` beim User-Dismiss den Router-State auf
+    /// nil setzt (sonst feuert das Sheet beim naechsten Re-Render
+    /// erneut).
+    private var vorauszahlungBinding: Binding<VorauszahlungSheetKontext?> {
+        Binding(
+            get: { router.vorauszahlungSheet },
+            set: { router.vorauszahlungSheet = $0 }
+        )
+    }
+
+    private var aktuelleImmobilie: Immobilie? {
+        if let id = scope.aktuelleImmobilieID,
+           let treffer = immobilien.first(where: { $0.id == id }) {
+            return treffer
+        }
+        return immobilien.first
     }
 
     // Die frühere `validateActiveTab()`-Absicherung wird durch

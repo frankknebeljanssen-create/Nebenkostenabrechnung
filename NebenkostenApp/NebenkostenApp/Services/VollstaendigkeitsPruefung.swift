@@ -41,7 +41,7 @@ enum VollstaendigkeitsPruefung {
         let flaeche = DatenAnforderung(
             id: "stammdaten-gesamtflaeche",
             kategorie: .stammdaten,
-            titel: "Objekt-Gesamtfläche",
+            titel: "Objekt-Gesamtfläche eintragen",
             details: "Summe aller Einheiten in m²",
             erforderlich: true
         )
@@ -58,7 +58,7 @@ enum VollstaendigkeitsPruefung {
         let einheitAnf = DatenAnforderung(
             id: "stammdaten-wohneinheiten",
             kategorie: .stammdaten,
-            titel: "Wohneinheiten mit Fläche",
+            titel: "Wohneinheiten-Flächen eintragen",
             details: "Pro Einheit Bezeichnung und m²",
             erforderlich: true
         )
@@ -90,7 +90,7 @@ enum VollstaendigkeitsPruefung {
         let mieterAnf = DatenAnforderung(
             id: "stammdaten-mieter",
             kategorie: .stammdaten,
-            titel: "Mieter je Einheit",
+            titel: "Mieter eintragen",
             details: "Aktives Mietverhältnis (außer Leerstand)",
             erforderlich: true
         )
@@ -133,7 +133,7 @@ enum VollstaendigkeitsPruefung {
         let vzAnf = DatenAnforderung(
             id: "stammdaten-vorauszahlung",
             kategorie: .stammdaten,
-            titel: "Vorauszahlungen bestätigt",
+            titel: "Vorauszahlungen eintragen",
             details: "Monatsbetrag je Mieter aktiv gesetzt (0 erlaubt)",
             erforderlich: true
         )
@@ -176,7 +176,7 @@ enum VollstaendigkeitsPruefung {
         let periodeAnf = DatenAnforderung(
             id: "stammdaten-periode",
             kategorie: .stammdaten,
-            titel: "Abrechnungsperiode plausibel",
+            titel: "Abrechnungsperiode prüfen",
             details: "von-Datum liegt vor bis-Datum",
             erforderlich: true
         )
@@ -218,7 +218,7 @@ enum VollstaendigkeitsPruefung {
         let alle = haupt + wohnung
 
         return alle.map { z -> AnforderungMitStatus in
-            let titel = anzeigeNameZaehler(z)
+            let titel = "Zählerstand erfassen: \(anzeigeNameZaehler(z))"
             let einheitenName = z.wohneinheit?.bezeichnung ?? "Hauptzähler"
             let details = "\(einheitenName) · \(mediumName(z.medium))"
                 + (z.seriennummer.isEmpty ? "" : " · SN \(z.seriennummer)")
@@ -308,10 +308,11 @@ enum VollstaendigkeitsPruefung {
                         && r.rechnungsdatum >= periode.von
                         && r.rechnungsdatum <= periode.bis
                 }
+                let kaName = ka.bezeichnung.isEmpty ? "Kostenart" : ka.bezeichnung
                 let anf = DatenAnforderung(
                     id: "rechnung-\(ka.id.uuidString)",
                     kategorie: .rechnung,
-                    titel: ka.bezeichnung.isEmpty ? "Ohne Bezeichnung" : ka.bezeichnung,
+                    titel: "Rechnung prüfen: \(kaName)",
                     details: rechnungsDetails(kostenart: ka, rechnungen: relevante),
                     erforderlich: true
                 )
@@ -420,7 +421,7 @@ enum VollstaendigkeitsPruefung {
         let anf = DatenAnforderung(
             id: "plausi-wmz",
             kategorie: .zaehlerstand,
-            titel: "Plausibilität Wärmemengenzähler",
+            titel: "Wärmemengenzähler prüfen",
             details: "WMZ-Summe sollte 85–115 % des Gas-Heizanteils entsprechen",
             erforderlich: false
         )

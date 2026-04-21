@@ -218,6 +218,14 @@ final class Mietverhaeltnis {
     /// `false` blockiert der PreFlight-Check die Berechnung.
     var vorauszahlungErfasst: Bool = false
 
+    /// Datum, ab dem die aktuelle Vorauszahlung gilt. Optional —
+    /// wenn nicht gesetzt, gilt die VZ als allgemeingueltig. Das
+    /// Feld wird im VorauszahlungEingabeSheet als „Gueltig ab"
+    /// erfasst (Default = Perioden-Startdatum) und erlaubt spaeter
+    /// eine VZ-Historie pro Mietverhaeltnis ohne harten Schema-
+    /// Bruch.
+    var vorauszahlungGueltigAb: Date?
+
     /// Anzahl Personen im Haushalt (für personenbezogene Umlagen)
     var anzahlPersonen: Int = 1
 

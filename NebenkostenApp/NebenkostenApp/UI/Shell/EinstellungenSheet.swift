@@ -164,16 +164,28 @@ private struct ObjektSection: View {
     }
 }
 
-// MARK: - Mieter-Section (readonly)
+// MARK: - Mieter-Section
 
+/// Tappbare Liste der aktiven Mietverhaeltnisse. Tap auf eine
+/// Zeile oeffnet das VorauszahlungEingabeSheet (fokussiert auf
+/// die getappte Einheit) ueber den AppShellRouter — damit ist
+/// derselbe Eingabe-Flow erreichbar wie aus der Nachster-
+/// Schritt-Card auf der Home-View.
 private struct MieterSection: View {
     let immobilie: Immobilie?
+
+    @Environment(AppShellRouter.self) private var router
 
     var body: some View {
         Section {
             if let einheiten = immobilie?.wohneinheiten, !einheiten.isEmpty {
                 ForEach(sortiert(einheiten)) { e in
-                    mieterZeile(e)
+                    Button {
+                        router.oeffneVorauszahlungSheet(einheitID: e.bezeichnung)
+                    } label: {
+                        mieterZeile(e)
+                    }
+                    .buttonStyle(.plain)
                 }
             } else {
                 Text("Noch keine Einheiten erfasst.")
@@ -181,6 +193,9 @@ private struct MieterSection: View {
             }
         } header: {
             Text("Mieter & Vorauszahlungen")
+        } footer: {
+            Text("Tippe auf eine Zeile, um die Vorauszahlung anzupassen.")
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -213,7 +228,11 @@ private struct MieterSection: View {
                     .appFont(AppFont.monoCaption())
                     .foregroundStyle(DesignTokens.text)
             }
+            Image(systemName: "chevron.right")
+                .font(.caption)
+                .foregroundStyle(DesignTokens.textTertiary)
         }
+        .contentShape(Rectangle())
     }
 }
 

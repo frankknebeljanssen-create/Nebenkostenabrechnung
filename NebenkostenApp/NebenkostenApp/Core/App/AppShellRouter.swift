@@ -49,6 +49,14 @@ final class AppShellRouter {
     /// nicht bei jedem Re-Render wieder feuert.
     var aktuellesSprungziel: Sprungziel?
 
+    /// Kontext fuer das Vorauszahlung-Eingabe-Sheet. `nil` = Sheet
+    /// geschlossen. Identifiable-Wrapper, damit AppShell das Sheet
+    /// ueber `.sheet(item:)` praesentieren kann. `einheitID` ist
+    /// die Bezeichnung der Wohneinheit, die beim Oeffnen fokussiert
+    /// werden soll (Scroll-Target); `nil` bedeutet „oeffne fuer
+    /// alle Einheiten ohne Fokus".
+    var vorauszahlungSheet: VorauszahlungSheetKontext?
+
     // MARK: - Init
 
     init(defaults: UserDefaults = .standard) {
@@ -76,6 +84,12 @@ final class AppShellRouter {
         aktuellesSprungziel = nil
     }
 
+    /// Oeffnet das VorauszahlungEingabeSheet mit optionalem Fokus
+    /// auf eine bestimmte Einheit.
+    func oeffneVorauszahlungSheet(einheitID: String? = nil) {
+        vorauszahlungSheet = VorauszahlungSheetKontext(einheitID: einheitID)
+    }
+
     // MARK: - Mapping AppTabKey ↔ AppTab
 
     /// Übersetzt den Calc-Layer-`AppTabKey` in das UI-`AppTab`-
@@ -90,4 +104,15 @@ final class AppShellRouter {
         case .abrechnungen: return .abrechnungen
         }
     }
+}
+
+/// Identifiable-Wrapper fuer `AppShellRouter.vorauszahlungSheet`.
+/// Der Sheet-Presenter (AppShell) bindet via `.sheet(item:)` und
+/// baut das VorauszahlungEingabeSheet mit dem Fokus-Hinweis auf.
+struct VorauszahlungSheetKontext: Identifiable, Hashable, Sendable {
+    /// Bezeichnung (z.B. „OG") der Einheit, die beim Oeffnen des
+    /// Sheets fokussiert werden soll. `nil` = kein Fokus, Sheet
+    /// zeigt alle aktiven Mietverhaeltnisse.
+    let einheitID: String?
+    var id: String { einheitID ?? "_alle_" }
 }

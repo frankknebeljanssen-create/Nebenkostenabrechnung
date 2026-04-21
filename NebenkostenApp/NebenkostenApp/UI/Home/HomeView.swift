@@ -131,9 +131,14 @@ struct HomeView: View {
 
     private func reagiereAufSprungziel(_ ziel: Sprungziel?) {
         switch ziel {
+        case .mieterVorauszahlung(let einheitId):
+            // Direkt ins VorauszahlungEingabeSheet — nicht mehr
+            // ueber das EinstellungenSheet, wo die VZ-Zeilen
+            // ohnehin nicht editierbar sind.
+            router.oeffneVorauszahlungSheet(einheitID: einheitId)
+            router.quittiere()
         case .einstellungenObjekt,
-             .einstellungenPeriode,
-             .mieterVorauszahlung:
+             .einstellungenPeriode:
             zeigeEinstellungen = true
             router.quittiere()
         default:
