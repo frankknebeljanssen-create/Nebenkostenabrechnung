@@ -515,9 +515,9 @@ struct NeuesObjektSheet: View {
         zeigeAnalyse = true
         Task {
             do {
-                let ergebnis = try await MietvertragsExtraktionService.extrahiere(ausBildern: bilder)
-                uebernehmeExtraktion(ergebnis)
-                extraktion = ergebnis
+                let analyse = try await MietvertragsExtraktionService.extrahiere(ausBildern: bilder)
+                uebernehmeExtraktion(analyse.extraktion)
+                extraktion = analyse.extraktion
             } catch {
                 scanFehler = error.localizedDescription
             }

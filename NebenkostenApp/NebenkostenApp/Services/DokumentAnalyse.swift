@@ -272,29 +272,25 @@ enum DokumentAnalyseService {
 
     /// Analysiert einen frisch gescannten Dokumenten-Stapel im
     /// Kontext einer Sitzung. Der Stub ruft intern den
-    /// `MietvertragsExtraktionService` auf, setzt den Dokument-Typ
-    /// nach Scan-Reihenfolge (1 = Mietvertrag, 2+ = NK-Erhoehungs-
-    /// schreiben) und baut daraus einen strukturierten Befund.
+    /// `MietvertragsExtraktionService` auf (echter Claude-Call,
+    /// in DEBUG ggf. Demo-Fallback ohne API-Key). Der erkannte
+    /// Dokument-Typ kommt DIREKT aus der Claude-Antwort, nicht
+    /// aus einer lokalen Heuristik. Wer eine Sequenz-Abhaengigkeit
+    /// braucht (z.B. „Erhoehungsschreiben ueberschreibt Vertrag"),
+    /// bekommt sie durch den Sitzungs-Merge in `AnalyseSitzung.
+    /// integriere`.
     static func analysiere(
         bilder: [UIImage],
         sitzung: AnalyseSitzung,
         einheit: Wohneinheit?
     ) async throws -> AnalyseBefund {
-        let extraktion = try await MietvertragsExtraktionService.extrahiere(ausBildern: bilder)
-        let typ: DokumentTyp = sitzung.scanAnzahl == 0 ? .mietvertrag : .nkErhoehungsschreiben
-
-        // Im „Update"-Fall (2. Scan) zeigen wir eine fiktive NK-
-        // Erhoehung: VZ steigt von 120 → 260. So wird der Merge
-        // in der UI sichtbar.
-        let effektiveVz: Decimal? = {
-            guard typ == .nkErhoehungsschreiben else { return extraktion.vorauszahlungMonatEuro.wert }
-            return 260
-        }()
+        let analyse = try await MietvertragsExtraktionService.extrahiere(ausBildern: bilder)
+        let typ = analyse.erkannterTyp
+        let extraktion = analyse.extraktion
 
         let felder = baueFelder(
             aus: extraktion,
             typ: typ,
-            effektiveVz: effektiveVz,
             sitzung: sitzung
         )
         let fehlend = berechneFehlendeDaten(
@@ -308,7 +304,7 @@ enum DokumentAnalyseService {
             erkannteFelder: felder,
             fehlendeDaten: fehlend,
             widersprueche: [],
-            rohExtraktion: patch(extraktion, vz: effektiveVz)
+            rohExtraktion: extraktion
         )
     }
 
@@ -317,10 +313,9 @@ enum DokumentAnalyseService {
     private static func baueFelder(
         aus e: MietvertragsExtraktion,
         typ: DokumentTyp,
-        effektiveVz: Decimal?,
         sitzung: AnalyseSitzung
     ) -> [ErkanntesFeld] {
-        let quelle = quelleBeschreibung(typ: typ, scanIndex: sitzung.scanAnzahl)
+        let quelle = typ.anzeige
 
         var out: [ErkanntesFeld] = []
 
@@ -369,7 +364,7 @@ enum DokumentAnalyseService {
                 warnung: lesbarkeitsHinweis(e.einzugAm.konfidenz)
             ))
         }
-        if let vz = effektiveVz, vz > 0 {
+        if let vz = e.vorauszahlungMonatEuro.wert, vz > 0 {
             out.append(.init(
                 label: "NK-Vorauszahlung",
                 wert: Formatting.euro(vz),
@@ -389,24 +384,6 @@ enum DokumentAnalyseService {
         }
 
         return out
-    }
-
-    private static func patch(_ e: MietvertragsExtraktion, vz: Decimal?) -> MietvertragsExtraktion {
-        guard let vz else { return e }
-        var kopie = e
-        kopie.vorauszahlungMonatEuro = .init(wert: vz, konfidenz: e.vorauszahlungMonatEuro.konfidenz)
-        return kopie
-    }
-
-    private static func quelleBeschreibung(typ: DokumentTyp, scanIndex: Int) -> String {
-        switch typ {
-        case .mietvertrag:
-            return "Mietvertrag"
-        case .nkErhoehungsschreiben:
-            return "NK-Erhöhungsschreiben"
-        default:
-            return typ.anzeige
-        }
     }
 
     private static func lesbarkeitsHinweis(_ konfidenz: Double) -> String? {

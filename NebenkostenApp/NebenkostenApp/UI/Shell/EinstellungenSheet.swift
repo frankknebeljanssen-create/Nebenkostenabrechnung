@@ -102,6 +102,9 @@ struct EinstellungenSheet: View {
             NavigationLink("Altes Objekt-Dashboard") {
                 Phase0RootWrapper()
             }
+            NavigationLink("Anthropic API-Key (Scan)") {
+                AnthropicKeyView()
+            }
         } header: {
             Text("Debug")
         } footer: {
@@ -112,6 +115,52 @@ struct EinstellungenSheet: View {
     }
     #endif
 }
+
+#if DEBUG
+private struct AnthropicKeyView: View {
+    @AppStorage("anthropic.apiKey") private var key: String = ""
+    @State private var maskiert: Bool = true
+
+    var body: some View {
+        Form {
+            Section {
+                if maskiert {
+                    SecureField("sk-ant-…", text: $key)
+                        .textContentType(.password)
+                        .autocorrectionDisabled()
+                } else {
+                    TextField("sk-ant-…", text: $key)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                }
+                Toggle("Eingabe anzeigen", isOn: Binding(
+                    get: { !maskiert },
+                    set: { maskiert = !$0 }
+                ))
+            } header: {
+                Text("API-Key")
+            } footer: {
+                Text("Der Key wird lokal in UserDefaults abgelegt und bei jedem Scan als `x-api-key`-Header an api.anthropic.com geschickt. Übergangslösung, bis der Cloudflare-Worker-Proxy steht.")
+            }
+
+            Section {
+                LabeledContent("Status") {
+                    Text(AnthropicClient.istKonfiguriert ? "konfiguriert" : "fehlt")
+                        .foregroundStyle(AnthropicClient.istKonfiguriert ? DesignTokens.statusOk : DesignTokens.statusError)
+                }
+                LabeledContent("Default-Modell") {
+                    Text(AnthropicClient.defaultModel)
+                        .appFont(AppFont.monoCaption())
+                }
+            } header: {
+                Text("Diagnose")
+            }
+        }
+        .navigationTitle("Anthropic API-Key")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+#endif
 
 // MARK: - Objekt-Section (readonly)
 
