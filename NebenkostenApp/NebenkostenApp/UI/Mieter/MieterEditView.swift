@@ -41,9 +41,9 @@ struct MieterEditView: View {
             _mieterEmail = State(initialValue: "")
             _mieterTyp = State(initialValue: .wohnungsmieter)
             _einheitID = State(initialValue: vorauswahl?.id)
-            _einzugAm = State(initialValue: Date())
+            _einzugAm = State(initialValue: Date.ersterDesMonats)
             _istAusgezogen = State(initialValue: false)
-            _auszugAm = State(initialValue: Date())
+            _auszugAm = State(initialValue: Date.ersterDesMonats)
             _vorauszahlungText = State(initialValue: "")
             _anzahlPersonen = State(initialValue: 1)
         case .bearbeiten(let mv):

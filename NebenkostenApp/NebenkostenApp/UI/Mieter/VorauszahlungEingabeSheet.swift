@@ -50,7 +50,10 @@ struct VorauszahlungEingabeSheet: View {
 
     private var defaultGueltigAb: Date {
         let sortiert = (immobilie.perioden ?? []).sorted { $0.von > $1.von }
-        return sortiert.first?.von ?? Date()
+        // Aktive Periode als Stichtag bevorzugen; sonst Monats-
+        // erster (nicht heute — VZ gelten praktisch immer ab
+        // Monatsanfang, der Default spart Tipparbeit).
+        return sortiert.first?.von ?? Date.ersterDesMonats
     }
 
     var body: some View {

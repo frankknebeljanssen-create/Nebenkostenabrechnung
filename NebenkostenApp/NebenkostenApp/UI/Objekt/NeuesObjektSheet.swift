@@ -57,11 +57,11 @@ struct NeuesObjektSheet: View {
 
     // MARK: - Periode
 
-    @State private var periodeVon: Date = Self.ersterDesMonats()
+    @State private var periodeVon: Date = Date.ersterDesMonats
     @State private var periodeBis: Date = Calendar(identifier: .gregorian)
-        .date(byAdding: .year, value: 1, to: Self.ersterDesMonats())
+        .date(byAdding: .year, value: 1, to: Date.ersterDesMonats)
         .flatMap { Calendar(identifier: .gregorian).date(byAdding: .day, value: -1, to: $0) }
-        ?? Date()
+        ?? Date.ersterDesMonats
 
     // MARK: - Mietvertrag-Scan (M1)
 
@@ -479,12 +479,6 @@ struct NeuesObjektSheet: View {
 
     // MARK: - Helper
 
-    private static func ersterDesMonats(heute: Date = Date()) -> Date {
-        let kal = Calendar(identifier: .gregorian)
-        let komps = kal.dateComponents([.year, .month], from: heute)
-        return kal.date(from: komps) ?? heute
-    }
-
     private static func parseVz(_ text: String) -> Decimal? {
         let norm = text
             .replacingOccurrences(of: ".", with: "")
@@ -597,7 +591,7 @@ struct EinheitEntwurf: Identifiable, Equatable, Sendable {
     /// Zeile). Wird spaeter fuer Abrechnungs-PDFs gebraucht; hier
     /// optional.
     var mieterAnschrift: String = ""
-    var einzugAm: Date = Date()
+    var einzugAm: Date = Date.ersterDesMonats
     var vorauszahlungText: String = ""
 }
 
