@@ -42,7 +42,7 @@ struct KontextHeader: View {
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 20)
         .padding(.top, 12)
-        .padding(.bottom, 12)
+        .padding(.bottom, 8)
         .background {
             // Eine Stufe dunkler als bgAppCompact. Kein
             // Design-Token trifft exakt — #D8D5CC ist der „warme
@@ -237,14 +237,14 @@ struct KontextHeader: View {
 
 // MARK: - WohneinheitPillReihe
 
-/// „Gesamt" + eine Pill pro Wohneinheit. Immer horizontal scrollbar
-/// (auch wenn alle Pills aktuell in die Breite passen) — die Basis
-/// ist damit vorbereitet fuer Objekte mit vielen Einheiten.
+/// „Gesamt" + eine Pill pro Wohneinheit. Gleichmaessig verteilt
+/// ueber die verfuegbare Breite (HStack mit `.frame(maxWidth:
+/// .infinity)` je Pill); bei vier Pills ist jede exakt
+/// `(screenBreite - 32 - 3 × 8) / 4` breit.
 ///
 /// Layout:
 /// - Pill-Hoehe ~36 pt (durch `.padding(.vertical, 10)` + Text +
 ///   Icon).
-/// - Horizontal-Padding innen 16 pt (gute Tap-Flaeche).
 /// - Unselected: textPrimary auf transparentem Grund, dezenter
 ///   separator-Rand.
 /// - Selected: weiss auf Accent-Pill (#3A5578). Einheitliche
@@ -258,27 +258,33 @@ struct WohneinheitPillReihe: View {
     }
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+        // Kein ScrollView mehr um die Pill-Reihe: `.frame(maxWidth:
+        // .infinity)` je Pill benoetigt einen bounded-width Container,
+        // damit iOS die verfuegbare Breite gleichmaessig aufteilen
+        // kann. Eine horizontale ScrollView bietet unbounded width an
+        // und wuerde die Pills jeweils auf volle Screenbreite
+        // aufblasen. Fuer die aktuell max. 4 Pills (Gesamt + 3 WEs)
+        // ist das ok; falls spaeter viele Einheiten hinzukommen, kann
+        // ein ViewThatFits-Fallback nachgezogen werden.
+        HStack(spacing: 8) {
+            pill(
+                label: "Gesamt",
+                icon: "square.stack.3d.up",
+                aktiv: scope.isObjekt
+            ) {
+                scope.scope = .objekt
+            }
+            ForEach(einheiten) { e in
                 pill(
-                    label: "Gesamt",
-                    icon: "square.stack.3d.up",
-                    aktiv: scope.isObjekt
+                    label: e.bezeichnung,
+                    icon: ScopeFarbe.icon(fuer: e),
+                    aktiv: scope.einheitID == e.bezeichnung
                 ) {
-                    scope.scope = .objekt
-                }
-                ForEach(einheiten) { e in
-                    pill(
-                        label: e.bezeichnung,
-                        icon: ScopeFarbe.icon(fuer: e),
-                        aktiv: scope.einheitID == e.bezeichnung
-                    ) {
-                        scope.scope = .einheit(id: e.bezeichnung)
-                    }
+                    scope.scope = .einheit(id: e.bezeichnung)
                 }
             }
-            .padding(.horizontal, 16)
         }
+        .padding(.horizontal, 16)
     }
 
     private func pill(
@@ -293,8 +299,10 @@ struct WohneinheitPillReihe: View {
                     .font(.system(size: 11, weight: .semibold))
                 Text(label)
                     .appFont(Self.pillLabelStyle)
+                    .lineLimit(1)
             }
             .foregroundStyle(aktiv ? Color.white : DesignTokens.text)
+            .frame(maxWidth: .infinity)
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
             .background(aktiv ? DesignTokens.accent : Color.clear)
