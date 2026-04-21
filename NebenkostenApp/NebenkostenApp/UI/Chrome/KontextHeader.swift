@@ -305,7 +305,12 @@ struct WohneinheitPillReihe: View {
         .foregroundStyle(Color.white)
         .padding(.horizontal, 20)
         .padding(.vertical, 10)
-        .background(Capsule().fill(DesignTokens.accent))
+        // Pill-Farbe matched mit dem vertikalen UnitBalken der
+        // HomeScreen-Cards — Scope-Farbe aus ScopeFarbe bzw.
+        // unitObjekt im Gesamt-Scope. Damit ist die aktive
+        // Wahl ueber den gesamten Shell-Chrome in derselben
+        // Farbe markiert.
+        .background(Capsule().fill(aktiveFarbe))
         .accessibilityLabel("Aktive Auswahl: \(aktiverLabel)")
     }
 
@@ -332,6 +337,21 @@ struct WohneinheitPillReihe: View {
                 return "square.stack.3d.up"
             }
             return ScopeFarbe.icon(fuer: e)
+        }
+    }
+
+    /// Aktive Scope-Farbe — identisch zur UnitBalken-Logik in
+    /// den Home-Cards. Gesamt-Scope nutzt `unitObjekt`, Einheit-
+    /// Scope die ScopeFarbe der jeweiligen WE.
+    private var aktiveFarbe: Color {
+        switch scope.scope {
+        case .objekt:
+            return DesignTokens.unitObjekt
+        case .einheit(let id):
+            guard let e = einheiten.first(where: { $0.bezeichnung == id }) else {
+                return DesignTokens.unitObjekt
+            }
+            return ScopeFarbe.farbe(fuer: e)
         }
     }
 

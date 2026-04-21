@@ -35,11 +35,11 @@ enum ScopeFarbe {
 
     static func defaultFarbe(fuer bezeichnung: String) -> Color {
         switch rang(fuer: bezeichnung) {
-        case 0:  return .purple    // KG / UG
-        case 1:  return .blue      // EG
-        case 2:  return .green     // OG / 1. OG
-        case 3:  return .teal      // 2. OG
-        case 4:  return .indigo    // DG
+        case 0:  return .purple                  // KG / UG
+        case 1:  return .blue                    // EG
+        case 2:  return Color(hex: "#3F7A5B")    // OG / 1. OG — dunkles, kraeftiges Forest-Gruen
+        case 3:  return .teal                    // 2. OG
+        case 4:  return .indigo                  // DG
         default: return .orange
         }
     }
