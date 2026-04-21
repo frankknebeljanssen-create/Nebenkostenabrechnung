@@ -43,7 +43,7 @@ struct WohneinheitCarousel: View {
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: 160)
+            .frame(height: 132)
 
             if scopeOptionen.count > 1 {
                 PaginationDots(anzahl: scopeOptionen.count, aktiv: index)

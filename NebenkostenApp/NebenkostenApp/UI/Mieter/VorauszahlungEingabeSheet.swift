@@ -3,22 +3,20 @@
 //  NebenkostenApp — UI/Mieter
 //
 //  Sammel-Eingabe der monatlichen Betriebskostenvorauszahlung fuer
-//  alle aktiven Mietverhaeltnisse einer Immobilie. Ersetzt den
-//  frueheren Umweg ueber das EinstellungenSheet: der Nachster-
-//  Schritt-Eintrag „Vorauszahlungen eintragen" oeffnet jetzt
-//  direkt diese Eingabemaske.
+//  alle aktiven Mietverhaeltnisse einer Immobilie.
 //
-//  Layout je Mietverhaeltnis:
-//    - WE-Label (Farbbalken + Bezeichnung · Mieter-Name)
-//    - Feld „Monatliche Vorauszahlung NK" (Decimal, €-Suffix,
-//      Mono-Font)
-//    - Feld „Gueltig ab" (DatePicker, default = Perioden-Start)
-//    - „Aktuell: X €/Monat" darunter, wenn eine VZ schon gesetzt
-//      ist
+//  Architektur (v2, nach Device-Bug):
+//    Jeder Row ist ein eigenes `VorauszahlungRow`-Subview mit
+//    `@Bindable mv: Mietverhaeltnis`. Eingaben landen via
+//    `.onChange(of:)` DIREKT auf dem @Model-Objekt. Speichern
+//    commitet nur noch `modelContext.save()`; Abbrechen ruft
+//    `modelContext.rollback()` und verwirft damit alle
+//    uncommitteten Feld-Aenderungen dieses Sheets.
 //
-//  Strikte-Daten-Regel: Speichern setzt `vorauszahlungErfasst =
-//  true` explizit — auch 0 € ist erlaubt (Selbstnutzer-Fall),
-//  solange der User den Wert aktiv bestaetigt hat.
+//  Das ersetzt die frueher dict-basierte Zwischenspeicherung
+//  (`@State var eintraege: [UUID: Eintrag]`), bei der die
+//  Bindings im Einzelfall nicht an die Mietverhaeltnis-Objekte
+//  durchgereicht haben.
 //
 
 import SwiftUI
@@ -33,16 +31,7 @@ struct VorauszahlungEingabeSheet: View {
     /// (an den Anfang gescrollt) werden soll. `nil` = kein Fokus.
     let fokusEinheitID: String?
 
-    @State private var eintraege: [UUID: Eintrag] = [:]
-
-    private struct Eintrag: Equatable {
-        var betragText: String
-        var gueltigAb: Date
-    }
-
     private var mietverhaeltnisse: [Mietverhaeltnis] {
-        // Sortierung: Fokus-Einheit zuerst, danach nach
-        // Geschoss-Rang (KG/EG/OG/...).
         let aktive = (immobilie.wohneinheiten ?? [])
             .sorted { ScopeFilter.einheitRang($0.bezeichnung) < ScopeFilter.einheitRang($1.bezeichnung) }
             .compactMap { e -> Mietverhaeltnis? in
@@ -78,19 +67,21 @@ struct VorauszahlungEingabeSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    SheetToolbar.abbrechen { dismiss() }
+                    SheetToolbar.abbrechen {
+                        modelContext.rollback()
+                        dismiss()
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     SheetToolbar.primaer(
                         titel: "Speichern",
-                        istAktiv: istGueltig
+                        istAktiv: !mietverhaeltnisse.isEmpty
                     ) { speichern() }
                 }
             }
             .keyboardFertigButton()
         }
         .tint(DesignTokens.accent)
-        .task { initialisiereEintraege() }
     }
 
     // MARK: - Unterzustaende
@@ -117,7 +108,10 @@ struct VorauszahlungEingabeSheet: View {
         ScrollView {
             VStack(spacing: 16) {
                 ForEach(mietverhaeltnisse) { mv in
-                    eintragCard(mv)
+                    VorauszahlungRow(
+                        mv: mv,
+                        defaultGueltigAb: defaultGueltigAb
+                    )
                 }
             }
             .padding(.horizontal, 16)
@@ -125,32 +119,73 @@ struct VorauszahlungEingabeSheet: View {
         }
     }
 
-    private func eintragCard(_ mv: Mietverhaeltnis) -> some View {
-        let eintragBinding = bindungFuer(mv)
-        let einheit = mv.wohneinheit
-        return Card(tiefe: .flach) {
+    // MARK: - Persistenz
+
+    private func speichern() {
+        // Die Aenderungen sitzen bereits auf den Mietverhaeltnis-
+        // Objekten (via `.onChange` im Subview). Nur noch den
+        // Context persistieren; Fehler explizit loggen, damit wir
+        // bei Problemen nicht im Blind-Save landen wie frueher
+        // mit `try?`.
+        do {
+            try modelContext.save()
+        } catch {
+            #if DEBUG
+            print("[VZ] modelContext.save fehlgeschlagen:", error.localizedDescription)
+            #endif
+        }
+        dismiss()
+    }
+}
+
+// MARK: - VorauszahlungRow
+
+/// Eine Zeile im Vorauszahlungs-Sheet. Haelt `@Bindable mv`, damit
+/// onChange direkt auf das @Model-Objekt schreibt — keine Umwege
+/// ueber Dictionaries oder Custom-Bindings.
+private struct VorauszahlungRow: View {
+    @Bindable var mv: Mietverhaeltnis
+    let defaultGueltigAb: Date
+
+    @State private var betragText: String = ""
+    @State private var gueltigAb: Date = Date()
+    @State private var geladen: Bool = false
+
+    var body: some View {
+        Card(tiefe: .flach) {
             VStack(alignment: .leading, spacing: 14) {
-                kopfZeile(mv)
-                betragFeld(binding: eintragBinding.betragText)
-                gueltigAbFeld(binding: eintragBinding.gueltigAb)
+                kopfZeile
+                betragFeld
+                gueltigAbFeld
                 if mv.vorauszahlungErfasst {
-                    Text("Aktuell: \(Formatting.euro(mv.vorauszahlungMonatEuro)) / Monat")
+                    Text("Gespeichert: \(Self.format(mv.vorauszahlungMonatEuro)) / Monat")
                         .appFont(AppFont.Basis.monoSmall())
                         .foregroundStyle(DesignTokens.textSecondary)
                 }
-                let _ = einheit  // silence unused warning if einheit nil
             }
         }
+        .onAppear { ladenFallsNoetig() }
     }
 
-    private func kopfZeile(_ mv: Mietverhaeltnis) -> some View {
+    private func ladenFallsNoetig() {
+        guard !geladen else { return }
+        betragText = mv.vorauszahlungErfasst
+            ? Self.format(mv.vorauszahlungMonatEuro)
+            : ""
+        gueltigAb = mv.vorauszahlungGueltigAb ?? defaultGueltigAb
+        geladen = true
+    }
+
+    // MARK: - Unterviews
+
+    private var kopfZeile: some View {
         HStack(alignment: .center, spacing: 10) {
             if let e = mv.wohneinheit {
                 UnitBalken(farbe: ScopeFarbe.farbe(fuer: e))
                     .frame(height: 32)
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text(kopfTitel(mv))
+                Text(kopfTitel)
                     .appFont(AppFont.bodySemi())
                     .foregroundStyle(DesignTokens.text)
                 if !mv.mieterName.isEmpty {
@@ -163,32 +198,35 @@ struct VorauszahlungEingabeSheet: View {
         }
     }
 
-    private func kopfTitel(_ mv: Mietverhaeltnis) -> String {
+    private var kopfTitel: String {
         guard let e = mv.wohneinheit else { return "Mieter" }
         let name = ScopeTexte.abkuerzungName(mv.mieterName)
         if name.isEmpty { return e.bezeichnung }
         return "\(e.bezeichnung) · \(name)"
     }
 
-    private func betragFeld(binding: Binding<String>) -> some View {
+    private var betragFeld: some View {
         HStack(spacing: 8) {
             Text("Monatliche Vorauszahlung NK")
                 .appFont(AppFont.bodyMedium())
                 .foregroundStyle(DesignTokens.textSecondary)
             Spacer()
-            TextField("0,00", text: binding)
+            TextField("0,00", text: $betragText)
                 .keyboardType(.decimalPad)
                 .multilineTextAlignment(.trailing)
                 .appFont(AppFont.Basis.monoBodySemi())
                 .foregroundStyle(DesignTokens.text)
                 .frame(maxWidth: 120)
+                .onChange(of: betragText) { _, neu in
+                    schreibeBetrag(neu)
+                }
             Text("€")
                 .appFont(AppFont.Basis.monoBody())
                 .foregroundStyle(DesignTokens.textSecondary)
         }
     }
 
-    private func gueltigAbFeld(binding: Binding<Date>) -> some View {
+    private var gueltigAbFeld: some View {
         HStack(spacing: 8) {
             Text("Gültig ab")
                 .appFont(AppFont.bodyMedium())
@@ -196,88 +234,36 @@ struct VorauszahlungEingabeSheet: View {
             Spacer()
             DatePicker(
                 "",
-                selection: binding,
+                selection: $gueltigAb,
                 displayedComponents: .date
             )
             .labelsHidden()
             .environment(\.locale, Locale(identifier: "de_DE"))
-            // `.tint(DesignTokens.text)` zwingt das Compact-
-            // DatePicker-Label auf textPrimary. iOS zeichnet die
-            // Pill sonst mit dem aktuellen Accent-Tint, was auf
-            // dem hellgrauen Pill-Background zu „blau auf grau"
-            // mit schlechtem Kontrast fuehrt.
             .tint(DesignTokens.text)
-        }
-    }
-
-    // MARK: - State + Validierung
-
-    private func bindungFuer(_ mv: Mietverhaeltnis) -> (betragText: Binding<String>, gueltigAb: Binding<Date>) {
-        let id = mv.id
-        let default_ = Eintrag(
-            betragText: mv.vorauszahlungErfasst ? Self.format(mv.vorauszahlungMonatEuro) : "",
-            gueltigAb: mv.vorauszahlungGueltigAb ?? defaultGueltigAb
-        )
-        let betragBinding = Binding<String>(
-            get: { eintraege[id]?.betragText ?? default_.betragText },
-            set: { neu in
-                var aktuell = eintraege[id] ?? default_
-                aktuell.betragText = neu
-                eintraege[id] = aktuell
+            .onChange(of: gueltigAb) { _, neu in
+                mv.vorauszahlungGueltigAb = neu
+                // Datum zaehlt als aktive Bestaetigung: wenn der
+                // User ein Datum setzt, ist die VZ „erfasst".
+                mv.vorauszahlungErfasst = true
             }
-        )
-        let dateBinding = Binding<Date>(
-            get: { eintraege[id]?.gueltigAb ?? default_.gueltigAb },
-            set: { neu in
-                var aktuell = eintraege[id] ?? default_
-                aktuell.gueltigAb = neu
-                eintraege[id] = aktuell
-            }
-        )
-        return (betragBinding, dateBinding)
-    }
-
-    private var istGueltig: Bool {
-        guard !mietverhaeltnisse.isEmpty else { return false }
-        // Alle Eintraege muessen ein valides Decimal ergeben —
-        // leere Eingaben sind nicht erlaubt (Strikte-Daten-Regel:
-        // aktives Bestaetigen, auch 0 € muss explizit eingetippt
-        // werden).
-        return mietverhaeltnisse.allSatisfy { mv in
-            let txt = eintraege[mv.id]?.betragText
-                ?? (mv.vorauszahlungErfasst ? Self.format(mv.vorauszahlungMonatEuro) : "")
-            return Self.parse(txt) != nil
         }
     }
 
-    private func initialisiereEintraege() {
-        guard eintraege.isEmpty else { return }
-        for mv in mietverhaeltnisse {
-            let betragText: String
-            if mv.vorauszahlungErfasst {
-                betragText = Self.format(mv.vorauszahlungMonatEuro)
-            } else {
-                betragText = ""
-            }
-            eintraege[mv.id] = Eintrag(
-                betragText: betragText,
-                gueltigAb: mv.vorauszahlungGueltigAb ?? defaultGueltigAb
-            )
-        }
-    }
+    // MARK: - Write-through
 
-    // MARK: - Persistenz
-
-    private func speichern() {
-        for mv in mietverhaeltnisse {
-            guard let eintrag = eintraege[mv.id] else { continue }
-            guard let wert = Self.parse(eintrag.betragText) else { continue }
-            mv.vorauszahlungMonatEuro = wert
-            mv.vorauszahlungErfasst = true
-            mv.vorauszahlungGueltigAb = eintrag.gueltigAb
+    private func schreibeBetrag(_ text: String) {
+        guard let wert = Self.parse(text) else {
+            // Leerer / ungueltiger Input: nicht ueberschreiben.
+            return
         }
-        try? modelContext.save()
-        dismiss()
+        mv.vorauszahlungMonatEuro = wert
+        mv.vorauszahlungErfasst = true
+        // Wenn noch kein Gueltig-ab gesetzt ist, den aktuellen
+        // Picker-Wert persistieren — sonst bliebe vorauszahlungGueltigAb
+        // `nil`, wenn der User den DatePicker nicht angefasst hat.
+        if mv.vorauszahlungGueltigAb == nil {
+            mv.vorauszahlungGueltigAb = gueltigAb
+        }
     }
 
     // MARK: - Parse / Format
