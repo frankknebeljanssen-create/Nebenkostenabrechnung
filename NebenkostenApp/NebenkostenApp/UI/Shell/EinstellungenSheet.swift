@@ -118,6 +118,17 @@ private struct AnthropicKeyView: View {
     @AppStorage("anthropic.apiKey") private var key: String = ""
     @State private var maskiert: Bool = true
 
+    /// Status leitet sich direkt aus dem @AppStorage-Binding ab —
+    /// nicht aus `AnthropicClient.istKonfiguriert`. Das ist eine
+    /// static computed Property und wuerde beim reinen Re-Read
+    /// zwar den aktuellen Wert liefern, aber das View-System
+    /// triggert das Re-Rendering nur ueber observable State. Mit
+    /// `!key.isEmpty` aus @AppStorage klappt die Live-Aktualisierung
+    /// beim Tippen.
+    private var istKonfiguriert: Bool {
+        !key.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
     var body: some View {
         Form {
             Section {
@@ -142,8 +153,8 @@ private struct AnthropicKeyView: View {
 
             Section {
                 LabeledContent("Status") {
-                    Text(AnthropicClient.istKonfiguriert ? "konfiguriert" : "fehlt")
-                        .foregroundStyle(AnthropicClient.istKonfiguriert ? DesignTokens.statusOk : DesignTokens.statusError)
+                    Text(istKonfiguriert ? "konfiguriert" : "fehlt")
+                        .foregroundStyle(istKonfiguriert ? DesignTokens.statusOk : DesignTokens.statusError)
                 }
                 LabeledContent("Default-Modell") {
                     Text(AnthropicClient.defaultModel)
@@ -155,6 +166,7 @@ private struct AnthropicKeyView: View {
         }
         .navigationTitle("Anthropic API-Key")
         .navigationBarTitleDisplayMode(.inline)
+        .keyboardFertigButton()
     }
 }
 
@@ -165,6 +177,17 @@ private struct AnthropicKeyView: View {
 /// Scan-Flow gar nicht. Wird eingehaengt, bis der Cloudflare-
 /// Worker-Proxy steht; danach faellt sie weg.
 struct KIExtraktionSection: View {
+    /// @AppStorage macht die Section reaktiv: sobald der User in
+    /// AnthropicKeyView den Key setzt, aktualisiert sich hier die
+    /// „konfiguriert"/„fehlt"-Anzeige ohne App-Neustart.
+    /// `AnthropicClient.istKonfiguriert` (static computed) wird
+    /// von SwiftUI nicht beobachtet und waere stale.
+    @AppStorage("anthropic.apiKey") private var apiKey: String = ""
+
+    private var istKonfiguriert: Bool {
+        !apiKey.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
     var body: some View {
         Section {
             NavigationLink {
@@ -173,9 +196,9 @@ struct KIExtraktionSection: View {
                 HStack {
                     Text("Anthropic API-Key (Scan)")
                     Spacer()
-                    Text(AnthropicClient.istKonfiguriert ? "konfiguriert" : "fehlt")
+                    Text(istKonfiguriert ? "konfiguriert" : "fehlt")
                         .appFont(AppFont.caption())
-                        .foregroundStyle(AnthropicClient.istKonfiguriert ? DesignTokens.statusOk : DesignTokens.statusError)
+                        .foregroundStyle(istKonfiguriert ? DesignTokens.statusOk : DesignTokens.statusError)
                 }
             }
         } header: {
