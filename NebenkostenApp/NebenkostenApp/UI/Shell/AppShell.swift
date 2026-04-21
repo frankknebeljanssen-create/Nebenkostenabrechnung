@@ -32,7 +32,6 @@ struct AppShell: View {
     @Query(sort: \Immobilie.erstelltAm) private var immobilien: [Immobilie]
 
     @State private var zeigeScopePicker = false
-    @State private var zeigeEinstellungen = false
 
     private var aktiveTab: Binding<AppTab> {
         Binding(
@@ -59,7 +58,7 @@ struct AppShell: View {
         .sheet(isPresented: inspektorBinding) {
             InspektorSheet()
         }
-        .sheet(isPresented: $zeigeEinstellungen) {
+        .sheet(isPresented: einstellungenBinding) {
             EinstellungenSheet()
         }
         .sheet(item: vorauszahlungBinding) { kontext in
@@ -86,12 +85,23 @@ struct AppShell: View {
     }
 
     /// Binding auf `router.zeigeInspektor` fuer `.sheet(isPresented:)`.
-    /// Der „?"-Button in AppShellChrome setzt `router.zeigeInspektor =
+    /// Der „?"-Button im KontextHeader setzt `router.zeigeInspektor =
     /// true`, das Sheet hier reagiert.
     private var inspektorBinding: Binding<Bool> {
         Binding(
             get: { router.zeigeInspektor },
             set: { router.zeigeInspektor = $0 }
+        )
+    }
+
+    /// Binding auf `router.zeigeEinstellungen` fuer `.sheet
+    /// (isPresented:)`. Der Zahnrad-Button im KontextHeader setzt
+    /// das Flag, das Sheet hier reagiert. Loest das frueher tab-
+    /// lokale `@State zeigeEinstellungen` ab.
+    private var einstellungenBinding: Binding<Bool> {
+        Binding(
+            get: { router.zeigeEinstellungen },
+            set: { router.zeigeEinstellungen = $0 }
         )
     }
 

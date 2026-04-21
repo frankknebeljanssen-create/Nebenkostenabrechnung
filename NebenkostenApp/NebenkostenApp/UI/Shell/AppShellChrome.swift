@@ -39,8 +39,6 @@ struct AppShellChrome: ViewModifier {
         let handler: () -> Void
     }
 
-    @Environment(AppShellRouter.self) private var router
-
     func body(content: Content) -> some View {
         content
             // Frame-fuellen VOR .background: sorgt dafuer, dass der
@@ -73,52 +71,43 @@ struct AppShellChrome: ViewModifier {
 
     // MARK: - Nav-Bar
 
+    /// Rendert die NavBar nur dann, wenn es eine Primary-Action,
+    /// einen Titel oder einen Subtitel gibt. „?" + Zahnrad leben
+    /// jetzt im KontextHeader (bottom-right) und sind hier
+    /// entfallen — Screens ohne eigene Action oder Titel haben
+    /// damit keinen NavBar-Block mehr, kein leerer Versatz.
+    @ViewBuilder
     private var navBar: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 16) {
-                Spacer()
+        if primaryAction != nil || titel != nil || subtitel != nil {
+            VStack(alignment: .leading, spacing: 4) {
                 if let primary = primaryAction {
-                    Button(action: primary.handler) {
-                        Image(systemName: primary.symbol)
-                            .font(.title3)
-                            .foregroundStyle(DesignTokens.text)
+                    HStack(spacing: 16) {
+                        Spacer()
+                        Button(action: primary.handler) {
+                            Image(systemName: primary.symbol)
+                                .font(.title3)
+                                .foregroundStyle(DesignTokens.text)
+                        }
+                        .accessibilityLabel(primary.label)
                     }
-                    .accessibilityLabel(primary.label)
                 }
-                // Inspektor „?" Button — seit dem FAB-Rueckbau
-                // lebt er neben dem Zahnrad. Gleiche Schriftgroesse
-                // wie die Zahnrad-Icon, Abstand 16 pt.
-                Button {
-                    router.zeigeInspektor = true
-                } label: {
-                    Image(systemName: "questionmark.circle")
-                        .font(.title3)
+                if let titel {
+                    Text(titel)
+                        .appFont(AppFont.Basis.displayTitle())
+                        .foregroundStyle(DesignTokens.text)
+                        .padding(.top, 2)
+                }
+                if let subtitel {
+                    Text(subtitel)
+                        .appFont(AppFont.Rechnungen.subZeile())
                         .foregroundStyle(DesignTokens.textSecondary)
+                        .padding(.top, 2)
                 }
-                .accessibilityLabel("Was fehlt noch?")
-                Button(action: onEinstellungen) {
-                    Image(systemName: "gearshape")
-                        .font(.title3)
-                        .foregroundStyle(DesignTokens.textSecondary)
-                }
-                .accessibilityLabel("Einstellungen")
             }
-            if let titel {
-                Text(titel)
-                    .appFont(AppFont.Basis.displayTitle())
-                    .foregroundStyle(DesignTokens.text)
-                    .padding(.top, 2)
-            }
-            if let subtitel {
-                Text(subtitel)
-                    .appFont(AppFont.Rechnungen.subZeile())
-                    .foregroundStyle(DesignTokens.textSecondary)
-                    .padding(.top, 2)
-            }
+            .padding(.horizontal, 20)
+            .padding(.top, 6)
+            .padding(.bottom, 10)
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 6)
-        .padding(.bottom, 10)
     }
 }
 

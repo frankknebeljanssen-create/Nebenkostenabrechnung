@@ -26,6 +26,7 @@ import SwiftData
 
 struct KontextHeader: View {
     @Environment(ScopeManager.self) private var scope
+    @Environment(AppShellRouter.self) private var router
     @Query(sort: \Immobilie.erstelltAm) private var immobilien: [Immobilie]
 
     @State private var zeigeObjektPicker = false
@@ -56,6 +57,29 @@ struct KontextHeader: View {
             Rectangle()
                 .fill(DesignTokens.separator)
                 .frame(height: 0.5)
+        }
+        .overlay(alignment: .bottomTrailing) {
+            // „?" + Zahnrad immer unten rechts im Header sichtbar,
+            // unabhaengig vom aktiven Tab. Die Icons sitzen ueber
+            // der Pill-Reihe auf dem rechten Spacer-Bereich — die
+            // aktive Pill ist zentriert und intrinsisch breit, die
+            // Icons liegen daneben im leeren Bereich.
+            HStack(spacing: 14) {
+                Button { router.zeigeInspektor = true } label: {
+                    Image(systemName: "questionmark.circle")
+                        .font(.title3)
+                        .foregroundStyle(DesignTokens.textSecondary)
+                }
+                .accessibilityLabel("Was fehlt noch?")
+                Button { router.zeigeEinstellungen = true } label: {
+                    Image(systemName: "gearshape")
+                        .font(.title3)
+                        .foregroundStyle(DesignTokens.textSecondary)
+                }
+                .accessibilityLabel("Einstellungen")
+            }
+            .padding(.trailing, 20)
+            .padding(.bottom, 10)
         }
         .sheet(isPresented: $zeigeObjektPicker) {
             ObjektPickerSheet()
@@ -238,24 +262,20 @@ struct KontextHeader: View {
 
 // MARK: - WohneinheitPillReihe
 
-/// „Gesamt" + eine Pill pro Wohneinheit. Pro Pill-Breite: 72 %
-/// der Container-Breite (via `.containerRelativeFrame`) — damit
-/// ist die aktive Pill komplett sichtbar, die naechste Pill
-/// peekt rechts ein Stueck rein als Scroll-Hinweis. Die Reihe
-/// snap-scrollt zwischen den Pills.
+/// Zeigt den aktuellen Scope als **eine** mittig zentrierte,
+/// breite Pill — reine Anzeige, nicht interaktiv. Die tatsaechliche
+/// Scope-Auswahl laeuft weiter unten im `WohneinheitCarousel` auf
+/// dem HomeScreen. Zweck hier: Orientierung im permanenten
+/// Header, egal auf welchem Tab sich der User gerade befindet.
 ///
 /// Label-Format:
-/// - „Gesamt" fuer den Objekt-Scope.
-/// - „<EinheitID> · <Mieter-Abkuerzung>" fuer Einheit-Scopes,
-///   wenn ein aktives Mietverhaeltnis existiert. Mit 72 % Pill-
-///   Breite passt der komplette Mieter-Name („Fam. Pfaffenbach")
-///   ohne Truncation.
-/// - Nur „<EinheitID>" wenn kein aktiver Mieter (Leerstand).
+/// - „Gesamt" fuer Objekt-Scope.
+/// - „<EinheitID> · <Mieter-Abkuerzung>" fuer Einheit-Scopes mit
+///   aktivem Mietverhaeltnis.
+/// - Nur „<EinheitID>" bei Leerstand.
 ///
-/// Layout:
-/// - Pill-Hoehe ~36 pt (Icon + Text + vertical Padding 10).
-/// - Unselected: textPrimary auf transparentem Grund.
-/// - Selected: weiss auf Accent-Pill (#3A5578).
+/// Kommt evtl. spaeter wieder als Auswahl-Reihe zurueck — daher
+/// kein groesseres Refactoring als noetig.
 struct WohneinheitPillReihe: View {
     let immobilie: Immobilie
     @Environment(ScopeManager.self) private var scope
@@ -264,47 +284,57 @@ struct WohneinheitPillReihe: View {
         immobilie.wohneinheiten ?? []
     }
 
-    /// Relative Pill-Breite in Bruchteilen der Container-Breite.
-    /// 0.72 = 72 % — aktive Pill voll sichtbar, die naechste
-    /// peekt mit ~20 % rein.
-    private let pillBreiteAnteil: CGFloat = 0.72
-
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                pill(
-                    label: "Gesamt",
-                    icon: "square.stack.3d.up",
-                    aktiv: scope.isObjekt
-                ) {
-                    scope.scope = .objekt
-                }
-                .containerRelativeFrame(.horizontal) { laenge, _ in
-                    laenge * pillBreiteAnteil
-                }
-
-                ForEach(einheiten) { e in
-                    pill(
-                        label: pillLabel(fuer: e),
-                        icon: ScopeFarbe.icon(fuer: e),
-                        aktiv: scope.einheitID == e.bezeichnung
-                    ) {
-                        scope.scope = .einheit(id: e.bezeichnung)
-                    }
-                    .containerRelativeFrame(.horizontal) { laenge, _ in
-                        laenge * pillBreiteAnteil
-                    }
-                }
-            }
-            .scrollTargetLayout()
-            .padding(.horizontal, 16)
+        HStack(spacing: 0) {
+            Spacer(minLength: 0)
+            aktivePill
+            Spacer(minLength: 0)
         }
-        .scrollTargetBehavior(.viewAligned)
+        .padding(.horizontal, 16)
     }
 
-    /// Label-Builder fuer Einheit-Pills. „OG · Fam. Pfaffenbach"
-    /// wenn aktives Mietverhaeltnis da ist, sonst nur die
-    /// Bezeichnung (z.B. bei Leerstand).
+    private var aktivePill: some View {
+        HStack(spacing: 6) {
+            Image(systemName: aktiverIcon)
+                .font(.system(size: 11, weight: .semibold))
+            Text(aktiverLabel)
+                .appFont(Self.pillLabelStyle)
+                .lineLimit(1)
+                .minimumScaleFactor(0.9)
+        }
+        .foregroundStyle(Color.white)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 10)
+        .background(Capsule().fill(DesignTokens.accent))
+        .accessibilityLabel("Aktive Auswahl: \(aktiverLabel)")
+    }
+
+    // MARK: - Scope-Ableitungen
+
+    private var aktiverLabel: String {
+        switch scope.scope {
+        case .objekt:
+            return "Gesamt"
+        case .einheit(let id):
+            guard let e = einheiten.first(where: { $0.bezeichnung == id }) else {
+                return id
+            }
+            return pillLabel(fuer: e)
+        }
+    }
+
+    private var aktiverIcon: String {
+        switch scope.scope {
+        case .objekt:
+            return "square.stack.3d.up"
+        case .einheit(let id):
+            guard let e = einheiten.first(where: { $0.bezeichnung == id }) else {
+                return "square.stack.3d.up"
+            }
+            return ScopeFarbe.icon(fuer: e)
+        }
+    }
+
     private func pillLabel(fuer e: Wohneinheit) -> String {
         let aktiv = (e.mietverhaeltnisse ?? []).first(where: { $0.auszugAm == nil })
         guard let mv = aktiv else { return e.bezeichnung }
@@ -313,43 +343,7 @@ struct WohneinheitPillReihe: View {
         return "\(e.bezeichnung) · \(kurz)"
     }
 
-    private func pill(
-        label: String,
-        icon: String,
-        aktiv: Bool,
-        aktion: @escaping () -> Void
-    ) -> some View {
-        Button(action: aktion) {
-            HStack(spacing: 6) {
-                Image(systemName: icon)
-                    .font(.system(size: 11, weight: .semibold))
-                Text(label)
-                    .appFont(Self.pillLabelStyle)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.9)
-                    .truncationMode(.tail)
-            }
-            .foregroundStyle(aktiv ? Color.white : DesignTokens.text)
-            .frame(maxWidth: .infinity)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .background(aktiv ? DesignTokens.accent : Color.clear)
-            .overlay(
-                Capsule().stroke(
-                    aktiv ? DesignTokens.accent : DesignTokens.separatorStrong,
-                    lineWidth: 0.5
-                )
-            )
-            .clipShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
-        .accessibilityAddTraits(aktiv ? .isSelected : [])
-    }
-
-    /// Plex Sans semibold 13 pt — die Pill-Label sollen klar lesbar
-    /// und kraeftig wirken; 600 ist das maximale verfuegbare Gewicht
-    /// in der App (Plex Sans 700 ist nicht gebundelt).
+    /// Plex Sans semibold 13 pt — klar lesbar im Header-Band.
     private static let pillLabelStyle = AppFontStyle(
         font: AppFont.plexSans(.semibold, 13),
         tracking: 0.1,

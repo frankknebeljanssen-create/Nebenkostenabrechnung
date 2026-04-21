@@ -59,9 +59,15 @@ final class AppShellRouter {
 
     /// Toggle fuer das Inspektor-Sheet („Was fehlt noch?"). Seit
     /// dem FAB-Rueckbau wird das Sheet ueber den „?"-Button im
-    /// NavBar-Header ausgeloest. Gebunden ist es in AppShell per
+    /// KontextHeader ausgeloest. Gebunden ist es in AppShell per
     /// `.sheet(isPresented:)`.
     var zeigeInspektor: Bool = false
+
+    /// Toggle fuer das Einstellungen-Sheet. Der Zahnrad-Button
+    /// lebt jetzt im KontextHeader (bottom-right), die Tab-
+    /// spezifischen lokalen States sind damit obsolet. AppShell
+    /// bindet seine `.sheet(isPresented:)` auf dieses Flag.
+    var zeigeEinstellungen: Bool = false
 
     // MARK: - Init
 
