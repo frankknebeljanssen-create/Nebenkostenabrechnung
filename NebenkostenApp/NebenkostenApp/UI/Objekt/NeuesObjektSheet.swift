@@ -192,13 +192,17 @@ struct NeuesObjektSheet: View {
 
     // MARK: - Validierung
 
+    /// Pragmatisch: der Button ist aktiv, sobald die strukturellen
+    /// Pflicht-Eckdaten gefuellt sind — Adresse + mindestens eine
+    /// Einheit mit Bezeichnung. Flaeche und weitere Details koennen
+    /// auch mit 0/Default gespeichert und spaeter in den
+    /// Einstellungen editiert werden. Das ermoeglicht „anlegen und
+    /// dann polieren" statt harter Formular-Blockade.
     private var istGueltig: Bool {
         !adresse.trimmingCharacters(in: .whitespaces).isEmpty
-            && (gesamtflaecheDecimal ?? 0) > 0
             && !wohneinheiten.isEmpty
             && wohneinheiten.allSatisfy {
                 !$0.bezeichnung.trimmingCharacters(in: .whitespaces).isEmpty
-                    && $0.flaecheM2 > 0
             }
             && periodeVon < periodeBis
     }
@@ -268,7 +272,22 @@ struct NeuesObjektSheet: View {
         periode.immobilie = objekt
         modelContext.insert(periode)
 
-        try? modelContext.save()
+        // Explizit persistieren + Fehler loggen (nicht silently
+        // wegschlucken). Frueher `try?` hat Save-Fehler verschluckt,
+        // sodass der User „Anlegen" tippte, das Sheet aber nicht
+        // dismisste und nichts sichtbar passierte.
+        do {
+            try modelContext.save()
+        } catch {
+            #if DEBUG
+            print("[NeuesObjekt] save fehlgeschlagen:", error.localizedDescription)
+            #endif
+            // Rollback, damit Halb-Zustand nicht im Context haengen
+            // bleibt; User bleibt im Sheet und kann korrigieren.
+            modelContext.rollback()
+            return
+        }
+
         onAngelegt(objekt)
         dismiss()
     }
