@@ -2,36 +2,32 @@
 //  AppShellChrome.swift
 //  NebenkostenApp — UI/Shell
 //
-//  ViewModifier für jeden Tab-Content: ersetzt die Standard-
-//  Navigation-Bar durch den Handoff-Look mit Adress-Button oben,
-//  Plex-Sans-Titel 30 pt darunter und einem 32pt-ScopeStrip. Rechts
-//  oben landet per Toolbar der Einstellungen-Button.
+//  ViewModifier fuer jeden Tab-Content: legt den permanenten
+//  `KontextHeader` (Objekt/Periode/WE-Pills) oben an, gefolgt von
+//  einer schmalen NavBar mit optionalem Plex-Sans-Titel 30 pt und
+//  rechts Einstellungen-/Primary-Action-Buttons.
 //
-//  Design-Referenz: design_handoff_nebenkosten_app/assets/shell.jsx
-//  (AppNavBar + ScopeStrip).
+//  Die frueheren Elemente `Adress-Button` und `ScopeStrip` sind
+//  entfallen — beide Aufgaben erledigt jetzt der KontextHeader.
+//  Die Legacy-Flags `zeigeAdresseOben` / `zeigeScopeStrip` bleiben
+//  als no-ops in der Call-Signatur, damit kein Tab-Screen
+//  angefasst werden muss.
 //
 
 import SwiftUI
-import SwiftData
 
 struct AppShellChrome: ViewModifier {
-    /// Titel im 30pt-Screen-Block. `nil` lässt den Block weg —
-    /// für Screens, die ihre eigene Hauptorientierung (z.B. einen
-    /// Perioden-Header) direkt im Content rendern.
+    /// Titel im 30pt-Screen-Block. `nil` lässt den Block weg.
     let titel: String?
     let subtitel: String?
+    /// Legacy-Callback fuer den alten Adress-Button. Wird nicht mehr
+    /// gerendert — Parameter bleibt, damit Tab-Views nicht umgebaut
+    /// werden muessen.
     let onAdresse: () -> Void
     let onEinstellungen: () -> Void
-    /// Steuert, ob der Adress-Button („Bahnhofstr. 37 ▾") oben
-    /// in der NavBar gerendert wird. `false` blendet ihn für
-    /// Screens aus, auf denen die Adresse schon anderswo
-    /// prominent erscheint (z.B. der HomeScreen mit seinem
-    /// Objekt-Carousel).
+    /// Legacy-Flag (Adress-Button oben) — no-op seit Kontext-Header.
     let zeigeAdresseOben: Bool
-    /// Steuert, ob der ScopeStrip (farbiges Band „OBJEKT · GESAMTES
-    /// HAUS") unter der NavBar gerendert wird. `false` blendet ihn
-    /// für Screens aus, auf denen der Scope bereits im Content
-    /// sichtbar ist (z.B. HomeScreen-WohneinheitCarousel).
+    /// Legacy-Flag (farbiger ScopeStrip) — no-op seit Kontext-Header.
     let zeigeScopeStrip: Bool
     /// Optionale zusätzliche Primary-Action rechts neben dem
     /// Einstellungen-Button (z.B. "+" für neue Rechnung).
@@ -43,32 +39,19 @@ struct AppShellChrome: ViewModifier {
         let handler: () -> Void
     }
 
-    @Environment(ScopeManager.self) private var scope
-    @Query(sort: \Immobilie.erstelltAm) private var immobilien: [Immobilie]
-
-    private var immobilie: Immobilie? {
-        immobilien.first
-    }
-
-    private var einheiten: [Wohneinheit] {
-        immobilie?.wohneinheiten ?? []
-    }
-
     func body(content: Content) -> some View {
         content
             .background(DesignTokens.bgApp)
             .safeAreaInset(edge: .top, spacing: 0) {
                 VStack(spacing: 0) {
                     // Permanenter Kontext-Header (Objekt / Periode /
-                    // Wohneinheit-Pills). Kommt VOR die alte NavBar —
-                    // Adress-Button + ScopeStrip bleiben voruebergehend
-                    // erhalten, bis die Shell-Konsolidierung in einem
-                    // Folge-Task die Redundanz abbaut.
+                    // Wohneinheit-Pills) ist jetzt die EINZIGE
+                    // Anzeige des Scope/Periode/Objekts. Der alte
+                    // Adress-Button und der farbige ScopeStrip sind
+                    // entfallen — sie waren redundant und fuehrten
+                    // zum doppelten/dreifachen „Wo bin ich?"-Display.
                     KontextHeader()
                     navBar
-                    if zeigeScopeStrip {
-                        scopeStrip
-                    }
                 }
                 .background(DesignTokens.bgApp)
             }
@@ -86,22 +69,6 @@ struct AppShellChrome: ViewModifier {
     private var navBar: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 10) {
-                if zeigeAdresseOben {
-                    Button(action: onAdresse) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "building.2")
-                                .font(.system(size: 12, weight: .regular))
-                            Text(adresseText)
-                                .appFont(AppFont.Rechnungen.adresseBtn())
-                                .lineLimit(1)
-                            Image(systemName: "chevron.down")
-                                .font(.system(size: 11, weight: .regular))
-                        }
-                        .foregroundStyle(DesignTokens.textSecondary)
-                        .padding(.vertical, 4)
-                    }
-                    .accessibilityLabel("Bereich wählen, aktuell \(scope.beschriftung(einheiten))")
-                }
                 Spacer()
                 if let primary = primaryAction {
                     Button(action: primary.handler) {
@@ -133,43 +100,8 @@ struct AppShellChrome: ViewModifier {
             }
         }
         .padding(.horizontal, 20)
-        .padding(.top, 10)
+        .padding(.top, 6)
         .padding(.bottom, 10)
-    }
-
-    private var adresseText: String {
-        if let i = immobilie, !i.adresse.isEmpty {
-            return i.adresse
-        }
-        return "Kein Objekt"
-    }
-
-    // MARK: - ScopeStrip
-
-    private var scopeStrip: some View {
-        HStack(spacing: 10) {
-            Rectangle()
-                .fill(scope.farbe(einheiten))
-                .frame(width: 8, height: 8)
-                .clipShape(RoundedRectangle(cornerRadius: 2))
-            Text(scope.beschriftung(einheiten))
-                .appFont(AppFont.Chrome.scopeStreifen())
-                .foregroundStyle(scope.farbe(einheiten))
-                .lineLimit(1)
-            Spacer()
-        }
-        .padding(.horizontal, 20)
-        .frame(height: 32)
-        .frame(maxWidth: .infinity)
-        .background(scope.softFarbe(einheiten))
-        .overlay(alignment: .top)    { trenner }
-        .overlay(alignment: .bottom) { trenner }
-        .contentShape(Rectangle())
-        .onTapGesture { onAdresse() }
-    }
-
-    private var trenner: some View {
-        Rectangle().fill(DesignTokens.separator).frame(height: 0.5)
     }
 }
 

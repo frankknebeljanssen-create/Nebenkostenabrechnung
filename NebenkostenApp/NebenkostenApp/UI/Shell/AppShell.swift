@@ -29,11 +29,13 @@ struct AppShell: View {
             ForEach(AppTab.allCases) { tab in
                 NavigationStack {
                     tabContent(tab)
+                        .background(DesignTokens.bgApp)
                 }
                 .tabItem { Label(tab.titel, systemImage: tab.sfSymbol) }
                 .tag(tab)
             }
         }
+        .background(DesignTokens.bgApp)
         // TabBar-Farben + Hintergrund kommen ausschliesslich aus
         // UITabBarAppearance (siehe NebenkostenAppApp.konfiguriereTabBar).
         // Frueher standen hier `.tint()` + `.toolbarBackground()` —

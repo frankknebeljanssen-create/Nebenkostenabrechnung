@@ -75,16 +75,16 @@ struct KontextHeader: View {
         Button { zeigeObjektPicker = true } label: {
             HStack(spacing: 6) {
                 Text("Objekt:")
-                    .appFont(AppFont.bodyMedium())
+                    .appFont(AppFont.bodySemi())
                     .foregroundStyle(DesignTokens.textSecondary)
                 Text(objektLabel)
                     .appFont(AppFont.bodySemi())
-                    .foregroundStyle(DesignTokens.text)
+                    .foregroundStyle(DesignTokens.accent)
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 11, weight: .regular))
-                    .foregroundStyle(DesignTokens.textTertiary)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(DesignTokens.accent)
             }
             .contentShape(Rectangle())
         }
