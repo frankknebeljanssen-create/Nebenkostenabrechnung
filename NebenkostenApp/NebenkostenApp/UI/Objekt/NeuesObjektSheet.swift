@@ -2,9 +2,16 @@
 //  NeuesObjektSheet.swift
 //  NebenkostenApp — UI/Objekt
 //
-//  Sheet zum Anlegen eines neuen Objekts inklusive seiner Wohneinheiten.
-//  Die Formular-Abschnitte werden später in Task 0.13 (Onboarding)
-//  wiederverwendet.
+//  Gefuehrter Flow zum Anlegen eines neuen Objekts — deckt alle
+//  Typen ab (Gesamtgebaeude, einzelne WE, einfaches Objekt) und
+//  legt beim Speichern ab:
+//    1. Immobilie (Adresse, Ort, Flaeche, Abrechnungsstart,
+//       Heizung/Warmwasser).
+//    2. Wohneinheiten inkl. optionalem Mietverhaeltnis pro
+//       Einheit (Toggle „vermietet").
+//    3. Standard-Kostenarten passend zum Objekt-Typ
+//       (`StandardKostenarten.anlegen`).
+//    4. Erste Abrechnungsperiode (DatePickers von/bis).
 //
 
 import SwiftUI
@@ -15,73 +22,42 @@ struct NeuesObjektSheet: View {
     @Environment(\.dismiss) private var dismiss
     let onAngelegt: (Immobilie) -> Void
 
+    // MARK: - Adresse / Eckdaten
+
     @State private var adresse: String = ""
     @State private var ort: String = ""
     @State private var gesamtflaecheText: String = ""
-    @State private var abrechnungsstartMonat: Int = 1
-    @State private var abrechnungsstartTag: Int = 1
+
+    // MARK: - Objekt-Typ
+
+    @State private var objektTyp: StandardKostenarten.Typ = .gesamtgebaeude
+
+    // MARK: - Heizung
+
     @State private var heizungsart: Heizungsart = .gasZentral
     @State private var warmwasser: Warmwasserbereitung = .zentralMitHeizung
+
+    // MARK: - Wohneinheiten
+
     @State private var wohneinheiten: [EinheitEntwurf] = [EinheitEntwurf()]
+
+    // MARK: - Periode
+
+    @State private var periodeVon: Date = Self.ersterDesMonats()
+    @State private var periodeBis: Date = Calendar(identifier: .gregorian)
+        .date(byAdding: .year, value: 1, to: Self.ersterDesMonats())
+        .flatMap { Calendar(identifier: .gregorian).date(byAdding: .day, value: -1, to: $0) }
+        ?? Date()
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("Adresse") {
-                    TextField("Straße und Hausnummer", text: $adresse)
-                        .textContentType(.streetAddressLine1)
-                    TextField("PLZ und Ort", text: $ort)
-                        .textContentType(.addressCity)
-                }
-
-                Section("Eckdaten") {
-                    TextField("Gesamtfläche m²", text: $gesamtflaecheText)
-                        .keyboardType(.decimalPad)
-                    Stepper(value: $abrechnungsstartMonat, in: 1...12) {
-                        HStack {
-                            Text("Abrechnungsstart-Monat")
-                            Spacer()
-                            Text("\(abrechnungsstartMonat)")
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    Stepper(value: $abrechnungsstartTag, in: 1...31) {
-                        HStack {
-                            Text("Abrechnungsstart-Tag")
-                            Spacer()
-                            Text("\(abrechnungsstartTag)")
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-
-                Section("Heizung") {
-                    Picker("Heizungsart", selection: $heizungsart) {
-                        ForEach(Heizungsart.allCases, id: \.self) { art in
-                            Text(art.rawValue).tag(art)
-                        }
-                    }
-                    Picker("Warmwasser", selection: $warmwasser) {
-                        ForEach(Warmwasserbereitung.allCases, id: \.self) { bereitung in
-                            Text(bereitung.rawValue).tag(bereitung)
-                        }
-                    }
-                }
-
-                Section("Wohneinheiten") {
-                    ForEach($wohneinheiten) { $entwurf in
-                        EinheitZeile(entwurf: $entwurf)
-                    }
-                    .onDelete { offsets in
-                        wohneinheiten.remove(atOffsets: offsets)
-                    }
-
-                    Button {
-                        wohneinheiten.append(EinheitEntwurf())
-                    } label: {
-                        Label("Einheit hinzufügen", systemImage: "plus.circle")
-                    }
-                }
+                adresseSektion
+                eckdatenSektion
+                objektTypSektion
+                heizungSektion
+                wohneinheitenSektion
+                periodenSektion
             }
             .navigationTitle("Neues Objekt")
             .navigationBarTitleDisplayMode(.inline)
@@ -98,6 +74,116 @@ struct NeuesObjektSheet: View {
             }
             .keyboardFertigButton()
         }
+        .tint(DesignTokens.accent)
+    }
+
+    // MARK: - Sections
+
+    private var adresseSektion: some View {
+        Section("Adresse") {
+            TextField("Straße und Hausnummer", text: $adresse)
+                .textContentType(.streetAddressLine1)
+            TextField("PLZ und Ort", text: $ort)
+                .textContentType(.addressCity)
+        }
+    }
+
+    private var eckdatenSektion: some View {
+        Section("Gesamtflaeche") {
+            HStack {
+                TextField("0", text: $gesamtflaecheText)
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.trailing)
+                    .monospacedDigit()
+                Text("m²").foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var objektTypSektion: some View {
+        Section {
+            ForEach(StandardKostenarten.Typ.allCases) { typ in
+                Button {
+                    objektTyp = typ
+                } label: {
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: objektTyp == typ ? "largecircle.fill.circle" : "circle")
+                            .foregroundStyle(objektTyp == typ ? DesignTokens.accent : DesignTokens.textTertiary)
+                            .padding(.top, 2)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(typ.anzeigeName)
+                                .foregroundStyle(DesignTokens.text)
+                            Text(typ.beschreibung)
+                                .appFont(AppFont.caption())
+                                .foregroundStyle(DesignTokens.textSecondary)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        } header: {
+            Text("Objekt-Typ")
+        } footer: {
+            Text("Der Typ bestimmt, welche Standard-Kostenarten automatisch angelegt werden.")
+        }
+    }
+
+    @ViewBuilder
+    private var heizungSektion: some View {
+        Section("Heizung") {
+            Picker("Heizungsart", selection: $heizungsart) {
+                ForEach(Heizungsart.allCases, id: \.self) { art in
+                    Text(art.rawValue).tag(art)
+                }
+            }
+            if heizungsart != .keine {
+                Picker("Warmwasser", selection: $warmwasser) {
+                    ForEach(Warmwasserbereitung.allCases, id: \.self) { bereitung in
+                        Text(bereitung.rawValue).tag(bereitung)
+                    }
+                }
+            }
+        }
+    }
+
+    private var wohneinheitenSektion: some View {
+        Section {
+            ForEach($wohneinheiten) { $entwurf in
+                EinheitZeile(entwurf: $entwurf)
+            }
+            .onDelete { offsets in
+                wohneinheiten.remove(atOffsets: offsets)
+            }
+            Button {
+                wohneinheiten.append(EinheitEntwurf())
+            } label: {
+                Label("Einheit hinzufügen", systemImage: "plus.circle")
+            }
+        } header: {
+            Text("Wohneinheiten")
+        } footer: {
+            Text("Pro Einheit optional Mieter + Vorauszahlung. Toggle ausschalten, um den Mieter später einzutragen.")
+        }
+    }
+
+    private var periodenSektion: some View {
+        Section("Abrechnungszeitraum") {
+            DatePicker(
+                "Von",
+                selection: $periodeVon,
+                displayedComponents: .date
+            )
+            .environment(\.locale, Locale(identifier: "de_DE"))
+            DatePicker(
+                "Bis",
+                selection: $periodeBis,
+                in: periodeVon...,
+                displayedComponents: .date
+            )
+            .environment(\.locale, Locale(identifier: "de_DE"))
+        }
     }
 
     // MARK: - Validierung
@@ -110,6 +196,7 @@ struct NeuesObjektSheet: View {
                 !$0.bezeichnung.trimmingCharacters(in: .whitespaces).isEmpty
                     && $0.flaecheM2 > 0
             }
+            && periodeVon < periodeBis
     }
 
     private var gesamtflaecheDecimal: Decimal? {
@@ -119,16 +206,19 @@ struct NeuesObjektSheet: View {
     // MARK: - Anlegen
 
     private func anlegen() {
+        // 1. Immobilie
         let objekt = Immobilie()
         objekt.adresse = adresse.trimmingCharacters(in: .whitespaces)
         objekt.ort = ort.trimmingCharacters(in: .whitespaces)
         objekt.gesamtflaecheM2 = gesamtflaecheDecimal ?? 0
-        objekt.abrechnungsstartMonat = abrechnungsstartMonat
-        objekt.abrechnungsstartTag = abrechnungsstartTag
+        let kal = Calendar(identifier: .gregorian)
+        objekt.abrechnungsstartMonat = kal.component(.month, from: periodeVon)
+        objekt.abrechnungsstartTag = kal.component(.day, from: periodeVon)
         objekt.heizungsart = heizungsart
         objekt.warmwasserbereitung = warmwasser
         modelContext.insert(objekt)
 
+        // 2. Wohneinheiten + optionale Mietverhaeltnisse
         for entwurf in wohneinheiten {
             let wohneinheit = Wohneinheit()
             wohneinheit.bezeichnung = entwurf.bezeichnung.trimmingCharacters(in: .whitespaces)
@@ -136,21 +226,71 @@ struct NeuesObjektSheet: View {
             wohneinheit.nutzungsart = entwurf.nutzungsart
             wohneinheit.immobilie = objekt
             modelContext.insert(wohneinheit)
+
+            if entwurf.istVermietet,
+               !entwurf.mieterName.trimmingCharacters(in: .whitespaces).isEmpty {
+                let mv = Mietverhaeltnis()
+                mv.mieterName = entwurf.mieterName.trimmingCharacters(in: .whitespaces)
+                mv.einzugAm = entwurf.einzugAm
+                if let vz = Self.parseVz(entwurf.vorauszahlungText) {
+                    mv.vorauszahlungMonatEuro = vz
+                    mv.vorauszahlungErfasst = true
+                    mv.vorauszahlungGueltigAb = entwurf.einzugAm
+                }
+                mv.wohneinheit = wohneinheit
+                modelContext.insert(mv)
+            }
         }
+
+        // 3. Standard-Kostenarten passend zum Typ
+        StandardKostenarten.anlegen(
+            fuer: objekt,
+            typ: objektTyp,
+            mitZentralheizung: heizungsart != .keine,
+            context: modelContext
+        )
+
+        // 4. Abrechnungsperiode
+        let periode = Abrechnungsperiode()
+        periode.von = periodeVon
+        periode.bis = periodeBis
+        periode.immobilie = objekt
+        modelContext.insert(periode)
 
         try? modelContext.save()
         onAngelegt(objekt)
         dismiss()
     }
+
+    // MARK: - Helper
+
+    private static func ersterDesMonats(heute: Date = Date()) -> Date {
+        let kal = Calendar(identifier: .gregorian)
+        let komps = kal.dateComponents([.year, .month], from: heute)
+        return kal.date(from: komps) ?? heute
+    }
+
+    private static func parseVz(_ text: String) -> Decimal? {
+        let norm = text
+            .replacingOccurrences(of: ".", with: "")
+            .replacingOccurrences(of: ",", with: ".")
+            .trimmingCharacters(in: .whitespaces)
+        guard !norm.isEmpty else { return nil }
+        return Decimal(string: norm)
+    }
 }
 
-// MARK: - Wohneinheit-Zeile
+// MARK: - Einheit-Entwurf
 
 struct EinheitEntwurf: Identifiable, Equatable, Sendable {
     let id: UUID = UUID()
     var bezeichnung: String = ""
     var flaecheM2: Decimal = 0
     var nutzungsart: Nutzungsart = .wohnung
+    var istVermietet: Bool = true
+    var mieterName: String = ""
+    var einzugAm: Date = Date()
+    var vorauszahlungText: String = ""
 }
 
 private struct EinheitZeile: View {
@@ -158,8 +298,8 @@ private struct EinheitZeile: View {
     @State private var flaecheText: String = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            TextField("Bezeichnung (z.B. EG, OG, KG)", text: $entwurf.bezeichnung)
+        VStack(alignment: .leading, spacing: 10) {
+            TextField("Bezeichnung (z.B. EG, OG, Datsche)", text: $entwurf.bezeichnung)
 
             HStack {
                 TextField("Fläche m²", text: $flaecheText)
@@ -175,6 +315,30 @@ private struct EinheitZeile: View {
                 }
                 .pickerStyle(.menu)
                 .labelsHidden()
+            }
+
+            Toggle("Wohnung ist vermietet", isOn: $entwurf.istVermietet)
+
+            if entwurf.istVermietet {
+                TextField("Mietername", text: $entwurf.mieterName)
+                    .textContentType(.name)
+                DatePicker(
+                    "Einzug am",
+                    selection: $entwurf.einzugAm,
+                    displayedComponents: .date
+                )
+                .environment(\.locale, Locale(identifier: "de_DE"))
+                HStack {
+                    TextField("Monatliche Vorauszahlung", text: $entwurf.vorauszahlungText)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                        .monospacedDigit()
+                    Text("€").foregroundStyle(.secondary)
+                }
+            } else {
+                Text("Mieter später eintragen")
+                    .appFont(AppFont.caption())
+                    .foregroundStyle(DesignTokens.textTertiary)
             }
         }
         .padding(.vertical, 4)

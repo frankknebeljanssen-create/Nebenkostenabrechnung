@@ -7,8 +7,12 @@
 //  bei aktivem Eintrag. Tap setzt `ScopeManager.aktuelleImmobilieID`
 //  und dismisst. Der Setter im ScopeManager ruft beim tatsaechlichen
 //  Wechsel automatisch `scope = .objekt` auf — der User landet auf
-//  "Gesamt" und wuerde sonst auf einer Einheit-ID stehen, die im
+//  „Gesamt" und wuerde sonst auf einer Einheit-ID stehen, die im
 //  neuen Objekt gar nicht existiert.
+//
+//  Am Ende der Liste ein „+ Neues Objekt anlegen"-Eintrag, der das
+//  `NeuesObjektSheet` oeffnet. Nach erfolgreicher Anlage setzt der
+//  Scope die neue Immobilie als aktive und beide Sheets schliessen.
 //
 
 import SwiftUI
@@ -19,23 +23,46 @@ struct ObjektPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \Immobilie.erstelltAm) private var immobilien: [Immobilie]
 
+    @State private var zeigeNeuesObjektSheet = false
+
     var body: some View {
         NavigationStack {
             List {
                 if immobilien.isEmpty {
-                    Text("Keine Objekte vorhanden")
-                        .appFont(AppFont.bodyMedium())
-                        .foregroundStyle(DesignTokens.textSecondary)
-                } else {
-                    ForEach(immobilien) { immo in
-                        Button {
-                            scope.aktuelleImmobilieID = immo.id
-                            dismiss()
-                        } label: {
-                            zeile(fuer: immo)
-                        }
-                        .buttonStyle(.plain)
+                    Section {
+                        Text("Keine Objekte vorhanden")
+                            .appFont(AppFont.bodyMedium())
+                            .foregroundStyle(DesignTokens.textSecondary)
                     }
+                } else {
+                    Section {
+                        ForEach(immobilien) { immo in
+                            Button {
+                                scope.aktuelleImmobilieID = immo.id
+                                dismiss()
+                            } label: {
+                                zeile(fuer: immo)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                Section {
+                    Button {
+                        zeigeNeuesObjektSheet = true
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "plus.circle")
+                                .foregroundStyle(DesignTokens.accent)
+                                .frame(width: 20)
+                            Text("Neues Objekt anlegen")
+                                .appFont(AppFont.bodyMedium())
+                                .foregroundStyle(DesignTokens.accent)
+                            Spacer()
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
                 }
             }
             .navigationTitle("Objekt wählen")
@@ -44,6 +71,15 @@ struct ObjektPickerSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     SheetToolbar.abbrechen(titel: "Fertig") { dismiss() }
                 }
+            }
+        }
+        .sheet(isPresented: $zeigeNeuesObjektSheet) {
+            NeuesObjektSheet { neueImmobilie in
+                // Aktive Immobilie auf das neue Objekt umschalten
+                // und den ObjektPicker gleich mit schliessen, damit
+                // der User direkt auf dem Kontext-Header landet.
+                scope.aktuelleImmobilieID = neueImmobilie.id
+                dismiss()
             }
         }
     }

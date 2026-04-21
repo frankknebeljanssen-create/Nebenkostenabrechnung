@@ -61,6 +61,10 @@ enum Heizungsart: String, Codable, CaseIterable, Sendable {
     case strom            = "Strom (Nachtspeicher)"
     case waermepumpe      = "Wärmepumpe"
     case etagenheizung    = "Etagenheizung"
+    /// Dezentral / kein zentrales System. Bei dieser Wahl wird
+    /// keine HeizkostenV-Logik angewandt und im Kostenart-Setup
+    /// keine „Heizung und Warmwasser"-Kostenart angelegt.
+    case keine            = "Keine Zentralheizung / Etagenheizung"
 }
 
 enum Warmwasserbereitung: String, Codable, CaseIterable, Sendable {
