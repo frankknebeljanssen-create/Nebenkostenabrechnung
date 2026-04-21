@@ -2,18 +2,23 @@
 //  KontextHeader.swift
 //  NebenkostenApp — UI/Chrome
 //
-//  Permanenter Kontext-Header fuer alle Haupt-Tabs. Drei Zeilen:
-//    1. Objekt-Selector  — Dropdown, Adresse + Chevron
-//    2. Perioden-Selector — Dropdown, Zeitraum Mono
-//    3. Wohneinheit-Pills — "Gesamt" + Pill pro Einheit, horizontal
-//                            scrollbar, interaktiv
+//  Permanenter Kontext-Header fuer alle Haupt-Tabs. Drei Zeilen,
+//  horizontal zentriert:
+//    1. "Objekt: <Adresse>" (+ Chevron)
+//    2. "Abrechnungszeitraum: <Zeitraum>" (+ Chevron)
+//    3. Wohneinheit-Pills ("Gesamt" + eine Pill pro Einheit),
+//       zentriert wenn alle reinpassen, sonst horizontal scrollbar.
+//
+//  Visuell als klar abgegrenzter Block: Hintergrund `bgAppCompact`
+//  (eine Stufe dunkler als bgApp). Der Farbhintergrund extrahiert
+//  sich via `.ignoresSafeArea(.container, edges: .top)` nach oben
+//  in die Status-Bar / Dynamic-Island-Region — der Header liest
+//  sich wie ein zusammenhaengender Block von oben bis zur
+//  Trennlinie unten.
 //
 //  Der Header liest alle drei Achsen aus dem ScopeManager. Beim
 //  Objekt-Wechsel setzt der ScopeManager den Scope automatisch auf
 //  .objekt zurueck (siehe ScopeManager.aktuelleImmobilieID.didSet).
-//
-//  Der Header haengt per `.safeAreaInset(edge: .top)` an
-//  `AppShellChrome` — jeder Tab bekommt ihn automatisch.
 //
 
 import SwiftUI
@@ -27,20 +32,25 @@ struct KontextHeader: View {
     @State private var zeigePeriodenPicker = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(spacing: 8) {
             objektZeile
             periodenZeile
             if let immo = aktuelleImmobilie {
                 WohneinheitPillReihe(immobilie: immo)
             }
         }
+        .frame(maxWidth: .infinity)
         .padding(.horizontal, 20)
-        .padding(.top, 8)
-        .padding(.bottom, 10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(DesignTokens.bgApp)
+        .padding(.top, 12)
+        .padding(.bottom, 12)
+        .background {
+            DesignTokens.bgAppCompact
+                .ignoresSafeArea(.container, edges: .top)
+        }
         .overlay(alignment: .bottom) {
-            Rectangle().fill(DesignTokens.separator).frame(height: 0.5)
+            Rectangle()
+                .fill(DesignTokens.separatorStrong)
+                .frame(height: 0.5)
         }
         .sheet(isPresented: $zeigeObjektPicker) {
             ObjektPickerSheet()
@@ -59,23 +69,22 @@ struct KontextHeader: View {
         }
     }
 
-    // MARK: - Zeilen
+    // MARK: - Zeilen (zentriert)
 
     private var objektZeile: some View {
         Button { zeigeObjektPicker = true } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "building.2")
-                    .font(.system(size: 14, weight: .regular))
+            HStack(spacing: 6) {
+                Text("Objekt:")
+                    .appFont(AppFont.bodyMedium())
                     .foregroundStyle(DesignTokens.textSecondary)
                 Text(objektLabel)
-                    .appFont(AppFont.bodyMedium())
+                    .appFont(AppFont.bodySemi())
                     .foregroundStyle(DesignTokens.text)
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Image(systemName: "chevron.down")
                     .font(.system(size: 11, weight: .regular))
                     .foregroundStyle(DesignTokens.textTertiary)
-                Spacer(minLength: 0)
             }
             .contentShape(Rectangle())
         }
@@ -90,14 +99,16 @@ struct KontextHeader: View {
             }
         } label: {
             HStack(spacing: 6) {
-                Text(periodenLabel)
-                    .appFont(AppFont.Basis.monoSmall())
+                Text("Abrechnungszeitraum:")
+                    .appFont(AppFont.bodyMedium())
                     .foregroundStyle(DesignTokens.textSecondary)
+                Text(periodenLabel)
+                    .appFont(AppFont.Basis.monoBody())
+                    .foregroundStyle(DesignTokens.text)
                     .lineLimit(1)
                 Image(systemName: "chevron.down")
                     .font(.system(size: 10, weight: .regular))
                     .foregroundStyle(DesignTokens.textTertiary)
-                Spacer(minLength: 0)
             }
             .contentShape(Rectangle())
         }
@@ -171,7 +182,6 @@ struct KontextHeader: View {
         if let immo = aktuelleImmobilie {
             let periodenIDs = Set((immo.perioden ?? []).map(\.id))
             scope.bereinigePeriode(verfuegbareIDs: periodenIDs)
-            // Default: letzte (neueste) Periode, wenn noch nichts gewaehlt.
             if scope.aktuellePeriodeID == nil {
                 let sortiert = (immo.perioden ?? []).sorted { $0.von > $1.von }
                 if let neueste = sortiert.first {
@@ -186,10 +196,11 @@ struct KontextHeader: View {
 
 // MARK: - WohneinheitPillReihe
 
-/// Horizontal scrollbare Pill-Reihe: "Gesamt" + eine Pill pro
-/// Wohneinheit. Tap auf eine Pill setzt den Scope. Farbgebung folgt
-/// `ScopeFarbe` / `DesignTokens.unitObjekt` — aktive Pill bekommt
-/// Soft-Hintergrund + staerkeren Strich, inaktive bleiben neutral.
+/// "Gesamt" + eine Pill pro Wohneinheit. Zentriert, wenn alle
+/// Pills in die Breite passen; sonst horizontal scrollbar (ohne
+/// Indikator). Farbgebung folgt `ScopeFarbe` / `DesignTokens.
+/// unitObjekt` — aktive Pill bekommt Soft-Hintergrund + 0.5 pt
+/// farbigen Strich.
 struct WohneinheitPillReihe: View {
     let immobilie: Immobilie
     @Environment(ScopeManager.self) private var scope
@@ -199,31 +210,39 @@ struct WohneinheitPillReihe: View {
     }
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+        ViewThatFits(in: .horizontal) {
+            pillenHStack
+                .frame(maxWidth: .infinity)   // zentriert, wenn passt
+            ScrollView(.horizontal, showsIndicators: false) {
+                pillenHStack
+                    .padding(.horizontal, 16)
+            }
+        }
+    }
+
+    private var pillenHStack: some View {
+        HStack(spacing: 8) {
+            pill(
+                label: "Gesamt",
+                icon: "square.stack.3d.up",
+                farbe: DesignTokens.unitObjekt,
+                soft: DesignTokens.unitObjektSoft,
+                aktiv: scope.isObjekt
+            ) {
+                scope.scope = .objekt
+            }
+            ForEach(einheiten) { e in
+                let farbe = ScopeFarbe.farbe(fuer: e)
                 pill(
-                    label: "Gesamt",
-                    icon: "square.stack.3d.up",
-                    farbe: DesignTokens.unitObjekt,
-                    soft: DesignTokens.unitObjektSoft,
-                    aktiv: scope.isObjekt
+                    label: e.bezeichnung,
+                    icon: ScopeFarbe.icon(fuer: e),
+                    farbe: farbe,
+                    soft: farbe.opacity(0.12),
+                    aktiv: scope.einheitID == e.bezeichnung
                 ) {
-                    scope.scope = .objekt
-                }
-                ForEach(einheiten) { e in
-                    let farbe = ScopeFarbe.farbe(fuer: e)
-                    pill(
-                        label: e.bezeichnung,
-                        icon: ScopeFarbe.icon(fuer: e),
-                        farbe: farbe,
-                        soft: farbe.opacity(0.12),
-                        aktiv: scope.einheitID == e.bezeichnung
-                    ) {
-                        scope.scope = .einheit(id: e.bezeichnung)
-                    }
+                    scope.scope = .einheit(id: e.bezeichnung)
                 }
             }
-            .padding(.vertical, 2)
         }
     }
 

@@ -49,14 +49,13 @@ struct HomeView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: 16) {
                 if immobilien.isEmpty {
                     kopfLeer
                     EmptyStateCard(onPrimaerAktion: {
                         zeigeEinstellungen = true
                     })
                 } else {
-                    kopfMitPeriode
                     ObjektCarousel(
                         immobilien: immobilien,
                         aktuellerIndex: $carouselIndex,
@@ -74,7 +73,10 @@ struct HomeView: View {
                         HomeStatusCard(
                             anforderungen: anforderungen,
                             immobilie: immobilie,
-                            periode: aktivePeriode,
+                            periode: aktivePeriode
+                        )
+                        NaechsterSchrittCard(
+                            anforderungen: anforderungen,
                             onSprung: { ziel in
                                 router.springe(zu: ziel)
                             }
@@ -83,7 +85,7 @@ struct HomeView: View {
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.top, 16)
+            .padding(.top, 12)
             .padding(.bottom, 40)
         }
         .background(DesignTokens.bgApp)
@@ -102,18 +104,11 @@ struct HomeView: View {
         }
     }
 
-    // MARK: - Kopfzonen
+    // MARK: - Kopfzone (Leer-State)
 
-    /// Kopfzone mit voll ausgebauter Perioden-Überschrift
-    /// (40 pt/600). Nur sichtbar, wenn mindestens eine Immobilie
-    /// existiert — sonst macht der Perioden-Header keinen Sinn.
-    private var kopfMitPeriode: some View {
-        PeriodenHeader(periode: aktivePeriode)
-            .padding(.horizontal, 4)
-    }
-
-    /// Fallback-Kopf, wenn der Store noch leer ist. Minimal, damit
-    /// die EmptyStateCard selbst die Hauptbühne bleibt.
+    /// Kopf fuer den leeren Store. Die Perioden-Ueberschrift lebt
+    /// jetzt komplett im KontextHeader oben — hier reicht ein
+    /// schlichtes "Willkommen".
     private var kopfLeer: some View {
         Text("Willkommen")
             .appFont(AppFont.Basis.periodenHeader())

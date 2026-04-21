@@ -3,9 +3,11 @@
 //  NebenkostenApp — UI/Home
 //
 //  Kompakte Status-Card unter den Objekt/Einheit-Cards. Zeigt
-//  drei bis vier Kennzahlen + prominent den „Nächsten Schritt"
-//  (= erste offene Anforderung mit Sprungziel, tappbar über den
-//  Router).
+//  drei bis vier Kennzahlen + Status-Pill zum Periodenzustand.
+//
+//  Der "Naechste Schritt" lebt nach Home-Refactor als eigene
+//  `NaechsterSchrittCard` unterhalb — gleich gewichtet, gleiche
+//  Breite wie die uebrigen Home-Cards.
 //
 //  Kein Dashboard — nur die wichtigsten, sofort erfassbaren Infos.
 //  Alle Zahlen kommen aus VollstaendigkeitsPruefung der aktiven
@@ -18,8 +20,6 @@ struct HomeStatusCard: View {
     let anforderungen: [AnforderungMitStatus]
     let immobilie: Immobilie
     let periode: Abrechnungsperiode?
-    /// Tap auf „Nächster Schritt" → Router.
-    let onSprung: (Sprungziel) -> Void
 
     var body: some View {
         Card(tiefe: .erhoben) {
@@ -32,10 +32,6 @@ struct HomeStatusCard: View {
                     StatusPill(text: statusKurz, style: statusPillStyle)
                 }
                 kennzahlenBlock
-                if naechsterSchritt != nil {
-                    DividerLine()
-                    naechsterSchrittZeile
-                }
             }
         }
     }
@@ -79,49 +75,6 @@ struct HomeStatusCard: View {
         }
     }
 
-    // MARK: - Nächster-Schritt-Zeile
-
-    @ViewBuilder
-    private var naechsterSchrittZeile: some View {
-        if let anf = naechsterSchritt, let ziel = anf.sprungZiel {
-            Button {
-                onSprung(ziel)
-            } label: {
-                HStack(alignment: .top, spacing: 12) {
-                    Image(systemName: "arrow.forward.circle.fill")
-                        .font(.system(size: 20))
-                        .foregroundStyle(DesignTokens.accent)
-                        .padding(.top, 2)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Nächster Schritt")
-                            .appFont(AppFont.Basis.micro())
-                            .foregroundStyle(DesignTokens.textTertiary)
-                            .textCase(.uppercase)
-                        Text(anf.anforderung.titel)
-                            .appFont(AppFont.Abrechnung.kopfName())
-                            .foregroundStyle(DesignTokens.text)
-                            .multilineTextAlignment(.leading)
-                        if let hinweis = anf.hinweis {
-                            Text(hinweis)
-                                .appFont(AppFont.Basis.caption())
-                                .foregroundStyle(DesignTokens.textSecondary)
-                                .multilineTextAlignment(.leading)
-                                .lineLimit(2)
-                        }
-                    }
-                    Spacer(minLength: 4)
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundStyle(DesignTokens.textTertiary)
-                        .padding(.top, 6)
-                }
-                .padding(.vertical, 4)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
     // MARK: - Daten-Ableitungen
 
     private var offeneAnforderungen: [AnforderungMitStatus] {
@@ -130,10 +83,6 @@ struct HomeStatusCard: View {
 
     private var teilweiseAnforderungen: [AnforderungMitStatus] {
         anforderungen.filter { $0.status == .teilweise }
-    }
-
-    private var naechsterSchritt: AnforderungMitStatus? {
-        offeneAnforderungen.first ?? teilweiseAnforderungen.first { $0.sprungZiel != nil }
     }
 
     private var zaehlerAnforderungen: [AnforderungMitStatus] {

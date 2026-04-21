@@ -34,13 +34,12 @@ struct WohneinheitCarousel: View {
             TabView(selection: $index) {
                 ForEach(Array(scopeOptionen.enumerated()), id: \.offset) { idx, option in
                     WohneinheitCard(option: option, onTap: { onOeffnen(option.scope) })
-                        .padding(.horizontal, 16)
                         .padding(.vertical, 4)
                         .tag(idx)
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: 120)
+            .frame(height: 132)
 
             if scopeOptionen.count > 1 {
                 PaginationDots(anzahl: scopeOptionen.count, aktiv: index)
@@ -169,7 +168,8 @@ fileprivate struct WohneinheitCard: View {
                     .font(.system(size: 16, weight: .regular))
                     .foregroundStyle(DesignTokens.textTertiary)
             }
-            .padding(.vertical, 14)
+            .padding(.top, 18)
+            .padding(.bottom, 14)
             .padding(.horizontal, 20)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             .background(DesignTokens.bgSurface)

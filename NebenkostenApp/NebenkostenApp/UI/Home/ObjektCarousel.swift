@@ -24,13 +24,12 @@ struct ObjektCarousel: View {
             TabView(selection: $aktuellerIndex) {
                 ForEach(Array(immobilien.enumerated()), id: \.element.id) { idx, immobilie in
                     ObjektCard(immobilie: immobilie, onTap: { onOeffnen(immobilie) })
-                        .padding(.horizontal, 16)
                         .padding(.vertical, 4)
                         .tag(idx)
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: 120)
+            .frame(height: 132)
 
             if immobilien.count > 1 {
                 PaginationDots(
@@ -75,7 +74,8 @@ struct ObjektCard: View {
                     .font(.system(size: 16, weight: .regular))
                     .foregroundStyle(DesignTokens.textTertiary)
             }
-            .padding(.vertical, 14)
+            .padding(.top, 18)
+            .padding(.bottom, 14)
             .padding(.horizontal, 20)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             .background(DesignTokens.bgSurface)
