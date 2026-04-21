@@ -33,13 +33,17 @@ struct WohneinheitCarousel: View {
         VStack(spacing: 14) {
             TabView(selection: $index) {
                 ForEach(Array(scopeOptionen.enumerated()), id: \.offset) { idx, option in
-                    WohneinheitCard(option: option, onTap: { onOeffnen(option.scope) })
-                        .padding(.vertical, 4)
-                        .tag(idx)
+                    WohneinheitCard(
+                        option: option,
+                        adresse: immobilie.adresse,
+                        onTap: { onOeffnen(option.scope) }
+                    )
+                    .padding(.vertical, 4)
+                    .tag(idx)
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: 148)
+            .frame(height: 160)
 
             if scopeOptionen.count > 1 {
                 PaginationDots(anzahl: scopeOptionen.count, aktiv: index)
@@ -79,7 +83,10 @@ struct WohneinheitCarousel: View {
     fileprivate struct ScopeOption: Hashable {
         let scope: AppScope
         let titel: String
-        let zusatz: String
+        /// Nur die Flaeche (z.B. „187 m²") bzw. Aggregat
+        /// („Alle 3 Einheiten · 528 m²") — kein Mieter-Name mehr,
+        /// der wandert in die Header-Pills.
+        let flaeche: String
         let farbe: Color
     }
 
@@ -88,7 +95,7 @@ struct WohneinheitCarousel: View {
             ScopeOption(
                 scope: .objekt,
                 titel: "Gesamtes Objekt",
-                zusatz: einheitenZusatz,
+                flaeche: gesamtFlaeche,
                 farbe: DesignTokens.unitObjekt
             )
         ]
@@ -96,17 +103,23 @@ struct WohneinheitCarousel: View {
             liste.append(ScopeOption(
                 scope: .einheit(id: e.bezeichnung),
                 titel: titelFuer(e),
-                zusatz: zusatzFuer(e),
+                flaeche: flaecheFuer(e),
                 farbe: ScopeFarbe.farbe(fuer: e)
             ))
         }
         return liste
     }
 
-    private var einheitenZusatz: String {
+    private var gesamtFlaeche: String {
         let n = einheiten.count
-        if n == 0 { return "Noch keine Einheit erfasst" }
-        return "Alle \(n) Einheit\(n == 1 ? "" : "en")"
+        var parts: [String] = []
+        if n > 0 {
+            parts.append("Alle \(n) Einheit\(n == 1 ? "" : "en")")
+        }
+        if immobilie.gesamtflaecheM2 > 0 {
+            parts.append(Formatting.m2(immobilie.gesamtflaecheM2))
+        }
+        return parts.isEmpty ? "Noch keine Einheit erfasst" : parts.joined(separator: " · ")
     }
 
     private func titelFuer(_ e: Wohneinheit) -> String {
@@ -117,16 +130,8 @@ struct WohneinheitCarousel: View {
         }
     }
 
-    private func zusatzFuer(_ e: Wohneinheit) -> String {
-        let mv = (e.mietverhaeltnisse ?? []).first { $0.auszugAm == nil }
-        var parts: [String] = []
-        if let mv {
-            parts.append(ScopeTexte.abkuerzungName(mv.mieterName))
-        }
-        if e.flaecheM2 > 0 {
-            parts.append(Formatting.m2(e.flaecheM2))
-        }
-        return parts.joined(separator: " · ")
+    private func flaecheFuer(_ e: Wohneinheit) -> String {
+        e.flaecheM2 > 0 ? Formatting.m2(e.flaecheM2) : ""
     }
 
     private var initialerIndex: Int {
@@ -136,51 +141,61 @@ struct WohneinheitCarousel: View {
 
 // MARK: - Card pro Scope-Option
 
-/// Eine kompakte Card mit identischer Höhe wie die Objekt-Card.
-/// Bewusst ohne „Wechseln"-Button: die Auswahl passiert durch
-/// Wischen, der Tap öffnet in die Einheit hinein.
+/// Kompakte Card mit einheitlichem Look zu HomeStatusCard und
+/// NaechsterSchrittCard (alle drei nutzen `Card(tiefe: .erhoben,
+/// balkenFarbe:)` mit dem aktiven Scope-Farbbalken).
+///
+/// Inhalte (vertikal): Kicker „WOHNEINHEIT" (14 pt) → Name
+/// (18 pt semibold) → Flaeche (13 pt) → Adresse (12 pt). Der
+/// Chevron rechts ist entfallen — die gesamte Card ist tappbar
+/// und oeffnet die Einstellungen.
 fileprivate struct WohneinheitCard: View {
     let option: WohneinheitCarousel.ScopeOption
+    let adresse: String
     let onTap: () -> Void
 
     var body: some View {
         Button(action: onTap) {
-            HStack(alignment: .top, spacing: 12) {
-                UnitBalken(farbe: option.farbe)
-                    .frame(maxHeight: .infinity)
+            Card(tiefe: .erhoben, balkenFarbe: option.farbe) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Wohneinheit")
-                        .appFont(AppFont.Dashboard.kartenKicker())
+                    Text("WOHNEINHEIT")
+                        .appFont(Self.kickerStyle)
                         .foregroundStyle(DesignTokens.textTertiary)
                     Text(option.titel)
-                        .appFont(AppFont.Abrechnung.kopfName())
+                        .appFont(Self.nameStyle)
                         .foregroundStyle(DesignTokens.text)
                         .lineLimit(1)
-                    if !option.zusatz.isEmpty {
-                        Text(option.zusatz)
+                    if !option.flaeche.isEmpty {
+                        Text(option.flaeche)
                             .appFont(AppFont.Rechnungen.subZeile())
                             .foregroundStyle(DesignTokens.textSecondary)
                             .lineLimit(1)
                     }
+                    if !adresse.isEmpty {
+                        Text(adresse)
+                            .appFont(AppFont.Basis.caption())
+                            .foregroundStyle(DesignTokens.textTertiary)
+                            .lineLimit(1)
+                    }
                 }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 16, weight: .regular))
-                    .foregroundStyle(DesignTokens.textTertiary)
-                    .padding(.top, 2)
             }
-            .padding(.top, 22)
-            .padding(.bottom, 18)
-            .padding(.horizontal, 20)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .background(DesignTokens.bgSurface)
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(DesignTokens.separatorStrong, lineWidth: 0.5)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .shadow(color: Color.black.opacity(0.10), radius: 14, x: 0, y: 4)
         }
         .buttonStyle(.plain)
     }
+
+    /// 14 pt / 600 / tracking 0.6 UPPER — Kicker.
+    /// +2 pt gegenueber `AppFont.Dashboard.kartenKicker` (12 pt).
+    private static let kickerStyle = AppFontStyle(
+        font: AppFont.plexSans(.semibold, 14),
+        tracking: 0.6,
+        uppercase: true
+    )
+
+    /// 18 pt / 600 — Name. +1 pt gegenueber
+    /// `AppFont.Abrechnung.kopfName` (17 pt).
+    private static let nameStyle = AppFontStyle(
+        font: AppFont.plexSans(.semibold, 18),
+        tracking: 0,
+        uppercase: false
+    )
 }

@@ -20,9 +20,13 @@ struct HomeStatusCard: View {
     let anforderungen: [AnforderungMitStatus]
     let immobilie: Immobilie
     let periode: Abrechnungsperiode?
+    /// Farbiger Balken links — matches den aktiven Scope und
+    /// ordnet die Card visuell in die Home-Karten-Gruppe
+    /// (Wohneinheit, Status, Naechster Schritt) ein.
+    let balkenFarbe: Color
 
     var body: some View {
-        Card(tiefe: .erhoben) {
+        Card(tiefe: .erhoben, balkenFarbe: balkenFarbe) {
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
                     Text("Status")

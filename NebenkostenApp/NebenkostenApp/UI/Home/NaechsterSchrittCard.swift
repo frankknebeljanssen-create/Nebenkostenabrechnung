@@ -25,10 +25,13 @@ struct NaechsterSchrittCard: View {
     let anforderungen: [AnforderungMitStatus]
     let onSprung: (Sprungziel) -> Void
     let onFinalAktion: () -> Void
+    /// Farbiger Balken links — synchron zu HomeStatusCard und
+    /// WohneinheitCard.
+    let balkenFarbe: Color
 
     var body: some View {
         if !anforderungen.isEmpty {
-            Card(tiefe: .erhoben) {
+            Card(tiefe: .erhoben, balkenFarbe: balkenFarbe) {
                 VStack(alignment: .leading, spacing: 14) {
                     Text("Nächster Schritt")
                         .appFont(AppFont.bodySemi())

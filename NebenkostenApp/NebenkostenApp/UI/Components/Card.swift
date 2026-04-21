@@ -11,9 +11,13 @@
 //               Erhebung.
 //    .erhoben — 0.5 pt separatorStrong + dezenter Shadow. Für
 //               Home-Screens, damit sich die Card deutlich vom
-//               Papier-Ton-Hintergrund abhebt. Der Shadow ist
-//               bewusst ruhig (kleiner Radius, 8 % Schwarz) —
-//               seriös statt verspielt.
+//               Papier-Ton-Hintergrund abhebt.
+//
+//  Optionaler Farbbalken links:
+//    `balkenFarbe: Color?` — wenn gesetzt, haengt ein 4-pt-
+//    UnitBalken in der uebergebenen Farbe am linken Innenrand.
+//    Nutzt zusammen mit Home-Scope-Farben drei Home-Cards im
+//    gleichen Look (Wohneinheit, Status, Naechster Schritt).
 //
 
 import SwiftUI
@@ -26,14 +30,20 @@ struct Card<Content: View>: View {
 
     private let content: Content
     private let tiefe: Tiefe
+    private let balkenFarbe: Color?
 
-    init(tiefe: Tiefe = .flach, @ViewBuilder content: () -> Content) {
+    init(
+        tiefe: Tiefe = .flach,
+        balkenFarbe: Color? = nil,
+        @ViewBuilder content: () -> Content
+    ) {
         self.content = content()
         self.tiefe = tiefe
+        self.balkenFarbe = balkenFarbe
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) { content }
+        innereHuelle
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.vertical, 14)
             .padding(.horizontal, 16)
@@ -44,6 +54,20 @@ struct Card<Content: View>: View {
             )
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             .shadow(color: schattenFarbe, radius: schattenRadius, x: 0, y: schattenY)
+    }
+
+    @ViewBuilder
+    private var innereHuelle: some View {
+        if let farbe = balkenFarbe {
+            HStack(alignment: .top, spacing: 12) {
+                UnitBalken(farbe: farbe)
+                    .frame(maxHeight: .infinity)
+                VStack(alignment: .leading, spacing: 0) { content }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 0) { content }
+        }
     }
 
     private var randFarbe: Color {

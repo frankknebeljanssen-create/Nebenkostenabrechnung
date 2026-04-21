@@ -52,6 +52,25 @@ struct HomeView: View {
         return VollstaendigkeitsPruefung.pruefe(immobilie: immobilie, periode: p)
     }
 
+    /// Farbbalken-Farbe fuer die drei Home-Cards — spiegelt den
+    /// aktiven Scope:
+    /// - `.objekt` → `DesignTokens.unitObjekt`
+    /// - `.einheit(id:)` → `ScopeFarbe.farbe(fuer:)` der WE.
+    private var aktuelleScopeFarbe: Color {
+        guard let immobilie = aktiveImmobilie else {
+            return DesignTokens.unitObjekt
+        }
+        switch scope.current {
+        case .objekt:
+            return DesignTokens.unitObjekt
+        case .einheit(let id):
+            if let e = (immobilie.wohneinheiten ?? []).first(where: { $0.bezeichnung == id }) {
+                return ScopeFarbe.farbe(fuer: e)
+            }
+            return DesignTokens.unitObjekt
+        }
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
@@ -72,7 +91,8 @@ struct HomeView: View {
                     HomeStatusCard(
                         anforderungen: anforderungen,
                         immobilie: immobilie,
-                        periode: aktivePeriode
+                        periode: aktivePeriode,
+                        balkenFarbe: aktuelleScopeFarbe
                     )
                     NaechsterSchrittCard(
                         anforderungen: anforderungen,
@@ -81,7 +101,8 @@ struct HomeView: View {
                         },
                         onFinalAktion: {
                             router.aktiverTab = .abrechnungen
-                        }
+                        },
+                        balkenFarbe: aktuelleScopeFarbe
                     )
                 }
             }
