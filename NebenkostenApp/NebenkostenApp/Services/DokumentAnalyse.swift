@@ -365,12 +365,36 @@ enum DokumentAnalyseService {
             ))
         }
         if let vz = e.vorauszahlungMonatEuro.wert, vz > 0 {
+            // Bei Erhoehungsschreiben extrahiert Claude den alten
+            // Wert mit — dann wird er direkt am Feld als
+            // „aktualisiert durch … vorher: …" ausgewiesen.
+            let altWert: String? = e.vorauszahlungVorherEuro.wert.map { Formatting.euro($0) }
+            let quelleFuerNK: String = altWert != nil
+                ? "\(quelle)\(gueltigSuffix(e.vorauszahlungGueltigAb.wert))"
+                : quelle
             out.append(.init(
                 label: "NK-Vorauszahlung",
                 wert: Formatting.euro(vz),
-                quelle: quelle,
+                quelle: quelleFuerNK,
                 konfidenz: e.vorauszahlungMonatEuro.konfidenz,
+                altWert: altWert,
+                alteQuelle: altWert != nil ? "früherer Stand laut Dokument" : nil,
                 warnung: lesbarkeitsHinweis(e.vorauszahlungMonatEuro.konfidenz)
+            ))
+        }
+        if let miete = e.kaltmieteEuro.wert, miete > 0 {
+            let altWert: String? = e.kaltmieteVorherEuro.wert.map { Formatting.euro($0) }
+            let quelleFuerMiete: String = altWert != nil
+                ? "\(quelle)\(gueltigSuffix(e.kaltmieteGueltigAb.wert))"
+                : quelle
+            out.append(.init(
+                label: "Kaltmiete",
+                wert: Formatting.euro(miete),
+                quelle: quelleFuerMiete,
+                konfidenz: e.kaltmieteEuro.konfidenz,
+                altWert: altWert,
+                alteQuelle: altWert != nil ? "früherer Stand laut Dokument" : nil,
+                warnung: lesbarkeitsHinweis(e.kaltmieteEuro.konfidenz)
             ))
         }
         if let kaution = e.kaution.wert, kaution > 0 {
@@ -384,6 +408,12 @@ enum DokumentAnalyseService {
         }
 
         return out
+    }
+
+    /// „ (gültig ab 01.09.2024)"-Suffix wenn Datum vorhanden.
+    private static func gueltigSuffix(_ datum: Date?) -> String {
+        guard let datum else { return "" }
+        return " (gültig ab \(Self.datum(datum)))"
     }
 
     private static func lesbarkeitsHinweis(_ konfidenz: Double) -> String? {
@@ -400,10 +430,17 @@ enum DokumentAnalyseService {
     // MARK: - Fehlende Daten
 
     /// Berechnet, was fuer eine vollstaendige WE-Akte noch fehlt.
-    /// Basis ist der aktuelle SwiftData-Zustand der Einheit +
-    /// Mietverhaeltnis sowie die Liste der bereits in dieser
-    /// Sitzung gescannten Dokument-Typen (inkl. dem gerade
-    /// analysierten `zusaetzlicherTyp`).
+    /// Basis ist:
+    ///   1. Der aktuelle SwiftData-Zustand der Einheit + des
+    ///      aktiven Mietverhaeltnisses, PLUS
+    ///   2. Die Sitzungs-Felder (`sitzung.aktuelleFelder`) — was
+    ///      Claude in einem der Scans schon erkannt hat, gilt als
+    ///      „bekannt" und taucht nicht mehr unter „fehlt" auf, auch
+    ///      wenn der User die Werte noch nicht in SwiftData
+    ///      uebernommen hat.
+    ///   3. Die Liste der bereits gescannten Dokument-Typen —
+    ///      steuert die „empfohlenen" Eintraege (Uebergabe-
+    ///      protokoll, SEPA, Energieausweis, Personalausweis).
     static func berechneFehlendeDaten(
         einheit: Wohneinheit?,
         sitzung: AnalyseSitzung,
@@ -412,11 +449,18 @@ enum DokumentAnalyseService {
         var bereitsGescannt = Set(sitzung.dokumentTypen)
         if let t = zusaetzlicherTyp { bereitsGescannt.insert(t) }
 
+        // Feld-Labels, die Claude in irgendeinem Scan der Sitzung
+        // erkannt hat. Entscheidet, ob ein „fehlt"-Eintrag noch
+        // angezeigt werden soll.
+        let erkannt = Set(sitzung.aktuelleFelder.keys)
+        func hatErkannt(_ label: String) -> Bool { erkannt.contains(label) }
+
         var out: [FehlendeDaten] = []
         let mv = einheit.flatMap { e in (e.mietverhaeltnisse ?? []).first { $0.auszugAm == nil } }
 
-        // Wichtig
-        if (einheit?.flaecheM2 ?? 0) == 0 {
+        // Wichtig — pro Feld: nur „fehlt" wenn WEDER in der
+        // Sitzung erkannt NOCH im SwiftData-Stand vorhanden.
+        if !hatErkannt("Fläche") && (einheit?.flaecheM2 ?? 0) == 0 {
             out.append(.init(
                 kategorie: .wichtig,
                 titel: "Fläche nicht bekannt",
@@ -424,7 +468,7 @@ enum DokumentAnalyseService {
                 empfohlenerTyp: .mietvertrag
             ))
         }
-        if (mv?.mieterName.isEmpty) ?? true {
+        if !hatErkannt("Mieter") && ((mv?.mieterName.isEmpty) ?? true) {
             out.append(.init(
                 kategorie: .wichtig,
                 titel: "Mietername fehlt",
@@ -432,7 +476,7 @@ enum DokumentAnalyseService {
                 empfohlenerTyp: .mietvertrag
             ))
         }
-        if mv?.vorauszahlungErfasst != true {
+        if !hatErkannt("NK-Vorauszahlung") && mv?.vorauszahlungErfasst != true {
             out.append(.init(
                 kategorie: .wichtig,
                 titel: "Aktuelle NK-Vorauszahlung nicht erfasst",
@@ -440,11 +484,8 @@ enum DokumentAnalyseService {
                 empfohlenerTyp: .nkErhoehungsschreiben
             ))
         }
-        // Einzugsdatum gilt nur dann als erfasst, wenn mv.einzugAm
-        // bewusst gesetzt wurde. Default = Date() unterscheidet
-        // sich nicht sauber, deshalb heuristisch: Einzug fehlt,
-        // wenn kein Mieter.
-        if mv == nil {
+        // Einzugsdatum: erkannt in Sitzung oder vorhandenes MV.
+        if !hatErkannt("Einzug") && mv == nil {
             out.append(.init(
                 kategorie: .wichtig,
                 titel: "Einzugsdatum nicht bekannt",
@@ -452,9 +493,23 @@ enum DokumentAnalyseService {
                 empfohlenerTyp: .mietvertrag
             ))
         }
+        // Adresse: nur als „fehlt" melden wenn die Immobilie noch
+        // keine und Claude sie nicht erkannt hat.
+        let immoAdresseLeer = (einheit?.immobilie?.adresse.isEmpty) ?? true
+        if !hatErkannt("Adresse") && immoAdresseLeer {
+            out.append(.init(
+                kategorie: .wichtig,
+                titel: "Objekt-Adresse fehlt",
+                hinweis: "Mietvertrag oder Übergabeprotokoll scannen.",
+                empfohlenerTyp: .mietvertrag
+            ))
+        }
 
         // Empfohlen
-        if (mv?.mieterAnschrift.isEmpty) ?? true, mv != nil {
+        if !hatErkannt("Anschrift")
+            && ((mv?.mieterAnschrift.isEmpty) ?? true)
+            && mv != nil
+        {
             out.append(.init(
                 kategorie: .empfohlen,
                 titel: "Anschrift Mieter fehlt",

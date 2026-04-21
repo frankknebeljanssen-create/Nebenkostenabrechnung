@@ -76,7 +76,22 @@ struct MietvertragsExtraktion: Equatable, Sendable {
     var mieterAnschrift: FeldMitKonfidenz<String>
     var einzugAm: FeldMitKonfidenz<Date>
 
+    /// Aktuelle NK-Vorauszahlung pro Monat. Bei Erhoehungsschreiben
+    /// der NEUE Betrag.
     var vorauszahlungMonatEuro: FeldMitKonfidenz<Decimal>
+    /// Vorheriger NK-Vorauszahlungs-Betrag (nur bei
+    /// Erhoehungsschreiben gefuellt).
+    var vorauszahlungVorherEuro: FeldMitKonfidenz<Decimal>
+    /// Stichtag, ab dem die neue NK-VZ gilt.
+    var vorauszahlungGueltigAb: FeldMitKonfidenz<Date>
+
+    /// Kaltmiete pro Monat (aktueller bzw. neuer Betrag).
+    var kaltmieteEuro: FeldMitKonfidenz<Decimal>
+    /// Vorherige Kaltmiete — nur bei Erhoehungsschreiben.
+    var kaltmieteVorherEuro: FeldMitKonfidenz<Decimal>
+    /// Stichtag, ab dem die neue Kaltmiete gilt.
+    var kaltmieteGueltigAb: FeldMitKonfidenz<Date>
+
     var abrechnungsturnus: FeldMitKonfidenz<String>
     var kaution: FeldMitKonfidenz<Decimal>
     var besondereNKVereinbarungen: FeldMitKonfidenz<String>
@@ -92,6 +107,11 @@ struct MietvertragsExtraktion: Equatable, Sendable {
         mieterAnschrift:            .leer,
         einzugAm:                   .leer,
         vorauszahlungMonatEuro:     .leer,
+        vorauszahlungVorherEuro:    .leer,
+        vorauszahlungGueltigAb:     .leer,
+        kaltmieteEuro:              .leer,
+        kaltmieteVorherEuro:        .leer,
+        kaltmieteGueltigAb:         .leer,
         abrechnungsturnus:          .leer,
         kaution:                    .leer,
         besondereNKVereinbarungen:  .leer
@@ -188,7 +208,7 @@ enum MietvertragsExtraktionService {
 
     Gib ausschliesslich folgendes JSON-Objekt zurueck:
     {
-      "dokumentTyp": "mietvertrag|nachtrag|erhoehung|uebergabeprotokoll|sonstiges",
+      "dokumentTyp": "mietvertrag|nachtrag|erhoehungsschreiben|uebergabeprotokoll|sonstiges",
       "mieterName": "...",
       "mieterAnschrift": "...",
       "objektStrasse": "...",
@@ -197,21 +217,34 @@ enum MietvertragsExtraktionService {
       "wohneinheit": "EG|OG|KG|<freier Text>",
       "flaecheM2": 187.5,
       "einzugDatum": "YYYY-MM-DD",
-      "vorauszahlungEuro": 260.0,
+      "vorauszahlungNKEuro": 260.0,
+      "vorauszahlungNKVorher": 180.0,
+      "vorauszahlungNKGueltigAb": "YYYY-MM-DD",
+      "kaltmieteEuro": 820.0,
+      "kaltmieteVorher": 780.0,
+      "kaltmieteGueltigAb": "YYYY-MM-DD",
       "abrechnungsturnus": "jaehrlich|halbjaehrlich|monatlich",
       "kaution": 1500.0,
       "dokumentDatum": "YYYY-MM-DD",
       "konfidenz": {
         "mieterName": 0.95,
-        "vorauszahlungEuro": 0.7
+        "vorauszahlungNKEuro": 0.7,
+        "kaltmieteEuro": 0.85
       },
       "hinweise": ["z.B. 'Seite 2 unscharf'"]
     }
 
     Regeln:
     - Felder, die nicht im Dokument stehen: null.
-    - "flaecheM2", "vorauszahlungEuro", "kaution" sind Zahlen, nicht Strings.
+    - Alle Euro- und Flaechen-Werte sind Zahlen, nicht Strings.
     - Bei schlechter Lesbarkeit: Konfidenz < 0.5 und ein passender Hinweis.
+    - Bei Mieterhoehungsschreiben: extrahiere SOWOHL den alten als auch
+      den neuen Betrag fuer Kaltmiete UND NK-Vorauszahlung, plus das
+      Datum ab dem der neue Betrag gilt (*Vorher, *GueltigAb). Der alte
+      Wert gehoert in *Vorher, der neue in *Euro — niemals umgekehrt.
+    - „vorauszahlungNK*" bezieht sich ausschliesslich auf die
+      Nebenkosten-Vorauszahlung; „kaltmiete*" ist die Netto-Kaltmiete
+      ohne NK und ohne Heizkosten.
     - Nur JSON, kein Text drumherum, kein Markdown-Codeblock.
     """
 
@@ -227,7 +260,21 @@ enum MietvertragsExtraktionService {
         let wohneinheit: String?
         let flaecheM2: Double?
         let einzugDatum: String?
+
+        // NK-Vorauszahlung — optional mit alt/Gueltig-ab bei Erhoehung.
+        let vorauszahlungNKEuro: Double?
+        let vorauszahlungNKVorher: Double?
+        let vorauszahlungNKGueltigAb: String?
+        /// Alt-Feldname (Kompatibilitaet mit frueheren Prompts) —
+        /// wird akzeptiert, falls Claude die alte Benennung zurueck-
+        /// liefert.
         let vorauszahlungEuro: Double?
+
+        // Kaltmiete — optional mit alt/Gueltig-ab bei Erhoehung.
+        let kaltmieteEuro: Double?
+        let kaltmieteVorher: Double?
+        let kaltmieteGueltigAb: String?
+
         let abrechnungsturnus: String?
         let kaution: Double?
         let dokumentDatum: String?
@@ -254,6 +301,11 @@ enum MietvertragsExtraktionService {
             return .init(wert: d, konfidenz: kf[key] ?? 0.5)
         }
 
+        // VZ: neues Feld "vorauszahlungNKEuro" bevorzugt, Fallback auf
+        // legacy "vorauszahlungEuro".
+        let vzNeu = a.vorauszahlungNKEuro ?? a.vorauszahlungEuro
+        let vzKey = a.vorauszahlungNKEuro != nil ? "vorauszahlungNKEuro" : "vorauszahlungEuro"
+
         let extraktion = MietvertragsExtraktion(
             adresse:                   f(a.objektStrasse,      "objektStrasse"),
             plz:                       f(a.objektPlz,          "objektPlz"),
@@ -264,7 +316,12 @@ enum MietvertragsExtraktionService {
             mieterName:                f(a.mieterName,         "mieterName"),
             mieterAnschrift:           f(a.mieterAnschrift,    "mieterAnschrift"),
             einzugAm:                  fDate(a.einzugDatum,    "einzugDatum"),
-            vorauszahlungMonatEuro:    fDec(a.vorauszahlungEuro, "vorauszahlungEuro"),
+            vorauszahlungMonatEuro:    fDec(vzNeu,                         vzKey),
+            vorauszahlungVorherEuro:   fDec(a.vorauszahlungNKVorher,       "vorauszahlungNKVorher"),
+            vorauszahlungGueltigAb:    fDate(a.vorauszahlungNKGueltigAb,   "vorauszahlungNKGueltigAb"),
+            kaltmieteEuro:             fDec(a.kaltmieteEuro,               "kaltmieteEuro"),
+            kaltmieteVorherEuro:       fDec(a.kaltmieteVorher,             "kaltmieteVorher"),
+            kaltmieteGueltigAb:        fDate(a.kaltmieteGueltigAb,         "kaltmieteGueltigAb"),
             abrechnungsturnus:         f(a.abrechnungsturnus,  "abrechnungsturnus"),
             kaution:                   fDec(a.kaution,         "kaution"),
             besondereNKVereinbarungen: .leer
@@ -282,6 +339,7 @@ enum MietvertragsExtraktionService {
         case "mietvertrag":             return .mietvertrag
         case "nachtrag":                return .mietvertragNachtrag
         case "erhoehung",
+             "erhoehungsschreiben",
              "nk-erhoehung":            return .nkErhoehungsschreiben
         case "uebergabeprotokoll":      return .uebergabeprotokollEinzug
         default:                        return .unbekannt
