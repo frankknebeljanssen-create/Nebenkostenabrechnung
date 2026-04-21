@@ -175,6 +175,12 @@ struct AnalyseBefund: Sendable, Equatable {
     let widersprueche: [Widerspruch]
     /// Roh-Extraktion fuer das spaetere Uebernehmen in SwiftData.
     let rohExtraktion: MietvertragsExtraktion
+    /// Nur gefuellt, wenn `erkannterTyp == .hvAbrechnung` — die
+    /// strukturierten HV-Rohdaten fuer den separaten
+    /// `HVAnalyseBefundView`. Der Standard-Analyse-Screen ignoriert
+    /// dieses Feld, KontextDetailSheet wertet es aus und route
+    /// die Navigation entsprechend.
+    let hvDaten: HVAbrechnungsRohdaten?
 }
 
 // MARK: - Sitzung
@@ -308,7 +314,8 @@ enum DokumentAnalyseService {
             erkannteFelder: felder,
             fehlendeDaten: fehlend,
             widersprueche: [],
-            rohExtraktion: extraktion
+            rohExtraktion: extraktion,
+            hvDaten: analyse.hvDaten
         )
     }
 

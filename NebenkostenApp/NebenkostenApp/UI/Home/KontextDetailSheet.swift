@@ -49,6 +49,12 @@ struct KontextDetailSheet: View {
     /// Steuert Navigation-Push zum AnalyseBefundView.
     @State private var zeigeAnalyseScreen: Bool = false
 
+    /// Nur-HV-Pfad: wenn Claude das Dokument als HV-Abrechnung
+    /// erkennt, laeuft es an der regulaeren Sitzung vorbei und
+    /// landet im dedizierten `HVAnalyseBefundView`.
+    @State private var hvRohdaten: HVAbrechnungsRohdaten? = nil
+    @State private var zeigeHVAnalyse: Bool = false
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -98,6 +104,17 @@ struct KontextDetailSheet: View {
                         onManuellEintragen: { manuellEintragen() },
                         onUebernehmen: { uebernehmeSitzung() },
                         onAbbrechen: { beendeSitzung() }
+                    )
+                }
+            }
+            .navigationDestination(isPresented: $zeigeHVAnalyse) {
+                if let rohdaten = hvRohdaten {
+                    HVAnalyseBefundView(
+                        rohdaten: rohdaten,
+                        kostenartenDerImmobilie: (immobilie.kostenarten ?? [])
+                            .map { $0.bezeichnung },
+                        onUebernehmen: { uebernehmeHVAbrechnung(rohdaten) },
+                        onAbbrechen: { beendeHVFlow() }
                     )
                 }
             }
@@ -232,6 +249,11 @@ struct KontextDetailSheet: View {
     /// Startet die Analyse fuer einen frischen Scan-Stapel.
     /// Initialisiert die `AnalyseSitzung` beim allerersten Scan,
     /// anschliessend wird in die bestehende Sitzung gemergt.
+    ///
+    /// Special-Case: erkennt Claude das Dokument als HV-Abrechnung,
+    /// laeuft es an der regulaeren Sitzung vorbei und wird im
+    /// `HVAnalyseBefundView` praesentiert. Die Mietvertrags-
+    /// Sitzung interessiert sich nicht fuer HV-Positionen.
     private func starteAnalyse(bilder: [UIImage]) {
         guard !bilder.isEmpty else { return }
         guard let zielEinheit = resolveZielEinheit() else {
@@ -250,8 +272,25 @@ struct KontextDetailSheet: View {
                     sitzung: aktuelle,
                     einheit: zielEinheit
                 )
-                aktuelle.integriere(befund)
                 zeigeAnalyse = false
+
+                // Zweig 1 — HV-Abrechnung: eigener Screen.
+                if befund.erkannterTyp == .hvAbrechnung,
+                   let hv = befund.hvDaten {
+                    hvRohdaten = hv
+                    // Laufende Sitzung (falls aus vorherigem Mietvertrags-
+                    // Scan noch offen) NICHT zerstoeren — der User kann
+                    // den HV-Flow abbrechen und landet dann wieder bei
+                    // seiner Mietvertrags-Sitzung. Wenn keine Sitzung
+                    // lief, wird sie hier auch nicht erzwungen.
+                    if !zeigeHVAnalyse {
+                        zeigeHVAnalyse = true
+                    }
+                    return
+                }
+
+                // Zweig 2 — regulaere Mietvertrags-/Nachtrags-Analyse.
+                aktuelle.integriere(befund)
                 // Nach dem ersten Scan pushen, bei Folge-Scans ist
                 // der Screen bereits sichtbar und aktualisiert
                 // sich ueber @Bindable automatisch.
@@ -263,6 +302,19 @@ struct KontextDetailSheet: View {
                 scanFehler = error.localizedDescription
             }
         }
+    }
+
+    // MARK: - HV-Flow
+
+    /// Platzhalter — die eigentliche Schreib-Logik kommt im
+    /// naechsten Commit. Hier nur Navigation schliessen.
+    private func uebernehmeHVAbrechnung(_ rohdaten: HVAbrechnungsRohdaten) {
+        beendeHVFlow()
+    }
+
+    private func beendeHVFlow() {
+        zeigeHVAnalyse = false
+        hvRohdaten = nil
     }
 
     /// Die Einheit, auf die die Sitzung schreibt. Im Einheit-Scope
