@@ -52,6 +52,14 @@ enum AppFont {
         static func periodenDatum() -> AppFontStyle {
             .init(font: plexMono(.regular, 14), tracking: 0, uppercase: false)
         }
+        /// 14pt / 600 / tracking 0.5 UPPER — Card-Header der
+        /// Home-Carousels („OBJEKT", „WOHNEINHEIT"). Gegenüber
+        /// dem generischen `kartenKicker` (12 pt / textTertiary)
+        /// um 2 pt größer und in `text`-Farbe — der Header soll
+        /// klar als Abschnitts-Titel lesbar sein.
+        static func homeCardHeader() -> AppFontStyle {
+            .init(font: plexSans(.semibold, 14), tracking: 0.5, uppercase: true)
+        }
         /// 12pt / 600 / tracking 0.6 UPPER — Sektions-Kicker
         /// ("ABRECHNUNGSPERIODE", "WÄRME" usw.).
         static func kicker() -> AppFontStyle {
