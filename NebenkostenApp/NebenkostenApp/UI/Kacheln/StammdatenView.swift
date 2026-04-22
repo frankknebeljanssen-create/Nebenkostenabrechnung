@@ -88,6 +88,7 @@ struct StammdatenView: View {
             VStack(alignment: .leading, spacing: 18) {
                 fortschrittHeader
                 if let immobilie = aktiveImmobilie {
+                    ScopeBanner(immobilie: immobilie)
                     sektionObjekt(immobilie)
                     sektionMieter(immobilie)
                     sektionDokumente(immobilie)
@@ -257,9 +258,12 @@ struct StammdatenView: View {
     // MARK: - Sektion B · Mieter pro WE
 
     private func sektionMieter(_ immobilie: Immobilie) -> some View {
+        // Im Einheit-Scope zeigen wir nur die selektierte WE —
+        // der Banner oben macht das explizit. Im Objekt-Scope
+        // alle in Geschoss-Reihenfolge.
         let einheiten = ScopeFilter.sichtbareEinheiten(
             alle: immobilie.wohneinheiten ?? [],
-            scope: .objekt
+            scope: scope.scope
         )
         return VStack(alignment: .leading, spacing: 18) {
             ForEach(einheiten) { einheit in

@@ -105,6 +105,15 @@ struct DokumenteRechnungenView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 fortschrittHeader
+                if let immobilie = aktiveImmobilie {
+                    // Rechnungen sind objekt-level (ueber Kostenart-
+                    // Umlageschluessel verteilt) — inhaltlich filtern
+                    // wir also NICHT. Der Banner macht dem User aber
+                    // klar, dass er zwar OG ausgewaehlt hat, die Liste
+                    // aber weiter alle Rechnungen zeigt (anteilig
+                    // seiner WE zugeordnet).
+                    ScopeBanner(immobilie: immobilie)
+                }
                 scanCTA
                 kategorienListe
             }

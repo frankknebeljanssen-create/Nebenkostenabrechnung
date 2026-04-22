@@ -114,7 +114,15 @@ struct AbrechnungsKachelView: View {
               let p = aktivePeriode else { return [] }
         // AbrechnungsService wirft bei Blockern — die fangen wir,
         // die UI zeigt dann den Status-Hero-Block statt Mieter-Cards.
-        return (try? AbrechnungsService.aggregiere(periode: p, immobilie: immobilie)) ?? []
+        let alle = (try? AbrechnungsService.aggregiere(
+            periode: p, immobilie: immobilie
+        )) ?? []
+        // Einheit-Scope → nur die eine Mieter-Abrechnung sichtbar.
+        // Objekt-Scope → alle.
+        return ScopeFilter.sichtbareAbrechnungen(
+            alle: alle,
+            scope: scope.scope
+        )
     }
 
     // MARK: - Body
@@ -124,6 +132,9 @@ struct AbrechnungsKachelView: View {
             VStack(alignment: .leading, spacing: 18) {
                 if allePerioden.count >= 2 {
                     periodenChips
+                }
+                if let immobilie = aktiveImmobilie {
+                    ScopeBanner(immobilie: immobilie)
                 }
                 statusHero
                 if istBereit && !mieterabrechnungen.isEmpty {
@@ -195,10 +206,22 @@ struct AbrechnungsKachelView: View {
         )
     }
 
+    /// Ungefilterte Mieter-Anzahl der Periode (scope-unabhaengig).
+    /// Die Batch-Erstellung erzeugt PDFs fuer ALLE Mieter, auch wenn
+    /// der View-Scope auf eine einzige Einheit eingeschraenkt ist —
+    /// der Confirm-Text muss diese Realitaet widerspiegeln.
+    private var mieterabrechnungenGesamt: Int {
+        guard let immobilie = aktiveImmobilie,
+              let p = aktivePeriode else { return 0 }
+        return ((try? AbrechnungsService.aggregiere(
+            periode: p, immobilie: immobilie
+        )) ?? []).count
+    }
+
     private var batchConfirmText: String {
-        let n = mieterabrechnungen.count
-        return "Für \(n) Mieter" + (n == 1 ? "" : "")
-            + " wird je ein PDF erzeugt und die Periode als abgeschlossen markiert."
+        let n = mieterabrechnungenGesamt
+        return "Für \(n) Mieter wird je ein PDF erzeugt und die Periode"
+            + " als abgeschlossen markiert."
             + " Diese Aktion kann nicht rückgängig gemacht werden."
     }
 

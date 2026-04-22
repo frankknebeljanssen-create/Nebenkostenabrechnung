@@ -44,11 +44,16 @@ struct ZaehlerstaendeView: View {
         return perioden.first(where: { $0.bis < heute }) ?? perioden.first
     }
 
+    /// Liste der im aktuellen Scope sichtbaren Zaehler. Objekt-Scope
+    /// = alle Haupt- + Wohnungs-Zaehler. Einheit-Scope = Zaehler der
+    /// Einheit PLUS alle Hauptzaehler (objektweit relevant — z.B.
+    /// Gas-Hauptzaehler zaehlt in die Heizkostenverteilung).
     private var alleZaehler: [Zaehler] {
-        let haupt = aktiveImmobilie?.hauptzaehler ?? []
-        let wohnung = (aktiveImmobilie?.wohneinheiten ?? [])
-            .flatMap { $0.zaehler ?? [] }
-        return haupt + wohnung
+        guard let immobilie = aktiveImmobilie else { return [] }
+        return ScopeFilter.sichtbareZaehler(
+            immobilie: immobilie,
+            scope: scope.scope
+        )
     }
 
     private var gruppen: [(medium: Medium, zaehler: [Zaehler])] {
@@ -94,6 +99,9 @@ struct ZaehlerstaendeView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 fortschrittHeader
+                if let immobilie = aktiveImmobilie {
+                    ScopeBanner(immobilie: immobilie)
+                }
                 if alleZaehler.isEmpty {
                     leerZustand
                 } else {
