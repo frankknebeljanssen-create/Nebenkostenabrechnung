@@ -2,6 +2,16 @@
 //  ZaehlerDetailView.swift
 //  NebenkostenApp — UI/Zaehler
 //
+//  Detail-Sheet eines einzelnen Zaehlers. Geoeffnet aus
+//  `ZaehlerView` beim Row-Tap; zeigt Stammdaten (Seriennummer,
+//  Kennzeichen, Einheit, Standort) und die vollstaendige
+//  Stand-Historie in absteigender Reihenfolge. „Neuer Stand"
+//  oeffnet `ZaehlerstandErfassenView` als zweites Sheet.
+//
+//  UI-2-Polish: komplett auf DesignTokens + AppFont.Zaehler/
+//  Basis-Rollen umgestellt — keine System-Systemtoene oder
+//  `Color(.secondarySystemBackground)` mehr.
+//
 
 import SwiftUI
 import SwiftData
@@ -12,17 +22,26 @@ struct ZaehlerDetailView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                header
-                staendeSektion
+            VStack(alignment: .leading, spacing: 16) {
+                headerCard
+                staendeBlock
+                if !sortierteStaende.isEmpty {
+                    primaerButton("Neuer Stand", symbol: "plus.circle.fill") {
+                        zeigeErfassen = true
+                    }
+                }
             }
-            .padding(16)
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 40)
         }
-        .background(Color(.systemGroupedBackground))
+        .background(DesignTokens.bgApp)
         .navigationTitle(kurzerTitel)
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $zeigeErfassen) {
-            ZaehlerstandErfassenView(zaehler: zaehler)
+            NavigationStack {
+                ZaehlerstandErfassenView(zaehler: zaehler)
+            }
         }
     }
 
@@ -33,153 +52,208 @@ struct ZaehlerDetailView: View {
     }
 
     private var kurzerTitel: String {
-        mediumBezeichnung(zaehler.medium)
+        if !zaehler.bezeichnung.isEmpty { return zaehler.bezeichnung }
+        return mediumName(zaehler.medium)
     }
 
-    // MARK: - Sektionen
+    private var standortLabel: String {
+        zaehler.wohneinheit?.bezeichnung ?? "Hauptzähler"
+    }
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 14) {
-                Image(systemName: icon(fuer: zaehler.medium))
-                    .font(.largeTitle.weight(.semibold))
-                    .foregroundStyle(.tint)
-                    .frame(width: 48)
+    private var iconFarbe: Color {
+        if let einheit = zaehler.wohneinheit {
+            return ScopeFarbe.farbe(fuer: einheit)
+        }
+        return DesignTokens.unitObjekt
+    }
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(kurzerTitel)
-                        .font(.title2.bold())
-                    Text(typBezeichnung(zaehler.typ))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+    // MARK: - Header-Card
+
+    private var headerCard: some View {
+        Card(tiefe: .erhoben) {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .center, spacing: 14) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(iconFarbe.opacity(0.12))
+                            .frame(width: 48, height: 48)
+                        Image(systemName: icon(fuer: zaehler.medium))
+                            .font(.system(size: 22, weight: .semibold))
+                            .foregroundStyle(iconFarbe)
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(mediumName(zaehler.medium))
+                            .appFont(AppFont.Zaehler.bezeichnung())
+                            .foregroundStyle(DesignTokens.text)
+                        Text(typBezeichnung(zaehler.typ))
+                            .appFont(AppFont.Zaehler.typ())
+                            .foregroundStyle(DesignTokens.textSecondary)
+                    }
+                    Spacer()
                 }
+
+                DividerLine()
+
+                VStack(alignment: .leading, spacing: 6) {
+                    metaZeile(label: "Standort", wert: standortLabel)
+                    if !zaehler.bezeichnung.isEmpty {
+                        metaZeile(label: "Kennzeichen", wert: zaehler.bezeichnung)
+                    }
+                    if !zaehler.seriennummer.isEmpty {
+                        metaZeile(
+                            label: "Seriennummer",
+                            wert: zaehler.seriennummer,
+                            mono: true
+                        )
+                    }
+                    metaZeile(
+                        label: "Einheit",
+                        wert: zaehler.einheit.isEmpty ? "—" : zaehler.einheit,
+                        mono: true
+                    )
+                }
+                .padding(.bottom, 6)
             }
-
-            VStack(alignment: .leading, spacing: 4) {
-                if !zaehler.seriennummer.isEmpty {
-                    zeile(label: "Seriennummer", wert: zaehler.seriennummer)
-                }
-                if !zaehler.bezeichnung.isEmpty {
-                    zeile(label: "Kennzeichen", wert: zaehler.bezeichnung)
-                }
-                zeile(label: "Einheit", wert: zaehler.einheit.isEmpty ? "—" : zaehler.einheit)
-            }
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(.secondarySystemBackground))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
         }
     }
 
-    private var staendeSektion: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Zählerstände")
-                    .font(.title3.bold())
-                Spacer()
+    private func metaZeile(
+        label: String,
+        wert: String,
+        mono: Bool = false
+    ) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(label)
+                .appFont(AppFont.Basis.caption())
+                .foregroundStyle(DesignTokens.textTertiary)
+                .frame(width: 110, alignment: .leading)
+            Text(wert)
+                .appFont(mono
+                         ? AppFont.Basis.monoBody()
+                         : AppFont.Basis.bodyMedium())
+                .foregroundStyle(DesignTokens.text)
+            Spacer(minLength: 0)
+        }
+    }
+
+    // MARK: - Staende-Sektion
+
+    private var staendeBlock: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionHeader("Zählerstände") {
                 if !sortierteStaende.isEmpty {
                     Text("\(sortierteStaende.count)")
-                        .font(.caption.weight(.semibold))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(Color(.tertiarySystemBackground))
-                        .clipShape(Capsule())
+                        .appFont(AppFont.Basis.monoCaption())
+                        .foregroundStyle(DesignTokens.textSecondary)
                 }
             }
-
             if sortierteStaende.isEmpty {
                 leerzustand
             } else {
-                VStack(spacing: 10) {
-                    ForEach(sortierteStaende) { stand in
-                        standZeile(stand)
+                standListe
+            }
+        }
+    }
+
+    private var standListe: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(Array(sortierteStaende.enumerated()),
+                        id: \.element.id) { idx, stand in
+                    standZeile(stand)
+                        .padding(.vertical, 10)
+                    if idx < sortierteStaende.count - 1 {
+                        DividerLine()
                     }
                 }
-                Button {
-                    zeigeErfassen = true
-                } label: {
-                    Label("Neuer Stand", systemImage: "plus.circle.fill")
-                        .frame(maxWidth: .infinity)
+            }
+        }
+    }
+
+    private func standZeile(_ stand: Zaehlerstand) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(Formatting.datum(stand.ablesedatum))
+                    .appFont(AppFont.Basis.bodyMedium())
+                    .foregroundStyle(DesignTokens.text)
+                Text(stand.quelle.anzeigeName)
+                    .appFont(AppFont.Basis.caption())
+                    .foregroundStyle(DesignTokens.textTertiary)
+            }
+            Spacer(minLength: 12)
+            VStack(alignment: .trailing, spacing: 3) {
+                Text(Formatting.zaehlerstand(stand.stand, einheit: zaehler.einheit))
+                    .appFont(AppFont.Zaehler.standZahl())
+                    .foregroundStyle(DesignTokens.text)
+                if !zaehler.einheit.isEmpty {
+                    Text(zaehler.einheit)
+                        .appFont(AppFont.Zaehler.verbrauchEinheit())
+                        .foregroundStyle(DesignTokens.textTertiary)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
             }
         }
     }
 
     private var leerzustand: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "gauge.with.dots.needle.0percent")
-                .font(.system(size: 44))
-                .foregroundStyle(.secondary)
-            Text("Noch kein Stand erfasst")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            Button {
-                zeigeErfassen = true
-            } label: {
-                Label("Ersten Stand erfassen", systemImage: "plus.circle.fill")
-                    .padding(.horizontal, 8)
+        Card {
+            VStack(spacing: 14) {
+                Image(systemName: "gauge.with.dots.needle.0percent")
+                    .font(.system(size: 40, weight: .light))
+                    .foregroundStyle(DesignTokens.textSecondary)
+                Text("Noch kein Stand erfasst")
+                    .appFont(AppFont.Basis.bodyMedium())
+                    .foregroundStyle(DesignTokens.textSecondary)
+                primaerButton("Ersten Stand erfassen", symbol: "plus.circle.fill") {
+                    zeigeErfassen = true
+                }
+                .padding(.top, 4)
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 22)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 32)
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 
-    private func standZeile(_ s: Zaehlerstand) -> some View {
-        HStack(alignment: .center) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(s.ablesedatum.formatted(date: .numeric, time: .omitted))
-                    .font(.subheadline.weight(.semibold))
-                Text(s.quelle.anzeigeName)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+    // MARK: - Primär-Button
+
+    /// Lokaler Primär-Button im Design-Handoff-Stil: Accent-
+    /// Hintergrund, weisse Schrift, volle Breite. Wird nur von
+    /// diesem Screen konsumiert — falls ein zweiter Screen denselben
+    /// Stil braucht, in `UI/Components/` hochheben.
+    private func primaerButton(
+        _ titel: String,
+        symbol: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: symbol)
+                    .font(.system(size: 16, weight: .semibold))
+                Text(titel)
+                    .appFont(AppFont.Basis.bodySemi())
             }
-            Spacer()
-            Text(wertMitEinheit(s))
-                .font(.body.weight(.semibold))
-                .monospacedDigit()
+            .foregroundStyle(Color.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .background(DesignTokens.accent)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
-        .padding(12)
-        .frame(maxWidth: .infinity)
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .buttonStyle(.plain)
     }
 
-    private func zeile(label: String, wert: String) -> some View {
-        HStack {
-            Text(label)
-                .foregroundStyle(.secondary)
-                .frame(width: 120, alignment: .leading)
-            Text(wert)
-                .fontWeight(.medium)
-        }
-        .font(.subheadline)
-    }
-
-    // MARK: - Helfer
-
-    private func wertMitEinheit(_ s: Zaehlerstand) -> String {
-        let zahl = NSDecimalNumber(decimal: s.stand).stringValue
-        return zaehler.einheit.isEmpty ? zahl : "\(zahl) \(zaehler.einheit)"
-    }
+    // MARK: - Medium-/Typ-Helpers
 
     private func icon(fuer medium: Medium) -> String {
         switch medium {
-        case .strom:                 return "bolt"
-        case .warmwasser:            return "drop.halffull"
-        case .kaltwasser:            return "drop"
-        case .waermeenergie:         return "flame"
-        case .gas:                   return "fuelpump"
-        case .oel:                   return "drop.triangle"
+        case .strom:         return "bolt"
+        case .warmwasser:    return "drop.halffull"
+        case .kaltwasser:    return "drop"
+        case .waermeenergie: return "flame"
+        case .gas:           return "fuelpump"
+        case .oel:           return "drop.triangle"
         }
     }
 
-    private func mediumBezeichnung(_ medium: Medium) -> String {
+    private func mediumName(_ medium: Medium) -> String {
         switch medium {
         case .strom:         return "Strom"
         case .warmwasser:    return "Warmwasser"
