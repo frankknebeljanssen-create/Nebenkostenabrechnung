@@ -65,6 +65,12 @@ final class AppShellRouter {
     /// Verhalten, sinnvoll aus Home heraus).
     var zaehlerErfassenSheet: ZaehlerErfassenSheetKontext?
 
+    /// Kontext fuer den Universeller-Analyse-Screen. `nil` = Sheet
+    /// geschlossen. Wird vom globalen Scan-FAB gesetzt, sobald der
+    /// User ein Dokument eingeworfen hat — der Screen klassifiziert
+    /// den Typ und routet anschliessend auf den passenden Sub-Flow.
+    var analyseSheet: ScanAnalyseSheetKontext?
+
     /// Toggle fuer das Inspektor-Sheet („Was fehlt noch?"). Seit
     /// dem FAB-Rueckbau wird das Sheet ueber den „?"-Button im
     /// KontextHeader ausgeloest. Gebunden ist es in AppShell per
@@ -117,6 +123,14 @@ final class AppShellRouter {
         zaehlerErfassenSheet = ZaehlerErfassenSheetKontext(zaehlerID: zaehlerID)
     }
 
+    /// Oeffnet den Universeller-Analyse-Screen mit dem frisch
+    /// abgelegten Dokument. AppShell praesentiert den Screen global,
+    /// damit der Flow von jedem Tab aus funktioniert (FAB lebt im
+    /// AppShell, nicht im Tab).
+    func oeffneAnalyseSheet(dokumentID: UUID) {
+        analyseSheet = ScanAnalyseSheetKontext(dokumentID: dokumentID)
+    }
+
     // MARK: - Mapping AppTabKey ↔ AppTab
 
     /// Übersetzt den Calc-Layer-`AppTabKey` in das UI-`AppTab`-
@@ -151,4 +165,13 @@ struct VorauszahlungSheetKontext: Identifiable, Hashable, Sendable {
 struct ZaehlerErfassenSheetKontext: Identifiable, Hashable, Sendable {
     let zaehlerID: UUID
     var id: UUID { zaehlerID }
+}
+
+/// Identifiable-Wrapper fuer `AppShellRouter.analyseSheet`. Traegt nur
+/// die UUID des frisch abgelegten `GespeichertesDokument` — der
+/// Sheet-Presenter (AppShell) schlaegt es im @Query nach. So bleibt
+/// der Router SwiftData-frei.
+struct ScanAnalyseSheetKontext: Identifiable, Hashable, Sendable {
+    let dokumentID: UUID
+    var id: UUID { dokumentID }
 }

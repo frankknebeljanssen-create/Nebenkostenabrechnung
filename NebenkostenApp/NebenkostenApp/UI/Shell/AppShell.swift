@@ -37,9 +37,17 @@ import SwiftData
 struct AppShell: View {
     @Environment(ScopeManager.self) private var scope
     @Environment(AppShellRouter.self) private var router
+    @Environment(\.modelContext) private var modelContext
     @Query(sort: \Immobilie.erstelltAm) private var immobilien: [Immobilie]
 
     @State private var zeigeScopePicker = false
+
+    /// Zeigt den globalen Scan-FAB-Flow: erst `ScanEntryView` (Kamera/
+    /// Mediathek/Datei), danach `UniversellerAnalyseScreen` ueber das
+    /// `analyseSheet`-Binding auf dem Router. Flag nur lokal — der
+    /// Folge-Screen lebt im Router, damit er auch aus anderen Kontexten
+    /// adressierbar bleibt.
+    @State private var zeigeScanEinwurf = false
 
     // Pro Tab ein eigener NavigationPath — wird vom `NavigationStack`
     // gehalten. Bei Re-Tap auf den aktiven Tab leeren wir den
@@ -60,6 +68,30 @@ struct AppShell: View {
     }
 
     var body: some View {
+        shellStack
+            .overlay(alignment: .bottomTrailing) { scanFAB }
+    }
+
+    /// Globaler Scan-FAB — 56 pt Kreis, accent-farben, sitzt 96 pt
+    /// ueber der Bottom-SafeArea (TabBar + ein Gap). Oeffnet das
+    /// bestehende `ScanEntryView`; bei erfolgreichem Einwurf wird der
+    /// `UniversellerAnalyseScreen` via `router.analyseSheet` gezeigt.
+    private var scanFAB: some View {
+        Button { zeigeScanEinwurf = true } label: {
+            Image(systemName: "doc.viewfinder.fill")
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(Color.white)
+                .frame(width: 56, height: 56)
+                .background(Circle().fill(DesignTokens.accent))
+                .shadow(color: Color.black.opacity(0.18), radius: 10, x: 0, y: 4)
+        }
+        .buttonStyle(.plain)
+        .padding(.trailing, 18)
+        .padding(.bottom, 96)
+        .accessibilityLabel("Dokument scannen")
+    }
+
+    private var shellStack: some View {
         VStack(spacing: 0) {
             // Permanenter Kontext-Header: Objekt / Periode /
             // Wohneinheit-Pills. Sitzt AUSSERHALB der NavigationStacks,
@@ -102,6 +134,54 @@ struct AppShell: View {
                 ZaehlerstandErfassenView(zaehler: z)
             }
         }
+        .sheet(isPresented: $zeigeScanEinwurf) {
+            ScanEntryView(onFertig: { dokument in
+                // Sobald das Dokument persistiert ist, schliesst
+                // `ScanEntryView` und der Router oeffnet den
+                // Universeller-Analyse-Screen. Kleines Delay, damit
+                // das erste Sheet dismisst ist bevor das zweite
+                // aufschwebt — sonst blockt SwiftUI die Animation.
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 200_000_000)
+                    router.oeffneAnalyseSheet(dokumentID: dokument.id)
+                }
+            })
+        }
+        .sheet(item: analyseBinding) { kontext in
+            if let dok = findeDokument(id: kontext.dokumentID) {
+                UniversellerAnalyseScreen(dokument: dok)
+            }
+        }
+    }
+
+    /// Bindings-Adapter auf `router.analyseSheet`. Schliesst den
+    /// Router-State beim User-Dismiss, damit das Sheet nicht bei
+    /// jedem Re-Render erneut aufschwebt.
+    private var analyseBinding: Binding<ScanAnalyseSheetKontext?> {
+        Binding(
+            get: { router.analyseSheet },
+            set: { router.analyseSheet = $0 }
+        )
+    }
+
+    /// Dokument via UUID im @Query finden. Haengt entweder an einer
+    /// Immobilie (Stammdaten-Dokument) oder an einer Rechnung oder
+    /// ist noch unverknuepft — je nach Scan-Quelle. Wir filtern
+    /// daher NICHT nach aktiver Immobilie.
+    @MainActor
+    private func findeDokument(id: UUID) -> GespeichertesDokument? {
+        for immobilie in immobilien {
+            if let d = (immobilie.stammdatenDokumente ?? [])
+                .first(where: { $0.id == id }) {
+                return d
+            }
+        }
+        // Fallback: ModelContext-FetchDescriptor ueber alle Dokumente.
+        // Nicht-verknuepfte frische Scans liegen nur im Kontext.
+        let desc = FetchDescriptor<GespeichertesDokument>(
+            predicate: #Predicate { $0.id == id }
+        )
+        return (try? modelContext.fetch(desc))?.first
     }
 
     // MARK: - Bindings

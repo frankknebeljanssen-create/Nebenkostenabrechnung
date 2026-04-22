@@ -634,6 +634,16 @@ enum Dokumenttyp: String, Codable, CaseIterable, Sendable {
     case energieausweis
     /// Jahres-Bescheid der Grundsteuer. Stammdaten-Dokument.
     case grundsteuerbescheid
+    /// WEG-/Hausverwaltungs-Jahresabrechnung (fuer Eigentuemer).
+    /// Wird in `HVAnalyseBefundView` bearbeitet (Phase-1-Stub).
+    case hvAbrechnung
+    /// Miet- oder NK-Erhoehungsschreiben — enthaelt alten + neuen
+    /// Betrag, Wirksamkeitsdatum. Bearbeitung folgt in eigenem Task.
+    case erhoehungsschreiben
+    /// Typ war beim Import nicht eindeutig klassifizierbar. Der
+    /// Universeller-Analyse-Screen routet diese Dokumente auf den
+    /// User-Picker.
+    case unbekannt
     case sonstiges
 
     var anzeigeName: String {
@@ -646,6 +656,9 @@ enum Dokumenttyp: String, Codable, CaseIterable, Sendable {
         case .mietvertrag:         return "Mietvertrag"
         case .energieausweis:      return "Energieausweis"
         case .grundsteuerbescheid: return "Grundsteuer-Bescheid"
+        case .hvAbrechnung:        return "HV-Abrechnung"
+        case .erhoehungsschreiben: return "Erhöhungsschreiben"
+        case .unbekannt:           return "Unbekannt"
         case .sonstiges:           return "Sonstiges"
         }
     }

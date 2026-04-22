@@ -117,6 +117,9 @@ enum DateinameBuilder {
         case .mietvertrag:         return "Mietvertrag"
         case .energieausweis:      return "Energieausweis"
         case .grundsteuerbescheid: return "Grundsteuerbescheid"
+        case .hvAbrechnung:        return "HV-Abrechnung"
+        case .erhoehungsschreiben: return "Erhoehung"
+        case .unbekannt:           return "Dokument"
         case .sonstiges:           return "Dokument"
         }
     }

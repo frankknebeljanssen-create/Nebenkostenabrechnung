@@ -436,6 +436,9 @@ struct BelegeView: View {
         case .mietvertrag:         return "person.text.rectangle.fill"
         case .energieausweis:      return "doc.badge.gearshape"
         case .grundsteuerbescheid: return "doc.text"
+        case .hvAbrechnung:        return "building.2.fill"
+        case .erhoehungsschreiben: return "arrow.up.right.circle.fill"
+        case .unbekannt:           return "questionmark.circle"
         case .sonstiges:           return "doc.text"
         }
     }

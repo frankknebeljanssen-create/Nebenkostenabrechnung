@@ -33,6 +33,9 @@ enum AIPrompts {
         case .zaehlerfoto:         return fallback
         case .mietvertrag:         return fallback
         case .energieausweis:      return fallback
+        case .hvAbrechnung:        return fallback
+        case .erhoehungsschreiben: return fallback
+        case .unbekannt:           return fallback
         case .sonstiges:           return fallback
         }
     }
@@ -48,6 +51,9 @@ enum AIPrompts {
         case .zaehlerfoto,
              .mietvertrag,
              .energieausweis,
+             .hvAbrechnung,
+             .erhoehungsschreiben,
+             .unbekannt,
              .sonstiges:           return "fallback"
         }
     }
