@@ -172,14 +172,13 @@ fileprivate struct WohneinheitCard: View {
         Button(action: onTap) {
             Card(tiefe: .erhoben, balkenFarbe: option.farbe) {
                 VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "person.text.rectangle")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(DesignTokens.textTertiary)
-                        Text("STAMMDATEN")
-                            .appFont(Self.kickerStyle)
-                            .foregroundStyle(DesignTokens.textTertiary)
-                    }
+                    // Scope-abhängiger Header: „OBJEKT" für das
+                    // Gesamtobjekt, „WOHNEINHEIT" für Einzeleinheiten.
+                    // homeCardHeader() = 14 pt/600/uppercase — 2 pt über
+                    // dem generischen kicker(), in `text`-Farbe (dunkel).
+                    Text(headerLabel)
+                        .appFont(AppFont.Basis.homeCardHeader())
+                        .foregroundStyle(DesignTokens.text)
                     Text("Objekt · Mieter · Vermieter")
                         .appFont(AppFont.Basis.caption())
                         .foregroundStyle(DesignTokens.textTertiary)
@@ -190,8 +189,9 @@ fileprivate struct WohneinheitCard: View {
                         .lineLimit(1)
                         .padding(.top, 2)
                     if !option.flaeche.isEmpty {
+                        // +2 pt gegenüber subZeile (13 pt → 15 pt).
                         Text(option.flaeche)
-                            .appFont(AppFont.Rechnungen.subZeile())
+                            .appFont(AppFont.Basis.body())
                             .foregroundStyle(DesignTokens.textSecondary)
                             .lineLimit(1)
                     }
@@ -207,13 +207,14 @@ fileprivate struct WohneinheitCard: View {
         .buttonStyle(.plain)
     }
 
-    /// 15 pt / 600 / tracking 0.6 UPPER — Kicker.
-    /// +3 pt gegenueber `AppFont.Dashboard.kartenKicker` (12 pt).
-    private static let kickerStyle = AppFontStyle(
-        font: AppFont.plexSans(.semibold, 15),
-        tracking: 0.6,
-        uppercase: true
-    )
+    /// Scope-abhängiger Kicker-Text. Wird via `homeCardHeader()`
+    /// automatisch uppercase gerendert.
+    private var headerLabel: String {
+        switch option.scope {
+        case .objekt:  return "Objekt"
+        case .einheit: return "Wohneinheit"
+        }
+    }
 
     /// 19 pt / 600 — Name. +2 pt gegenueber
     /// `AppFont.Abrechnung.kopfName` (17 pt).

@@ -118,7 +118,7 @@ struct HomeView: View {
             .padding(.top, 12)
             .padding(.bottom, 40)
         }
-        .background(DesignTokens.bgApp)
+        .background(DesignTokens.bgAppCompact)
         .appShellChrome(
             titel: nil,                       // kein "Start"
             subtitel: nil,
