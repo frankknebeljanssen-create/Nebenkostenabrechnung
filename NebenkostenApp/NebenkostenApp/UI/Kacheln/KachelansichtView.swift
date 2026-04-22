@@ -95,12 +95,16 @@ struct KachelansichtView: View {
                 }
                 .buttonStyle(.plain)
 
-                KachelCard(
-                    titel: "Zählerstände",
-                    icon: "gauge.medium",
-                    prozent: zaehlerProzent,
-                    onTap: { aktiveKachelNotiz = platzhalterText("Zählerstände") }
-                )
+                NavigationLink {
+                    ZaehlerstaendeView()
+                } label: {
+                    KachelCardLabel(
+                        titel: "Zählerstände",
+                        icon: "gauge.medium",
+                        prozent: zaehlerProzent
+                    )
+                }
+                .buttonStyle(.plain)
                 KachelCard(
                     titel: "Dokumente & Rechnungen",
                     icon: "doc.text.magnifyingglass",
