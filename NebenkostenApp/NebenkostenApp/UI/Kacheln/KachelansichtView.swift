@@ -125,7 +125,7 @@ struct KachelansichtView: View {
     }
 
     private func platzhalterText(_ bereich: String) -> String {
-        "Das Dashboard für „\(bereich)" folgt im nächsten Task. Bis dahin erreichen Sie die Inhalte über die TabBar."
+        "Das Dashboard für \u{201E}\(bereich)\u{201C} folgt im nächsten Task. Bis dahin erreichen Sie die Inhalte über die TabBar."
     }
 }
 
