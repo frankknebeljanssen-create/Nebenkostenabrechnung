@@ -28,11 +28,17 @@ import SwiftData
 
 struct DokumenteRechnungenView: View {
     @Environment(ScopeManager.self) private var scope
+    @Environment(\.modelContext) private var modelContext
     @Query(sort: \Immobilie.erstelltAm) private var immobilien: [Immobilie]
     @Query private var alleDokumente: [GespeichertesDokument]
 
     @State private var zeigeScanner = false
     @State private var auswahl: Rechnung?
+    /// Aktive Scan-Anforderung aus einem „+ Hinzufuegen"-Tap im
+    /// leeren Kategorie-Header. Wenn gesetzt, oeffnet sich der
+    /// Scanner mit vorausgewaehltem Kostenart-Namen; `onFertig`
+    /// erzeugt anschliessend eine `Rechnung` mit dieser Kostenart.
+    @State private var scanKostenartID: UUID?
 
     // MARK: - Abgeleitet
 
@@ -117,9 +123,78 @@ struct DokumenteRechnungenView: View {
                 // sobald eine Rechnung committet wurde.
             }
         }
+        .sheet(isPresented: Binding(
+            get: { scanKostenartID != nil },
+            set: { if !$0 { scanKostenartID = nil } }
+        )) {
+            ScanEntryView(
+                vorausgewaehlteKostenartName: gewaehlteScanKostenart?.bezeichnung,
+                onFertig: { dokument in
+                    erzeugeRechnungNachScan(dokument: dokument)
+                }
+            )
+        }
         .sheet(item: $auswahl) { r in
             RechnungEditView(modus: .bearbeiten(r))
         }
+    }
+
+    // MARK: - Scan mit Kostenart-Vorauswahl
+
+    private var gewaehlteScanKostenart: Kostenart? {
+        guard let id = scanKostenartID,
+              let immobilie = aktiveImmobilie else { return nil }
+        return (immobilie.kostenarten ?? []).first { $0.id == id }
+    }
+
+    /// Zur Kategorie passende aktive Kostenart. Kategorien mappen
+    /// auf 1-3 BetrKV-Raenge; wir nehmen die erste aktive Kostenart,
+    /// deren Rang in die Kategorie faellt. Nil heisst: kein aktiver
+    /// Katalog-Eintrag fuer diese Kategorie — dann faellt der
+    /// Hinzufuegen-Tap auf den regulaeren Scan zurueck (ohne
+    /// Kostenart-Vorauswahl).
+    private func kostenartFuerKategorie(_ kat: KachelKategorie) -> Kostenart? {
+        guard let kostenarten = aktiveImmobilie?.kostenarten else { return nil }
+        return kostenarten
+            .filter { $0.aktiv }
+            .first { ka in
+                let rang = RechnungenView.betrKvRang(ka.bezeichnung)
+                return KachelKategorie.fuer(rang: rang) == kat
+            }
+    }
+
+    /// Header-Tap „+ Hinzufuegen" in einer leeren Kategorie.
+    /// Findet die passende Kostenart und oeffnet den Scanner mit
+    /// dieser Vorauswahl. Falls keine Kostenart vorhanden:
+    /// regulaerer Scan.
+    private func starteScan(fuerKategorie kat: KachelKategorie) {
+        if let ka = kostenartFuerKategorie(kat) {
+            scanKostenartID = ka.id
+        } else {
+            zeigeScanner = true
+        }
+    }
+
+    /// Erzeugt nach Abschluss von `DokumentErfassungView` eine neue
+    /// `Rechnung` mit der vorausgewaehlten Kostenart. Identisch zum
+    /// Home-Sprungziel-Flow.
+    private func erzeugeRechnungNachScan(dokument: GespeichertesDokument) {
+        guard let kostenart = gewaehlteScanKostenart,
+              let immobilie = aktiveImmobilie else { return }
+        let rechnung = Rechnung()
+        rechnung.lieferant = dokument.versorger ?? kostenart.bezeichnung
+        rechnung.rechnungsdatum = dokument.erstelltAm
+        rechnung.leistungVon = dokument.erstelltAm
+        rechnung.leistungBis = dokument.erstelltAm
+        rechnung.betragBruttoEuro = dokument.betragBrutto ?? 0
+        rechnung.immobilie = immobilie
+        rechnung.kostenart = kostenart
+        rechnung.validierungsStatus = .manuell
+        rechnung.geprueft = true
+        rechnung.extraktionsNotizen = "Direkt aus Kachel-Scan ("
+            + kostenart.bezeichnung + ")"
+        modelContext.insert(rechnung)
+        try? modelContext.save()
     }
 
     // MARK: - Fortschritts-Header
@@ -211,11 +286,22 @@ struct DokumenteRechnungenView: View {
     private func kategorieSection(_ kat: KachelKategorie) -> some View {
         let rechnungen = gruppiert[kat] ?? []
         let summe = rechnungen.reduce(Decimal(0)) { $0 + $1.betragBruttoEuro }
+        // Bei leeren Kategorien rechts im Header ein tappbares
+        // „+ Hinzufuegen" in Accent-Farbe — User sieht so sofort,
+        // wo noch Rechnungen fehlen, ohne jede Sektion aufzuklappen.
+        let trailingAktion: CollapsibleTrailingAction? = rechnungen.isEmpty
+            ? CollapsibleTrailingAction(
+                titel: "+ Hinzufügen",
+                farbe: DesignTokens.accent,
+                onTap: { starteScan(fuerKategorie: kat) }
+              )
+            : nil
         CollapsibleSection(
             titel: kat.anzeigeName,
             summary: rechnungen.isEmpty ? nil : Formatting.euro(summe),
             persistKey: "dokrechnungen.\(kat.rawValue).offen",
-            defaultOffen: kat == .heizungWarmwasser
+            defaultOffen: kat == .heizungWarmwasser,
+            trailingAction: trailingAktion
         ) {
             if rechnungen.isEmpty {
                 leerRow

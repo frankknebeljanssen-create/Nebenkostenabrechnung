@@ -22,6 +22,17 @@
 
 import SwiftUI
 
+/// Trailing-Aktion fuer `CollapsibleSection` — ersetzt den
+/// Summary-Text durch einen tappbaren Text in Akzent-Farbe (z.B.
+/// "+ Hinzufuegen" bei leeren Kategorien). Toggle der Section
+/// passiert weiter via Tap auf den Rest des Headers; der
+/// Trailing-Tap laeuft als eigener Handler.
+struct CollapsibleTrailingAction {
+    let titel: String
+    let farbe: Color
+    let onTap: () -> Void
+}
+
 struct CollapsibleSection<Content: View>: View {
     let titel: String
     let summary: String?
@@ -35,6 +46,10 @@ struct CollapsibleSection<Content: View>: View {
     /// `istOffenExtern` verwendet wird, sonst geht der Tap ins
     /// Leere. Ohne Binding wird der interne State gekippt.
     let onToggle: ((Bool) -> Void)?
+    /// Optional: tappbare Aktion rechts im Header — ersetzt dort
+    /// den Summary-Text. Tap triggert die Aktion, NICHT das
+    /// Section-Toggle.
+    let trailingAction: CollapsibleTrailingAction?
     @ViewBuilder let content: () -> Content
 
     @State private var lokalOffen: Bool
@@ -47,6 +62,7 @@ struct CollapsibleSection<Content: View>: View {
         defaultOffen: Bool = false,
         istOffenExtern: Bool? = nil,
         onToggle: ((Bool) -> Void)? = nil,
+        trailingAction: CollapsibleTrailingAction? = nil,
         @ViewBuilder content: @escaping () -> Content
     ) {
         self.titel = titel
@@ -59,6 +75,7 @@ struct CollapsibleSection<Content: View>: View {
         self.defaultOffen = defaultOffen
         self.istOffenExtern = istOffenExtern
         self.onToggle = onToggle
+        self.trailingAction = trailingAction
         let initial: Bool
         if let k = persistKey, UserDefaults.standard.object(forKey: k) != nil {
             initial = UserDefaults.standard.bool(forKey: k)
@@ -92,28 +109,44 @@ struct CollapsibleSection<Content: View>: View {
     // MARK: - Header-Button (auf bgApp, kein Card)
 
     private var headerButton: some View {
-        Button {
-            toggle()
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: effektivOffen ? "chevron.down" : "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(DesignTokens.textTertiary)
-                Text(titel)
-                    .appFont(AppFont.uppercaseLabel())
-                    .foregroundStyle(DesignTokens.textSecondary)
-                Spacer(minLength: 8)
-                if let summary {
-                    Text(summary)
-                        .appFont(AppFont.monoBetrag17())
-                        .foregroundStyle(DesignTokens.text)
+        HStack(spacing: 8) {
+            // Linker Bereich inkl. Titel ist der Toggle-Hotspot.
+            Button {
+                toggle()
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: effektivOffen ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(DesignTokens.textTertiary)
+                    Text(titel)
+                        .appFont(AppFont.uppercaseLabel())
+                        .foregroundStyle(DesignTokens.textSecondary)
+                    Spacer(minLength: 8)
                 }
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, 4)
-            .padding(.vertical, 8)
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+
+            // Rechter Bereich: entweder TrailingAction (tappbar, Accent)
+            // oder Summary-Text (nicht interaktiv). TrailingAction
+            // laeuft als EIGENER Button — Tap auf den Trailing-Text
+            // triggert die Aktion, NICHT das Toggle.
+            if let trailing = trailingAction {
+                Button(action: trailing.onTap) {
+                    Text(trailing.titel)
+                        .appFont(AppFont.Basis.captionMedium())
+                        .foregroundStyle(trailing.farbe)
+                }
+                .buttonStyle(.plain)
+            } else if let summary {
+                Text(summary)
+                    .appFont(AppFont.monoBetrag17())
+                    .foregroundStyle(DesignTokens.text)
+                    .onTapGesture { toggle() }
+            }
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, 4)
+        .padding(.vertical, 8)
     }
 
     // MARK: - Card (nur wenn offen)
