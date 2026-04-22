@@ -24,6 +24,7 @@ struct AbrechnungenView: View {
     @Environment(ScopeManager.self) private var scope
     @Environment(AppShellRouter.self) private var router
     @Query(sort: \Immobilie.erstelltAm) private var immobilien: [Immobilie]
+    @Query private var users: [AppUser]
 
     @State private var zeigeScopePicker = false
     @State private var zeigeEinstellungen = false
@@ -57,7 +58,10 @@ struct AbrechnungenView: View {
                 AbrechnungDetailView(
                     abrechnung: aus.abrechnung,
                     periode: aus.periodeText,
-                    warnungen: aus.warnungen
+                    warnungen: aus.warnungen,
+                    pdfPeriode: aus.periode,
+                    pdfImmobilie: immobilie,
+                    pdfUser: users.first
                 )
             }
         }
@@ -154,6 +158,7 @@ struct AbrechnungenView: View {
                             action: {
                                 detail = .init(
                                     abrechnung: m,
+                                    periode: p,
                                     periodeText: periodenText(p),
                                     warnungen: warnungenFuer(p)
                                 )
@@ -426,6 +431,10 @@ struct AbrechnungenView: View {
 /// Wrapper für das sheet(item:)-Routing.
 private struct AbrechnungenDetailAuswahl: Identifiable {
     let abrechnung: Mieterabrechnung
+    /// Echte SwiftData-Periode fuer den PDF-Export. Die Sheet-
+    /// Anzeige nutzt weiter `periodeText`, damit die Phase-0-View
+    /// unberuehrt bleibt.
+    let periode: Abrechnungsperiode
     let periodeText: String
     /// Warnungen der zugrundeliegenden Periode (WMZ-Plausi, teilweise
     /// erfüllte Anforderungen). Blocker tauchen hier in Regel nicht

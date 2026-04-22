@@ -22,8 +22,17 @@ struct AbrechnungDetailView: View {
     /// auf, weil der AbrechnungsService bei Blockern bereits wirft.
     var warnungen: [AnforderungMitStatus] = []
 
+    /// PDF-Export-Kontext. Nur wenn diese drei zusammen vorhanden
+    /// sind und kein Blocker greift, ist der PDF-Button aktiv.
+    /// Phase-0-Previews/Tests ohne Kontext sehen weiterhin "gesperrt".
+    var pdfPeriode: Abrechnungsperiode? = nil
+    var pdfImmobilie: Immobilie? = nil
+    var pdfUser: AppUser? = nil
+
     @Environment(\.dismiss) private var dismiss
     @Environment(AppShellRouter.self) private var router
+
+    @State private var zeigePDFVorschau = false
 
     /// Defensiver Check: liegt trotz berechneter Mieterabrechnung
     /// noch ein unbehandelter Blocker vor, rendert die View ohne
@@ -32,6 +41,10 @@ struct AbrechnungDetailView: View {
     /// schon bei Blockern wirft.
     private var hatBlocker: Bool {
         warnungen.contains { $0.blockiertBerechnung }
+    }
+
+    private var pdfExportAktiv: Bool {
+        !hatBlocker && pdfPeriode != nil && pdfImmobilie != nil
     }
 
     var body: some View {
@@ -56,6 +69,16 @@ struct AbrechnungDetailView: View {
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Fertig") { dismiss() }
+            }
+        }
+        .sheet(isPresented: $zeigePDFVorschau) {
+            if let p = pdfPeriode, let i = pdfImmobilie {
+                PDFVorschauSheet(
+                    abrechnung: abrechnung,
+                    immobilie: i,
+                    periode: p,
+                    user: pdfUser
+                )
             }
         }
     }
@@ -292,32 +315,46 @@ struct AbrechnungDetailView: View {
     private var actionBar: some View {
         VStack(spacing: 8) {
             actionButton(
-                titel: hatBlocker
-                    ? "PDF-Vorschau · gesperrt"
-                    : "PDF-Vorschau (kommt in UI-2)",
+                titel: pdfButtonTitel,
                 symbol: "doc.text.magnifyingglass",
-                disabled: true
+                disabled: !pdfExportAktiv,
+                action: { zeigePDFVorschau = true }
             )
             actionButton(
                 titel: hatBlocker
                     ? "Per Mail versenden · gesperrt"
-                    : "Per Mail versenden (kommt in UI-2)",
+                    : "Per Mail versenden (kommt spaeter)",
                 symbol: "envelope",
-                disabled: true
+                disabled: true,
+                action: {}
             )
             actionButton(
                 titel: hatBlocker
                     ? "Drucken · gesperrt"
-                    : "Drucken (kommt in UI-2)",
+                    : "Drucken (kommt spaeter)",
                 symbol: "printer",
-                disabled: true
+                disabled: true,
+                action: {}
             )
         }
     }
 
-    private func actionButton(titel: String, symbol: String, disabled: Bool) -> some View {
+    private var pdfButtonTitel: String {
+        if hatBlocker { return "PDF-Vorschau · gesperrt" }
+        if pdfPeriode == nil || pdfImmobilie == nil {
+            return "PDF-Vorschau · nicht verfügbar"
+        }
+        return "PDF-Vorschau"
+    }
+
+    private func actionButton(
+        titel: String,
+        symbol: String,
+        disabled: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
         Button {
-            // Integration folgt in UI-2.
+            action()
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: symbol)
@@ -328,7 +365,9 @@ struct AbrechnungDetailView: View {
                 Image(systemName: "chevron.right")
                     .font(.caption)
             }
-            .foregroundStyle(DesignTokens.textTertiary)
+            .foregroundStyle(disabled
+                             ? DesignTokens.textTertiary
+                             : DesignTokens.text)
             .padding(.vertical, 14)
             .padding(.horizontal, 16)
             .frame(maxWidth: .infinity)

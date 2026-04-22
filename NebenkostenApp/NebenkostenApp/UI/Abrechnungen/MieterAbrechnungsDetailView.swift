@@ -264,96 +264,16 @@ struct MieterAbrechnungsDetailView: View {
 
     // MARK: - Mustache-Kontext
 
+    /// Delegiert an den gemeinsamen Helper `PDFAbrechnungsKontext`, der
+    /// auch vom UI-2-`PDFVorschauSheet` genutzt wird. Eine Quelle der
+    /// Wahrheit fuer beide Generierungs-Pfade — verhindert Drift.
     private func buildMustacheContext() -> [String: Any] {
-        let user = users.first
-
-        let positionenDicts: [[String: Any]] = abrechnung.positionen.map { p in
-            [
-                "bezeichnung":          p.kostenart,
-                "gesamtkostenEuro":     formatiereZahl(p.gesamtkostenEuro),
-                "verteilerschluessel":  p.verteilerschluesselText,
-                "mieteranteilEuro":     formatiereZahl(p.mieteranteilEuro)
-            ]
-        }
-
-        let saldoLabel = abrechnung.saldoEuro >= 0 ? "Ihre Nachzahlung" : "Ihre Erstattung"
-        let saldoFmt = formatiereZahl(abrechnung.saldoEuro.magnitude)
-        let saldoText = abrechnung.saldoEuro >= 0 ? saldoFmt : "− \(saldoFmt)"
-
-        var ctx: [String: Any] = [
-            "vermieter": [
-                "name":     user?.name ?? "",
-                "adresse":  user?.anschrift ?? "",
-                "ort":      user?.ort ?? ""
-            ],
-            "mieter": [
-                "anrede":        "Sehr geehrte Mieterin, sehr geehrter Mieter,",
-                "anredeFormell": "Sehr geehrte Damen und Herren",
-                "name":          abrechnung.mieterName,
-                "adresse":       abrechnung.mieterAnschrift,
-                "ort":           ""
-            ],
-            "datum":       datumHeute(),
-            "periode": [
-                "bezeichnung": periodenText,
-                "von":         formatiereDatum(periode.von),
-                "bis":         formatiereDatum(periode.bis)
-            ],
-            "einheit": [
-                "bezeichnung":  abrechnung.einheitBezeichnung,
-                "flaecheM2":    formatiereZahl(abrechnung.einheitFlaecheM2)
-            ],
-            "immobilie": [
-                "adresse":         immobilie.adresse,
-                "ort":             immobilie.ort,
-                "gesamtflaecheM2": formatiereZahl(immobilie.gesamtflaecheM2)
-            ],
-            "abrechnung": [
-                "gesamtkostenEuro":      formatiereZahl(abrechnung.gesamtkostenEuro),
-                "vorauszahlungenEuro":   formatiereZahl(abrechnung.vorauszahlungenEuro),
-                "saldoLabel":            saldoLabel,
-                "saldoBetragFormatiert": saldoText,
-                "steuer35aBetragEuro":   formatiereZahl(abrechnung.steuer35aBetragEuro)
-            ],
-            "positionen":          positionenDicts,
-            "steuer35aRelevant":   abrechnung.steuer35aBetragEuro > 0,
-            "hatHeizungsAnlage":   abrechnung.heizungsAnlage != nil,
-            "hatCo2Anlage":        false
-        ]
-
-        if let h = abrechnung.heizungsAnlage {
-            let heizTopf  = h.heizkostenTopfEuro
-            let wwTopf    = h.warmwasserkostenTopfEuro
-            let anteilHeiz = abrechnung.positionen
-                .first(where: { $0.kostenart == "Heizung" })?.mieteranteilEuro ?? 0
-            let anteilWw = abrechnung.positionen
-                .first(where: { $0.kostenart == "Warmwasser" })?.mieteranteilEuro ?? 0
-            ctx["heizung"] = [
-                "gesamtkostenEuro":     formatiereZahl(heizTopf + wwTopf),
-                "heizkostenTopfEuro":   formatiereZahl(heizTopf),
-                "warmwasserTopfEuro":   formatiereZahl(wwTopf),
-                "qHeizungKwh":          formatiereGanz(h.qHeizungKwh),
-                "qWarmwasserKwh":       formatiereGanz(h.qWarmwasserKwh),
-                "wmzGesamt":            formatiereGanz(h.qHeizungKwh),
-                "wmzAnteil":            formatiereGanz(h.wmzAnteilKwh),
-                "wwVerbrauchM3":        formatiereZahl(Decimal(h.wwVerbrauchM3)),
-                "flaechenanteilEuro":   formatiereZahl(h.flaechenanteilHeizungEuro
-                                                       + h.flaechenanteilWarmwasserEuro),
-                "verbrauchsanteilEuro": formatiereZahl(h.verbrauchsanteilHeizungEuro
-                                                       + h.verbrauchsanteilWarmwasserEuro),
-                "verbrauchAnteilProzent": "70",
-                "gesamtAnteilEuro":     formatiereZahl(anteilHeiz + anteilWw)
-            ]
-        }
-        return ctx
-    }
-
-    private func formatiereGanz(_ wert: Double) -> String {
-        let nf = NumberFormatter()
-        nf.numberStyle = .decimal
-        nf.locale = Locale(identifier: "de_DE")
-        nf.maximumFractionDigits = 0
-        return nf.string(from: NSNumber(value: wert)) ?? "\(Int(wert.rounded()))"
+        PDFAbrechnungsKontext.baue(
+            abrechnung: abrechnung,
+            immobilie: immobilie,
+            user: users.first,
+            periode: periode
+        )
     }
 
     // MARK: - Formatter-Helfer
