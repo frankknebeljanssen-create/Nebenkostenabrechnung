@@ -230,4 +230,53 @@ struct ScopeFilterTests {
         )
         #expect(gefiltert.count == 1)
     }
+
+    // MARK: - Rechnungen (Design: Objekt-level, auch im Einheit-Scope)
+
+    @Test("sichtbareRechnungen: Einheit-Scope liefert alle Rechnungen (objekt-level)")
+    func rechnungen_einheit_gibt_alle() async throws {
+        let s = try seed(); let immobilie = s.immobilie
+        let alle = immobilie.rechnungen ?? []
+        #expect(!alle.isEmpty)
+        let gefiltert = ScopeFilter.sichtbareRechnungen(
+            alle: alle, scope: .einheit(id: "OG")
+        )
+        #expect(gefiltert.count == alle.count)
+    }
+
+    @Test("rechnungenInPeriode filtert auf Rechnungsdatum im Zeitfenster")
+    func rechnungen_in_periode_filter() async throws {
+        let s = try seed(); let immobilie = s.immobilie
+        let perioden = immobilie.perioden ?? []
+        let periode = perioden.sorted(by: { $0.von < $1.von }).first!
+        let alle = immobilie.rechnungen ?? []
+
+        let gefiltert = ScopeFilter.rechnungenInPeriode(
+            alle: alle, periode: periode, scope: .objekt
+        )
+        #expect(!gefiltert.isEmpty)
+        for r in gefiltert {
+            #expect(r.rechnungsdatum >= periode.von)
+            #expect(r.rechnungsdatum <= periode.bis)
+        }
+    }
+
+    @Test("rechnungenInPeriode schliesst Grenzdaten ein (inklusiv)")
+    func rechnungen_in_periode_grenzen_inklusiv() async throws {
+        let s = try seed(); let immobilie = s.immobilie
+        let perioden = immobilie.perioden ?? []
+        let periode = perioden.sorted(by: { $0.von < $1.von }).first!
+
+        let randRechnung = Rechnung()
+        randRechnung.rechnungsdatum = periode.von
+        let aussenRechnung = Rechnung()
+        aussenRechnung.rechnungsdatum = periode.von.addingTimeInterval(-86_400)
+
+        let gefiltert = ScopeFilter.rechnungenInPeriode(
+            alle: [randRechnung, aussenRechnung],
+            periode: periode, scope: .objekt
+        )
+        #expect(gefiltert.count == 1)
+        #expect(gefiltert.first === randRechnung)
+    }
 }
