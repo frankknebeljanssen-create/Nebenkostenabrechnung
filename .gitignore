@@ -60,3 +60,9 @@ fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/**/*.png
 fastlane/test_output
+
+# ───── Projekt-lokal ─────
+.claude/
+NebenkostenApp/NebenkostenApp.xcodeproj/xcshareddata/
+NebenkostenAppIcons.zip
+NebenkostenAppIcons/
