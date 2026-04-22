@@ -104,8 +104,7 @@ struct DokumentErfassungView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            .navigationTitle("Dokument erfassen")
-            .navigationBarTitleDisplayMode(.inline)
+            .sheetTitelHeader("Dokument erfassen")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Verwerfen", role: .destructive) {

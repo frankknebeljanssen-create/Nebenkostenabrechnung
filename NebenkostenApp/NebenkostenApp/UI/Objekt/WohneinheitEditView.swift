@@ -65,8 +65,7 @@ struct WohneinheitEditView: View {
                     Toggle("Selbstnutzung (Vermieter wohnt hier)", isOn: $selbstnutzung)
                 }
             }
-            .navigationTitle(titel)
-            .navigationBarTitleDisplayMode(.inline)
+            .sheetTitelHeader(titel)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     SheetToolbar.abbrechen { dismiss() }

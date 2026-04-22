@@ -38,8 +38,7 @@ struct UebernahmeSheet: View {
                 felderSektion
                 kostenartSektion
             }
-            .navigationTitle("Als Rechnung übernehmen")
-            .navigationBarTitleDisplayMode(.inline)
+            .sheetTitelHeader("Als Rechnung übernehmen")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     SheetToolbar.abbrechen { dismiss() }

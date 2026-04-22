@@ -81,8 +81,7 @@ struct ObjektEditView: View {
                     }
                 }
             }
-            .navigationTitle("Objekt bearbeiten")
-            .navigationBarTitleDisplayMode(.inline)
+            .sheetTitelHeader("Objekt bearbeiten")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     SheetToolbar.abbrechen { dismiss() }

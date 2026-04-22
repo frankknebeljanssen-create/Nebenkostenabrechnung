@@ -61,8 +61,7 @@ struct PeriodenPickerSheet: View {
                     .disabled(true)
                 }
             }
-            .navigationTitle("Periode wählen")
-            .navigationBarTitleDisplayMode(.inline)
+            .sheetTitelHeader("Periode wählen")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     SheetToolbar.abbrechen(titel: "Fertig") { dismiss() }

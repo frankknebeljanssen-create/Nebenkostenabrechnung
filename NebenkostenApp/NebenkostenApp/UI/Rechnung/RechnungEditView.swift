@@ -83,8 +83,7 @@ struct RechnungEditView: View {
                     }
                 }
             }
-            .navigationTitle(titel)
-            .navigationBarTitleDisplayMode(.inline)
+            .sheetTitelHeader(titel)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     SheetToolbar.abbrechen { dismiss() }

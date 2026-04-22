@@ -65,8 +65,7 @@ struct ObjektPickerSheet: View {
                     .buttonStyle(.plain)
                 }
             }
-            .navigationTitle("Objekt wählen")
-            .navigationBarTitleDisplayMode(.inline)
+            .sheetTitelHeader("Objekt wählen")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     SheetToolbar.abbrechen(titel: "Fertig") { dismiss() }

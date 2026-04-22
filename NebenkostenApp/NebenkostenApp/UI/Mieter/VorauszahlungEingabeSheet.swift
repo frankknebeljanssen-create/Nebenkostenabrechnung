@@ -66,8 +66,7 @@ struct VorauszahlungEingabeSheet: View {
                 }
             }
             .background(DesignTokens.bgApp)
-            .navigationTitle("Vorauszahlungen")
-            .navigationBarTitleDisplayMode(.inline)
+            .sheetTitelHeader("Vorauszahlungen")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     SheetToolbar.abbrechen {

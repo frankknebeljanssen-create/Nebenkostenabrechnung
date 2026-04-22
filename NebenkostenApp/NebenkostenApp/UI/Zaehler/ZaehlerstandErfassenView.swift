@@ -63,8 +63,7 @@ struct ZaehlerstandErfassenView: View {
                     }
                 }
             }
-            .navigationTitle("Zählerstand erfassen")
-            .navigationBarTitleDisplayMode(.inline)
+            .sheetTitelHeader("Zählerstand erfassen")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     SheetToolbar.abbrechen { dismiss() }

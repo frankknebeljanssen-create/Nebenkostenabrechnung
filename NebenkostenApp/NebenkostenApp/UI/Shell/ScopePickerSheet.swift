@@ -57,8 +57,7 @@ struct ScopePickerSheet: View {
                     }
                 }
             }
-            .navigationTitle("Scope wechseln")
-            .navigationBarTitleDisplayMode(.inline)
+            .sheetTitelHeader("Scope wechseln")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     SheetToolbar.abbrechen(titel: "Fertig") { dismiss() }
