@@ -57,7 +57,7 @@ enum DateinameBuilder {
             return voll
         }
         // Kollision: 4-Chars-UUID-Suffix
-        var uuid = eingabe.id.uuidString.replacingOccurrences(of: "-", with: "")
+        let uuid = eingabe.id.uuidString.replacingOccurrences(of: "-", with: "")
         for offset in stride(from: 0, through: 16, by: 4) {
             let idx0 = uuid.index(uuid.startIndex, offsetBy: offset)
             let idx1 = uuid.index(idx0, offsetBy: 4)
@@ -109,13 +109,15 @@ enum DateinameBuilder {
 
     static func typKurz(_ t: Dokumenttyp) -> String {
         switch t {
-        case .rechnung:          return "Rechnung"
-        case .bescheid:          return "Bescheid"
-        case .handwerkerbeleg:   return "Beleg"
-        case .winterdienstbeleg: return "Beleg"
-        case .zaehlerfoto:       return "Zaehlerfoto"
-        case .mietvertrag:       return "Mietvertrag"
-        case .sonstiges:         return "Dokument"
+        case .rechnung:            return "Rechnung"
+        case .bescheid:            return "Bescheid"
+        case .handwerkerbeleg:     return "Beleg"
+        case .winterdienstbeleg:   return "Beleg"
+        case .zaehlerfoto:         return "Zaehlerfoto"
+        case .mietvertrag:         return "Mietvertrag"
+        case .energieausweis:      return "Energieausweis"
+        case .grundsteuerbescheid: return "Grundsteuerbescheid"
+        case .sonstiges:           return "Dokument"
         }
     }
 
