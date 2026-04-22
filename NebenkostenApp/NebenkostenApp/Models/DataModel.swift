@@ -499,6 +499,15 @@ final class Rechnung {
     var immobilie: Immobilie?
     var kostenart: Kostenart?
 
+    /// Optional: Wenn diese Rechnung aus einer HV-Abrechnung ueber-
+    /// nommen wurde, verweist sie auf die Quelle-HVPosition. Der Link
+    /// bleibt einseitig aus Sicht der Berechnung — der
+    /// AbrechnungsService sieht sie wie jede andere Rechnung. Die
+    /// inverse Relationship ist in `HVPosition.rechnung` mit
+    /// `deleteRule: .nullify` definiert, damit eine geloeschte
+    /// HV-Abrechnung die abgeleiteten Rechnungen nicht mitreisst.
+    var hvPosition: HVPosition?
+
     init() {}
 }
 

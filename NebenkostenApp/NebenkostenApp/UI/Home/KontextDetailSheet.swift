@@ -374,6 +374,7 @@ struct KontextDetailSheet: View {
             rechnung.extraktionsNotizen = "Aus HV-Abrechnung \(rohdaten.hausverwaltungName) "
                 + "(\(rohdaten.abrechnungszeitraumVon.map(Self.kurzDatum) ?? "–") – "
                 + "\(rohdaten.abrechnungszeitraumBis.map(Self.kurzDatum) ?? "–"))"
+            rechnung.hvPosition = position
             modelContext.insert(rechnung)
         }
 

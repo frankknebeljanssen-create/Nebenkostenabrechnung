@@ -63,6 +63,9 @@ struct AbrechnungDetailView: View {
                     warnungenCard
                 }
                 heroCard
+                if !abrechnung.hvQuellen.isEmpty {
+                    hvQuellenCard
+                }
                 positionenCard
                 saldoCard
                 paragraph35aCard
@@ -133,6 +136,45 @@ struct AbrechnungDetailView: View {
                         detail: "geleistet"
                     )
                 )
+            }
+        }
+    }
+
+    // MARK: - HV-Quellen (Info-Card, nur wenn Positionen aus HV kommen)
+
+    /// Transparenz-Hinweis: welche HV-Abrechnungen haben Positionen
+    /// fuer diese Periode beigesteuert. Wird nur gerendert, wenn
+    /// `abrechnung.hvQuellen` nicht leer ist. Erhaltungsruecklage und
+    /// §35a-HV-Totals erscheinen bewusst NICHT im Mieter-PDF — sie
+    /// bleiben Eigentuemer-Information (siehe EigentuemerUebersichtView).
+    private var hvQuellenCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    Image(systemName: "building.2")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(DesignTokens.textSecondary)
+                    Text("Aus Hausverwaltungs-Abrechnung")
+                        .appFont(AppFont.uppercaseLabel())
+                        .foregroundStyle(DesignTokens.textSecondary)
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(abrechnung.hvQuellen, id: \.self) { quelle in
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Text("•")
+                                .appFont(AppFont.caption())
+                                .foregroundStyle(DesignTokens.textTertiary)
+                            Text(quelle)
+                                .appFont(AppFont.Basis.caption())
+                                .foregroundStyle(DesignTokens.text)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+                Text("Betroffene Positionen sind in der Tabelle unten mit ihrer Kostenart gelistet. Nicht umlagefähige Posten und die Erhaltungsrücklage verbleiben beim Eigentümer.")
+                    .appFont(AppFont.Basis.smallCaption())
+                    .foregroundStyle(DesignTokens.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }

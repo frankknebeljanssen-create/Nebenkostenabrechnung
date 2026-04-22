@@ -61,6 +61,13 @@ struct Mieterabrechnung: Identifiable, Hashable, Sendable {
     let saldoEuro: Decimal
     let steuer35aBetragEuro: Decimal
     let heizungsAnlage: HeizungsAnlagenDetails?
+    /// HV-Abrechnungs-Quellen, deren Positionen in diese Periode
+    /// eingeflossen sind (formatiert als "Name · Zeitraum"). Leer,
+    /// wenn keine HV-Abrechnung Rechnungen beigesteuert hat. Wird
+    /// vom Detail-View als Info-Banner angezeigt — Transparenz ueber
+    /// die Herkunft der Betraege, ohne MEA oder Eigentuemer-Interna
+    /// ins Mieter-PDF zu ziehen.
+    let hvQuellen: [String]
 }
 
 @MainActor
@@ -219,6 +226,8 @@ enum AbrechnungsService {
                 return l < r
             }
 
+        let hvQuellen = sammleHVQuellen(rechnungen: periodenRechnungen)
+
         return aktiveMieter.map { mv in
             guard let einheit = mv.wohneinheit else {
                 return leereMieterabrechnung(mieter: mv)
@@ -241,8 +250,32 @@ enum AbrechnungsService {
                 vorauszahlungenEuro: vorauszahlungen,
                 saldoEuro: saldo,
                 steuer35aBetragEuro: p35a,
-                heizungsAnlage: heizAnlageProEinheit[einheit.id]
+                heizungsAnlage: heizAnlageProEinheit[einheit.id],
+                hvQuellen: hvQuellen
             )
+        }
+    }
+
+    /// Sammelt die eindeutigen HV-Abrechnungen, deren Positionen in
+    /// die Perioden-Rechnungen eingeflossen sind. Sortierung: nach
+    /// Abrechnungszeitraum-Ende absteigend, damit die juengste HV
+    /// zuerst erscheint. Format pro Eintrag: "Name · von – bis".
+    private static func sammleHVQuellen(rechnungen: [Rechnung]) -> [String] {
+        let hvs = rechnungen.compactMap { $0.hvPosition?.hvAbrechnung }
+        var gesehen = Set<UUID>()
+        let einmalig = hvs.filter { hv in
+            if gesehen.contains(hv.id) { return false }
+            gesehen.insert(hv.id)
+            return true
+        }
+        let sortiert = einmalig.sorted { $0.abrechnungszeitraumBis > $1.abrechnungszeitraumBis }
+        return sortiert.map { hv in
+            let name = hv.hausverwaltungName.isEmpty ? "HV-Abrechnung" : hv.hausverwaltungName
+            let zeitraum = Formatting.periode(
+                hv.abrechnungszeitraumVon,
+                hv.abrechnungszeitraumBis
+            )
+            return "\(name) · \(zeitraum)"
         }
     }
 
@@ -516,7 +549,8 @@ enum AbrechnungsService {
             vorauszahlungenEuro: 0,
             saldoEuro: 0,
             steuer35aBetragEuro: 0,
-            heizungsAnlage: nil
+            heizungsAnlage: nil,
+            hvQuellen: []
         )
     }
 

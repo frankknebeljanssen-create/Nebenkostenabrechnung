@@ -122,6 +122,15 @@ final class HVPosition {
 
     var hvAbrechnung: HVAbrechnung?
 
+    /// Optional: die aus dieser Position beim Uebernahme-Flow
+    /// erzeugte `Rechnung`. Wird beim Import gesetzt, damit die
+    /// Abrechnungs-Detailansicht HV-Herkunft markieren kann.
+    /// `deleteRule: .nullify` — wenn die HVAbrechnung geloescht
+    /// wird (Cascade auf HVPosition), bleibt die Rechnung
+    /// unveraendert, nur `Rechnung.hvPosition` fluegt zu nil.
+    @Relationship(deleteRule: .nullify, inverse: \Rechnung.hvPosition)
+    var rechnung: Rechnung?
+
     init() {}
 }
 
