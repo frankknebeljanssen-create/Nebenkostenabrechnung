@@ -11,7 +11,11 @@
 //    5. DATEN                 (Export / Import / Löschen zweistufig)
 //    6. RECHTLICHES           (4 Markdown-Sheets)
 //    7. ÜBER DIE APP          (Version / Build / Device)
-//    8. DEBUG                 (nur #if DEBUG)
+//
+//  Die frueher vorhandene Debug-Section (TokenProbeView, FontProbeView,
+//  Phase-0-Root) ist nach Phase-1-Ende entfernt. Die beiden Probe-
+//  Views bleiben als Standalone-Dateien in `UI/Debug/` erhalten und
+//  sind via Xcode-Preview aus dem Code direkt ausprobierbar.
 //
 //  Die Form nutzt System-Styling, weil Exports/Alerts/Navigation-
 //  Links davon stärker profitieren als eigene Cards. Der Handoff-
@@ -46,10 +50,6 @@ struct EinstellungenSheet: View {
                 DatenSection()
                 RechtlichesSection()
                 UeberSection()
-
-                #if DEBUG
-                debugSection
-                #endif
             }
             .navigationTitle("Einstellungen")
             .navigationBarTitleDisplayMode(.inline)
@@ -89,30 +89,6 @@ struct EinstellungenSheet: View {
         return "Version \(version) · Build \(build)"
     }
 
-    // MARK: - Debug (nur DEBUG)
-
-    #if DEBUG
-    @ViewBuilder
-    private var debugSection: some View {
-        Section {
-            NavigationLink("Design-Tokens") {
-                TokenProbeView()
-            }
-            NavigationLink("Font-Probe (Plex)") {
-                FontProbeView()
-            }
-            NavigationLink("Altes Objekt-Dashboard") {
-                Phase0RootWrapper()
-            }
-        } header: {
-            Text("Debug")
-        } footer: {
-            Text("Nur in DEBUG-Builds sichtbar. Wird nach UI-3 komplett entfernt.")
-                .appFont(AppFont.smallCaption())
-                .foregroundStyle(DesignTokens.textTertiary)
-        }
-    }
-    #endif
 }
 
 private struct AnthropicKeyView: View {
@@ -390,13 +366,3 @@ private struct UmlageSection: View {
     }
 }
 
-/// Kapselt die Phase-0-`RootTabView` damit sie als NavigationLink-
-/// Destination benutzbar bleibt. Wird zusammen mit dem Debug-Menü
-/// in UI-3 entfernt.
-private struct Phase0RootWrapper: View {
-    var body: some View {
-        RootTabView()
-            .navigationTitle("Phase-0-App")
-            .navigationBarTitleDisplayMode(.inline)
-    }
-}
