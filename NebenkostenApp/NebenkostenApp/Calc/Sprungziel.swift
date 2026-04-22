@@ -38,6 +38,14 @@ enum Sprungziel: Equatable, Hashable, Sendable {
     /// Rechnungen-Tab klappt die passende Kostenart-Section auf.
     case rechnungKostenart(kostenartId: UUID)
 
+    /// Scan-Flow direkt mit vorausgewaehlter Kostenart oeffnen.
+    /// Wird von der Home-"Naechste Schritte"-Liste genutzt, wenn
+    /// fuer eine Kostenart in der Periode noch keine Rechnung
+    /// erfasst ist. Der User kommt sofort in den Scan, die
+    /// Kostenart ist im UebernahmeSheet vorausgewaehlt — kein
+    /// Umweg ueber die Rechnungen-Liste + manueller "+"-Button.
+    case scanMitKostenart(kostenartId: UUID)
+
     /// Abrechnungsperiode-Grenzen (von < bis, Plausibilität).
     /// Öffnet EinstellungenSheet → Objekt-Section → Periode.
     case einstellungenPeriode
@@ -63,6 +71,8 @@ extension Sprungziel {
             return UIRoute(tab: .zaehler, kontext: .erfasseZaehler(id: id))
         case .rechnungKostenart(let id):
             return UIRoute(tab: .rechnungen, kontext: .oeffneKostenart(id: id))
+        case .scanMitKostenart(let id):
+            return UIRoute(tab: .uebersicht, kontext: .oeffneScanMitKostenart(id: id))
         case .einstellungenPeriode:
             return UIRoute(tab: .uebersicht, kontext: .oeffneEinstellungen(section: .periode))
         case .wmzPlausi:
@@ -82,6 +92,7 @@ struct UIRoute: Equatable, Hashable, Sendable {
         case oeffneEinstellungen(section: EinstellungenSection)
         case erfasseZaehler(id: UUID)
         case oeffneKostenart(id: UUID)
+        case oeffneScanMitKostenart(id: UUID)
         case fokussiereMedium(roh: String)
     }
 

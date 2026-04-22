@@ -43,6 +43,14 @@ struct SprungzielTests {
         #expect(r.kontext == .oeffneKostenart(id: id))
     }
 
+    @Test("scanMitKostenart → Uebersicht-Tab + Scan-Kontext")
+    func scanMitKostenart_route() {
+        let id = UUID()
+        let r = Sprungziel.scanMitKostenart(kostenartId: id).uiRoute
+        #expect(r.tab == .uebersicht)
+        #expect(r.kontext == .oeffneScanMitKostenart(id: id))
+    }
+
     @Test("einstellungenPeriode → Übersicht-Tab + Periode-Section")
     func einstellungenPeriode_route() {
         let r = Sprungziel.einstellungenPeriode.uiRoute

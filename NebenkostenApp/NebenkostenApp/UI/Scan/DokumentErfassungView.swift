@@ -23,6 +23,12 @@ struct DokumentErfassungView: View {
     /// Leer → Einheit-Picker nur mit "Objektweit".
     let einheitBezeichnungen: [String]
 
+    /// Optional gesetzt, wenn der Scan-Flow aus einem Home-Sprungziel
+    /// mit vorausgewaehlter Kostenart startet. Rein informativ — wird
+    /// als blaue Hinweis-Section oben angezeigt. Die Rechnungs-
+    /// Erstellung mit Kostenart macht der ScanEntryView-Aufrufer.
+    var vorausgewaehlteKostenartName: String? = nil
+
     /// Nach Speichern (Datei ist umbenannt, Model persistiert).
     let onFertig: () -> Void
     /// Bei "Verwerfen" — Caller muss Dokument + Datei entfernen.
@@ -40,6 +46,22 @@ struct DokumentErfassungView: View {
     var body: some View {
         NavigationStack {
             Form {
+                if let kaName = vorausgewaehlteKostenartName {
+                    Section {
+                        HStack(spacing: 10) {
+                            Image(systemName: "tag.fill")
+                                .foregroundStyle(.blue)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Rechnung für \(kaName)")
+                                    .font(.subheadline.weight(.semibold))
+                                Text("Nach dem Speichern wird eine Rechnung in dieser Kostenart angelegt.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+
                 Section { vorschau }
 
                 Section("Dokumenttyp (Pflicht)") {

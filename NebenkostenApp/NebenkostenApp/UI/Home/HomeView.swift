@@ -24,10 +24,16 @@ import SwiftData
 struct HomeView: View {
     @Environment(ScopeManager.self) private var scope
     @Environment(AppShellRouter.self) private var router
+    @Environment(\.modelContext) private var modelContext
     @Query(sort: \Immobilie.erstelltAm) private var immobilien: [Immobilie]
 
     @State private var zeigeScopePicker = false
     @State private var zeigeEinstellungen = false
+    /// Aktive Scan-Anforderung aus einem Naechste-Schritte-Tap.
+    /// Wenn gesetzt, oeffnet sich `ScanEntryView` — nach Fertig
+    /// erzeugt `erzeugeRechnungNachScan` eine neue Rechnung mit
+    /// exakt dieser Kostenart.
+    @State private var scanKostenartID: UUID?
 
     /// Aktuell angezeigte Immobilie — Fallback auf die erste.
     private var aktiveImmobilie: Immobilie? {
@@ -99,9 +105,55 @@ struct HomeView: View {
             )
             .sheet(isPresented: $zeigeScopePicker) { ScopePickerSheet() }
             .sheet(isPresented: $zeigeEinstellungen) { EinstellungenSheet() }
+            .sheet(isPresented: Binding(
+                get: { scanKostenartID != nil },
+                set: { if !$0 { scanKostenartID = nil } }
+            )) {
+                ScanEntryView(
+                    vorausgewaehlteKostenartName: gewaehlteScanKostenart?.bezeichnung,
+                    onFertig: { dokument in
+                        erzeugeRechnungNachScan(dokument: dokument)
+                    }
+                )
+            }
             .onChange(of: router.aktuellesSprungziel) { _, neu in
                 reagiereAufSprungziel(neu)
             }
+    }
+
+    /// Nachschlag der Ziel-Kostenart aus der aktiven Immobilie.
+    /// Wird fuer die Anzeige im Scan-Sheet und fuer die Rechnungs-
+    /// Erzeugung genutzt. Nil, wenn die ID zwischenzeitlich
+    /// geloescht wurde — der Scan laeuft dann ohne Kontext-Hinweis.
+    private var gewaehlteScanKostenart: Kostenart? {
+        guard let id = scanKostenartID,
+              let immobilie = aktiveImmobilie else { return nil }
+        return (immobilie.kostenarten ?? []).first { $0.id == id }
+    }
+
+    /// Erzeugt nach Abschluss von `DokumentErfassungView` eine neue
+    /// `Rechnung`-Entity mit der vorausgewaehlten Kostenart, Betrag
+    /// und Versorger aus dem Dokument. `validierungsStatus = .manuell`
+    /// + `geprueft = true` — der User hat den Scan aktiv erfasst,
+    /// die Rechnung gilt als durchgereicht. Die Anforderung
+    /// "Rechnung hinzufuegen" verschwindet damit aus der Home-Liste.
+    private func erzeugeRechnungNachScan(dokument: GespeichertesDokument) {
+        guard let kostenart = gewaehlteScanKostenart,
+              let immobilie = aktiveImmobilie else { return }
+        let rechnung = Rechnung()
+        rechnung.lieferant = dokument.versorger ?? kostenart.bezeichnung
+        rechnung.rechnungsdatum = dokument.erstelltAm
+        rechnung.leistungVon = dokument.erstelltAm
+        rechnung.leistungBis = dokument.erstelltAm
+        rechnung.betragBruttoEuro = dokument.betragBrutto ?? 0
+        rechnung.immobilie = immobilie
+        rechnung.kostenart = kostenart
+        rechnung.validierungsStatus = .manuell
+        rechnung.geprueft = true
+        rechnung.extraktionsNotizen = "Direkt aus Home-Scan ("
+            + kostenart.bezeichnung + ")"
+        modelContext.insert(rechnung)
+        try? modelContext.save()
     }
 
     @ViewBuilder
@@ -170,6 +222,9 @@ struct HomeView: View {
         case .einstellungenObjekt,
              .einstellungenPeriode:
             zeigeEinstellungen = true
+            router.quittiere()
+        case .scanMitKostenart(let kostenartId):
+            scanKostenartID = kostenartId
             router.quittiere()
         default:
             break

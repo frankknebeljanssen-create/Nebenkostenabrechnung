@@ -319,11 +319,20 @@ enum VollstaendigkeitsPruefung {
                     details: rechnungsDetails(kostenart: ka, rechnungen: relevante),
                     erforderlich: true
                 )
+                // Sprungziel ist kontext-abhaengig: fehlt die Rechnung
+                // komplett, fuehrt der Tap direkt in den Scan-Flow mit
+                // vorausgewaehlter Kostenart. Bei ungeprueften oder
+                // unvalidierten Rechnungen hingegen bleibt der alte
+                // Pfad — die Rechnungen-Liste klappt die Kategorie auf
+                // und der User wird zur Validierung/Pruefung gefuehrt.
+                let sprungZiel: Sprungziel = relevante.isEmpty
+                    ? .scanMitKostenart(kostenartId: ka.id)
+                    : .rechnungKostenart(kostenartId: ka.id)
                 return .init(
                     anforderung: anf,
                     status: status,
                     hinweis: hinweis,
-                    sprungZiel: .rechnungKostenart(kostenartId: ka.id)
+                    sprungZiel: sprungZiel
                 )
             }
     }

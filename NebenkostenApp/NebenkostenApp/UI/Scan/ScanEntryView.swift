@@ -27,7 +27,19 @@ struct ScanEntryView: View {
     /// validierten) Dokument.
     let onFertig: (GespeichertesDokument) -> Void
 
-    init(onFertig: @escaping (GespeichertesDokument) -> Void = { _ in }) {
+    /// Wenn der Scan-Flow aus einem Home-Sprungziel ausgeloest wurde,
+    /// ist hier der Name der Ziel-Kostenart gesetzt (z.B. "Grundsteuer").
+    /// Wird als Info-Zeile in `DokumentErfassungView` angezeigt — der
+    /// User weiss, in welchem Kontext er gerade scannt. Keine
+    /// Verhaltensaenderung am Scan selbst; die Rechnungs-Erstellung
+    /// mit Kostenart macht der Aufrufer im `onFertig`-Callback.
+    let vorausgewaehlteKostenartName: String?
+
+    init(
+        vorausgewaehlteKostenartName: String? = nil,
+        onFertig: @escaping (GespeichertesDokument) -> Void = { _ in }
+    ) {
+        self.vorausgewaehlteKostenartName = vorausgewaehlteKostenartName
         self.onFertig = onFertig
     }
 
@@ -121,6 +133,7 @@ struct ScanEntryView: View {
                 DokumentErfassungView(
                     dokument: doc,
                     einheitBezeichnungen: einheitBezeichnungen,
+                    vorausgewaehlteKostenartName: vorausgewaehlteKostenartName,
                     onFertig: {
                         onFertig(doc)
                         erfassungsDokument = nil

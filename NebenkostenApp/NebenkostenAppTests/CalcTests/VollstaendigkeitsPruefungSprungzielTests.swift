@@ -102,7 +102,7 @@ struct VollstaendigkeitsPruefungSprungzielTests {
 
     // MARK: - Rechnungs-Regeln
 
-    @Test("rechnung-<kostenart> trägt .rechnungKostenart(id)")
+    @Test("rechnung-<kostenart> traegt .rechnungKostenart oder .scanMitKostenart")
     func rechnung_sprungziel() async throws {
         let s = try seed()
         let liste = VollstaendigkeitsPruefung.pruefe(
@@ -110,12 +110,47 @@ struct VollstaendigkeitsPruefungSprungzielTests {
         )
         let rechnungsAnforderungen = liste.filter { $0.anforderung.kategorie == .rechnung }
         #expect(!rechnungsAnforderungen.isEmpty)
+        // Kostenarten ohne Rechnung in der Periode fuehren auf
+        // .scanMitKostenart; Kostenarten mit Rechnung (auch wenn
+        // unvalidiert/ungeprueft) bleiben auf .rechnungKostenart.
+        // Beide IDs muessen zur Anforderung-ID passen.
         for anf in rechnungsAnforderungen {
-            if case .rechnungKostenart(let id) = anf.sprungZiel {
+            let passendeID: UUID?
+            switch anf.sprungZiel {
+            case .rechnungKostenart(let id):  passendeID = id
+            case .scanMitKostenart(let id):   passendeID = id
+            default:                           passendeID = nil
+            }
+            if let id = passendeID {
                 #expect(anf.anforderung.id == "rechnung-\(id.uuidString)")
             } else {
-                Issue.record("Rechnungs-Anforderung ohne korrektes Sprungziel: \(anf.anforderung.id)")
+                Issue.record("Rechnungs-Anforderung ohne passendes Sprungziel: \(anf.anforderung.id)")
             }
+        }
+    }
+
+    @Test("Kostenart ohne Rechnung in Periode → .scanMitKostenart")
+    func rechnung_leer_scanMitKostenart() async throws {
+        let s = try seed()
+        // Neue aktive Kostenart anlegen, die in der Seed-Periode
+        // garantiert keine Rechnung hat.
+        let ctx = s.container.mainContext
+        let ka = Kostenart()
+        ka.bezeichnung = "Leere Testkostenart"
+        ka.aktiv = true
+        ka.immobilie = s.immobilie
+        ctx.insert(ka)
+        try ctx.save()
+
+        let liste = VollstaendigkeitsPruefung.pruefe(
+            immobilie: s.immobilie, periode: s.periode
+        )
+        let anf = liste.first { $0.anforderung.id == "rechnung-\(ka.id.uuidString)" }
+        #expect(anf != nil)
+        if case .scanMitKostenart(let id) = anf?.sprungZiel {
+            #expect(id == ka.id)
+        } else {
+            Issue.record("Leere Kostenart sollte .scanMitKostenart tragen, hat: \(String(describing: anf?.sprungZiel))")
         }
     }
 
