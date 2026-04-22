@@ -11,9 +11,17 @@
 //
 //  Aufbau:
 //    VStack {
+//      KontextHeader()                               // persistent, global
 //      NavigationStack { aktiver-Tab-Inhalt }
 //      NebenkostenTabBar()
 //    }
+//
+//  KontextHeader lebt direkt im AppShell — AUSSERHALB der
+//  NavigationStacks. So bleibt er auf allen Push-Destinations
+//  (StammdatenView, Detail-Sheets, Kachel-Screens) sichtbar.
+//  Frueher sass er im `appShellChrome`-Modifier als
+//  `safeAreaInset(.top)` auf Tab-Root-Ebene — das wurde beim Push
+//  nicht vererbt, und tiefere Screens verloren den Header.
 //
 //  Tab-Wechsel laeuft ueber `AppShellRouter.aktiverTab` —
 //  unveraendert gegenueber der frueheren TabView-Loesung.
@@ -42,6 +50,14 @@ struct AppShell: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // Permanenter Kontext-Header: Objekt / Periode /
+            // Wohneinheit-Pills. Sitzt AUSSERHALB der NavigationStacks,
+            // damit er bei jedem Push (StammdatenView, Detail-Sheets,
+            // Kachel-Screens) mitlaeuft. Der Header kapselt sein
+            // eigenes `.ignoresSafeArea(.container, edges: .top)` auf
+            // dem Hintergrund — das Braun zieht bis unter die Notch
+            // durch.
+            KontextHeader()
             aktiverTabInhalt
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             NebenkostenTabBar(

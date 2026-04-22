@@ -195,11 +195,11 @@ struct HomeView: View {
     }
 
     /// CTA-Block. Regel:
-    ///   - prozent < 100  → "Zur Kachelansicht" ist primaer (Accent).
+    ///   - prozent < 100  → "Zur Übersicht" ist primaer (Accent).
     ///     "Abrechnung erstellen" ist nicht sichtbar, solange nicht
     ///     alle Anforderungen erfuellt sind.
     ///   - prozent == 100 → "Abrechnung erstellen" ist primaer,
-    ///     "Zur Kachelansicht" rutscht auf secondary (Outline).
+    ///     "Zur Übersicht" rutscht auf secondary (Outline).
     private var ctaBlock: some View {
         VStack(spacing: 10) {
             if prozent == 100 {
@@ -217,7 +217,7 @@ struct HomeView: View {
                     KachelansichtView()
                 } label: {
                     HomeCTALabel(
-                        titel: "Zur Kachelansicht",
+                        titel: "Zur Übersicht",
                         symbol: "square.grid.2x2",
                         istPrimaer: false
                     )
@@ -228,7 +228,7 @@ struct HomeView: View {
                     KachelansichtView()
                 } label: {
                     HomeCTALabel(
-                        titel: "Zur Kachelansicht",
+                        titel: "Zur Übersicht",
                         symbol: "square.grid.2x2",
                         istPrimaer: true
                     )

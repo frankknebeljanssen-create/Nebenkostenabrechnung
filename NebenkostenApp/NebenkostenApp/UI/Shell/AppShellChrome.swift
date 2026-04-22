@@ -2,10 +2,15 @@
 //  AppShellChrome.swift
 //  NebenkostenApp — UI/Shell
 //
-//  ViewModifier fuer jeden Tab-Content: legt den permanenten
-//  `KontextHeader` (Objekt/Periode/WE-Pills) oben an, gefolgt von
-//  einer schmalen NavBar mit optionalem Plex-Sans-Titel 30 pt und
-//  rechts Einstellungen-/Primary-Action-Buttons.
+//  ViewModifier fuer jeden Tab-Content: legt eine schmale NavBar
+//  mit optionalem Plex-Sans-Titel 30 pt und rechts einer optionalen
+//  Primary-Action an.
+//
+//  Der `KontextHeader` (Objekt/Periode/WE-Pills) ist NICHT mehr
+//  Teil dieses Modifiers — er sitzt jetzt direkt im `AppShell`
+//  oberhalb aller NavigationStacks und laeuft bei jedem Push
+//  (StammdatenView, Detail-Sheets, Kachel-Screens) mit. Damit
+//  gibt es ihn nicht doppelt.
 //
 //  Die frueheren Elemente `Adress-Button` und `ScopeStrip` sind
 //  entfallen — beide Aufgaben erledigt jetzt der KontextHeader.
@@ -54,17 +59,15 @@ struct AppShellChrome: ViewModifier {
                 DesignTokens.bgApp.ignoresSafeArea()
             }
             .safeAreaInset(edge: .top, spacing: 0) {
-                VStack(spacing: 0) {
-                    // Permanenter Kontext-Header (Objekt / Periode /
-                    // Wohneinheit-Pills) ist jetzt die EINZIGE
-                    // Anzeige des Scope/Periode/Objekts. Der alte
-                    // Adress-Button und der farbige ScopeStrip sind
-                    // entfallen — sie waren redundant und fuehrten
-                    // zum doppelten/dreifachen „Wo bin ich?"-Display.
-                    KontextHeader()
-                    navBar
-                }
-                .background(DesignTokens.bgApp)
+                // KontextHeader sitzt jetzt AUSSERHALB dieses
+                // Modifiers (direkt in AppShell), damit er auch bei
+                // NavigationLink-Pushes erhalten bleibt. Hier
+                // verbleibt nur die lokale Tab-NavBar fuer Titel +
+                // PrimaryAction. Rendert nichts, wenn weder Titel
+                // noch Primary-Action gesetzt sind — kein leerer
+                // Versatz unter dem Header.
+                navBar
+                    .background(DesignTokens.bgApp)
             }
             .navigationBarHidden(true)
     }
