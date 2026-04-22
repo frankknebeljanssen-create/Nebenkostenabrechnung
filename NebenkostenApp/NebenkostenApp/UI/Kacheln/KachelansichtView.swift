@@ -66,13 +66,19 @@ struct KachelansichtView: View {
         )
     }
 
-    /// Gesamt-Completion — fuer die "Abrechnung"-Kachel. 100 % hier
-    /// bedeutet: alle Pflicht-Anforderungen erfuellt, die Abrechnung
-    /// kann erzeugt werden.
+    /// Gesamt-Completion fuer die „Abrechnung"-Kachel. 100 %
+    /// bedeutet: die aktive Periode ist bereits abgeschlossen
+    /// (alle PDFs erzeugt, Periode markiert). Sonst gibt die
+    /// Zusammenfassung maximal 99 % aus — 100 % ist reserviert
+    /// fuer den abgeschlossenen Zustand.
     private var abrechnungProzent: Int {
-        VollstaendigkeitsPruefung
+        if aktivePeriode?.abgeschlossen == true {
+            return 100
+        }
+        let roh = VollstaendigkeitsPruefung
             .zusammenfassung(fuer: anforderungen)
             .completionProzent
+        return min(99, roh)
     }
 
     var body: some View {
@@ -115,12 +121,16 @@ struct KachelansichtView: View {
                     )
                 }
                 .buttonStyle(.plain)
-                KachelCard(
-                    titel: "Abrechnung",
-                    icon: "doc.badge.checkmark",
-                    prozent: abrechnungProzent,
-                    onTap: { aktiveKachelNotiz = platzhalterText("Abrechnung") }
-                )
+                NavigationLink {
+                    AbrechnungsKachelView()
+                } label: {
+                    KachelCardLabel(
+                        titel: "Abrechnung",
+                        icon: "doc.badge.checkmark",
+                        prozent: abrechnungProzent
+                    )
+                }
+                .buttonStyle(.plain)
             }
             .padding(16)
         }
