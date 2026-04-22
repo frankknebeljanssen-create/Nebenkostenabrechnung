@@ -66,19 +66,24 @@ struct HomeView: View {
 
     private var prozent: Int { zusammenfassung.completionProzent }
 
-    /// Die drei nachsten Anforderungen — gefiltert (nur mit
-    /// Sprungziel, keine erfuellten, keine nichtErwartet) und sortiert
-    /// nach Kategorie-Rang (stammdaten → zaehlerstand → rechnung).
-    /// WMZ-Plausi (Warnung, kein Blocker) fliegt raus — die gehoert
-    /// nicht in "Naechste Schritte".
-    private var topSchritte: [AnforderungMitStatus] {
-        let offen = anforderungen.filter {
+    /// Alle offenen/teilweise erfuellten Anforderungen mit Sprungziel
+    /// (ohne WMZ-Plausi — die ist eine Warnung, kein Schritt). Basis
+    /// fuer `topSchritte` und die "N offen"-Anzeige im Card-Header.
+    private var offeneAnforderungen: [AnforderungMitStatus] {
+        anforderungen.filter {
             $0.sprungZiel != nil
                 && $0.status != .erfuellt
                 && $0.status != .nichtErwartet
                 && $0.anforderung.id != "plausi-wmz"
         }
-        let sortiert = offen.sorted { lhs, rhs in
+    }
+
+    /// Die drei naechsten Anforderungen, Blocker-first nach Kategorie
+    /// (stammdaten → zaehlerstand → rechnung). Der Card-Header
+    /// verwendet die volle `offeneAnforderungen.count` — User sieht
+    /// "3 von 7 offen", nicht nur "3".
+    private var topSchritte: [AnforderungMitStatus] {
+        let sortiert = offeneAnforderungen.sorted { lhs, rhs in
             kategorieRang(lhs.anforderung.kategorie)
                 < kategorieRang(rhs.anforderung.kategorie)
         }
@@ -176,6 +181,7 @@ struct HomeView: View {
             Spacer(minLength: 16)
             NaechsteSchritteListe(
                 items: topSchritte,
+                gesamtOffen: offeneAnforderungen.count,
                 onTap: { ziel in
                     router.springe(zu: ziel)
                 }
@@ -188,25 +194,47 @@ struct HomeView: View {
         .background(DesignTokens.bgAppCompact)
     }
 
+    /// CTA-Block. Regel:
+    ///   - prozent < 100  → "Zur Kachelansicht" ist primaer (Accent).
+    ///     "Abrechnung erstellen" ist nicht sichtbar, solange nicht
+    ///     alle Anforderungen erfuellt sind.
+    ///   - prozent == 100 → "Abrechnung erstellen" ist primaer,
+    ///     "Zur Kachelansicht" rutscht auf secondary (Outline).
     private var ctaBlock: some View {
         VStack(spacing: 10) {
             if prozent == 100 {
-                HomeCTAButtonPrimary(
-                    titel: "Abrechnung erstellen",
-                    symbol: "doc.text.fill"
-                ) {
+                Button {
                     router.aktiverTab = .abrechnungen
+                } label: {
+                    HomeCTALabel(
+                        titel: "Abrechnung erstellen",
+                        symbol: "doc.text.fill",
+                        istPrimaer: true
+                    )
                 }
+                .buttonStyle(.plain)
+                NavigationLink {
+                    KachelansichtView()
+                } label: {
+                    HomeCTALabel(
+                        titel: "Zur Kachelansicht",
+                        symbol: "square.grid.2x2",
+                        istPrimaer: false
+                    )
+                }
+                .buttonStyle(.plain)
+            } else {
+                NavigationLink {
+                    KachelansichtView()
+                } label: {
+                    HomeCTALabel(
+                        titel: "Zur Kachelansicht",
+                        symbol: "square.grid.2x2",
+                        istPrimaer: true
+                    )
+                }
+                .buttonStyle(.plain)
             }
-            NavigationLink {
-                KachelansichtView()
-            } label: {
-                HomeCTAButtonSecondaryLabel(
-                    titel: "Zur Kachelansicht",
-                    symbol: "square.grid.2x2"
-                )
-            }
-            .buttonStyle(.plain)
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 16)
@@ -288,25 +316,56 @@ fileprivate struct CompletionRingView: View {
 
 fileprivate struct NaechsteSchritteListe: View {
     let items: [AnforderungMitStatus]
+    /// Gesamt-Anzahl der offenen Anforderungen (nicht nur die drei
+    /// sichtbaren) — wird im Card-Header als "N offen" angezeigt,
+    /// damit der User weiss, dass es moeglicherweise mehr gibt als
+    /// die Top 3.
+    let gesamtOffen: Int
     let onTap: (Sprungziel) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Nächste Schritte")
-                .appFont(AppFont.Basis.kicker())
-                .foregroundStyle(DesignTokens.textSecondary)
+        if items.isEmpty {
+            alleBereitZeile
+        } else {
+            karteMitItems
+        }
+    }
 
-            if items.isEmpty {
-                alleBereitZeile
-            } else {
-                VStack(spacing: 8) {
-                    ForEach(items, id: \.anforderung.id) { anf in
-                        schrittRow(anf)
-                    }
+    /// Ein gemeinsamer Card-Container: Header (Titel + "N offen")
+    /// oben, danach eine Liste der Top-3-Items durch `Divider`
+    /// getrennt. Keine Schatten — `bgSurface` auf `bgAppCompact`
+    /// setzt die Card genug ab.
+    private var karteMitItems: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            header
+            Divider()
+            ForEach(Array(items.enumerated()), id: \.element.anforderung.id) { idx, anf in
+                row(anf)
+                if idx < items.count - 1 {
+                    Divider().padding(.leading, 40)
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(DesignTokens.bgSurface)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(DesignTokens.separator, lineWidth: 0.5)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private var header: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text("Nächste Schritte")
+                .appFont(AppFont.Basis.kicker())
+                .foregroundStyle(DesignTokens.textSecondary)
+            Spacer()
+            Text("\(gesamtOffen) offen")
+                .appFont(AppFont.Basis.monoSmall())
+                .foregroundStyle(DesignTokens.textTertiary)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
     }
 
     private var alleBereitZeile: some View {
@@ -325,7 +384,7 @@ fileprivate struct NaechsteSchritteListe: View {
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
-    private func schrittRow(_ anf: AnforderungMitStatus) -> some View {
+    private func row(_ anf: AnforderungMitStatus) -> some View {
         Button {
             if let ziel = anf.sprungZiel { onTap(ziel) }
         } label: {
@@ -340,18 +399,11 @@ fileprivate struct NaechsteSchritteListe: View {
                     .lineLimit(2)
                 Spacer(minLength: 8)
                 Image(systemName: "chevron.right")
-                    .font(.caption)
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(DesignTokens.textTertiary)
             }
+            .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            .padding(.horizontal, 14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(DesignTokens.bgSurface)
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(DesignTokens.separator, lineWidth: 0.5)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -366,39 +418,18 @@ fileprivate struct NaechsteSchritteListe: View {
     }
 }
 
-// MARK: - CTAs
+// MARK: - CTA
 
-fileprivate struct HomeCTAButtonPrimary: View {
+/// Einheitlicher Label-Baustein fuer die Home-CTAs. Unter
+/// `NavigationLink` fuer den Kachelansicht-Push, unter `Button`
+/// fuer "Abrechnung erstellen". `istPrimaer` steuert Accent-Fill
+/// + weisse Schrift (primaer) vs. Outline + text-Farbe (secondary).
+/// Fixe 50-pt-Mindesthoehe, damit der primaere Button sich klar
+/// absetzt und der User Daumen-gerecht trifft.
+fileprivate struct HomeCTALabel: View {
     let titel: String
     let symbol: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 10) {
-                Image(systemName: symbol)
-                    .font(.system(size: 15, weight: .semibold))
-                Text(titel)
-                    .appFont(AppFont.Basis.bodySemi())
-                Spacer(minLength: 4)
-                Image(systemName: "arrow.right")
-                    .font(.system(size: 13, weight: .semibold))
-            }
-            .foregroundStyle(Color.white)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .frame(maxWidth: .infinity)
-            .background(DesignTokens.accent)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(titel)
-    }
-}
-
-fileprivate struct HomeCTAButtonSecondaryLabel: View {
-    let titel: String
-    let symbol: String
+    let istPrimaer: Bool
 
     var body: some View {
         HStack(spacing: 10) {
@@ -407,17 +438,20 @@ fileprivate struct HomeCTAButtonSecondaryLabel: View {
             Text(titel)
                 .appFont(AppFont.Basis.bodySemi())
             Spacer(minLength: 4)
-            Image(systemName: "chevron.right")
+            Image(systemName: istPrimaer ? "arrow.right" : "chevron.right")
                 .font(.system(size: 13, weight: .semibold))
         }
-        .foregroundStyle(DesignTokens.text)
+        .foregroundStyle(istPrimaer ? Color.white : DesignTokens.text)
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
-        .frame(maxWidth: .infinity)
-        .background(DesignTokens.bgSurface)
+        .frame(maxWidth: .infinity, minHeight: 50)
+        .background(istPrimaer ? DesignTokens.accent : DesignTokens.bgSurface)
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(DesignTokens.separator, lineWidth: 0.5)
+                .stroke(
+                    istPrimaer ? Color.clear : DesignTokens.separator,
+                    lineWidth: 0.5
+                )
         )
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
