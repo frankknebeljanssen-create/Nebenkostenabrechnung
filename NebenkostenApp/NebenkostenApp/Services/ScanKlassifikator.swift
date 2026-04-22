@@ -241,6 +241,16 @@ enum ScanKlassifikator {
     Konfidenz: geschaetzte Wahrscheinlichkeit 0.0…1.0, dass der Typ stimmt.
     Feldwerte als kurze, menschenlesbare Strings. Waehrungen als Zahl + ' €'
     (z.B. "660.00 €"), Datumsangaben als "TT.MM.JJJJ".
+
+    Wichtige Formatierungsregeln:
+    - Namen (Personen, Straßen, Orte, Firmen) IMMER mit großen
+      Anfangsbuchstaben schreiben — also „Rolf Kossak", nicht
+      „rolf kossak"; „Hindenburgdamm 102", nicht „hindenburgdamm 102".
+    - Deutsche Groß/Kleinschreibung beachten — Nomen groß.
+    - Zahlen und Beträge unverändert aus dem Dokument übernehmen.
+    - Datumsformat: YYYY-MM-DD bei ISO-Feldern (datum, gueltigAb,
+      einzugAm, …) und TT.MM.JJJJ in Anzeigestrings — wenn der Hinweis
+      oben „TT.MM.JJJJ" sagt, nutze den, sonst ISO.
     """
 
     // MARK: - Response-Parser
@@ -260,18 +270,38 @@ enum ScanKlassifikator {
         var felder: [String: String] = [:]
         if let roh = obj["felder"] as? [String: Any] {
             for (key, value) in roh {
+                var wertString: String?
                 if let s = value as? String, !s.isEmpty {
-                    felder[key] = s
+                    wertString = s
                 } else if let n = value as? NSNumber {
-                    felder[key] = n.stringValue
+                    wertString = n.stringValue
                 }
                 // null-Werte werden weggelassen — die UI zeigt
                 // dann schlicht weniger Zeilen, statt "—".
+                if let wert = wertString {
+                    felder[key] = istNamensFeld(key) ? wert.alsName : wert
+                }
             }
         }
         return ScanKlassifikationsErgebnis(
             typ: typ, konfidenz: konfidenz, felder: felder
         )
+    }
+
+    /// Welche Feld-Keys sollen durch `alsName` laufen? Nur Namen +
+    /// Adressen. Betraege, Datums-Strings, IBANs, Aktenzeichen
+    /// bleiben unangetastet (Zahl-Format + Grossschreibung der
+    /// Institution „DE...", Aktenzeichen-Codes behalten ihre
+    /// urspruengliche Form).
+    private static func istNamensFeld(_ key: String) -> Bool {
+        switch key {
+        case "mieterName", "empfaenger", "mieter", "absender",
+             "vermieter", "verwalter", "amt",
+             "objektAdresse", "mieterAnschrift", "adresse":
+            return true
+        default:
+            return false
+        }
     }
 
     // MARK: - Fehler
