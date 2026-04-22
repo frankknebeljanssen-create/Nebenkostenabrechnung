@@ -78,16 +78,16 @@ struct HomeView: View {
         }
     }
 
-    /// Die drei naechsten Anforderungen, Blocker-first nach Kategorie
-    /// (stammdaten → zaehlerstand → rechnung). Der Card-Header
-    /// verwendet die volle `offeneAnforderungen.count` — User sieht
-    /// "3 von 7 offen", nicht nur "3".
+    /// Die naechsten Anforderungen, Blocker-first nach Kategorie
+    /// (stammdaten → zaehlerstand → rechnung). Wir zeigen mindestens
+    /// vier — Platz auf dem Home-Screen ist da, und der User sieht
+    /// damit unten schon drei Schritte voraus, nicht nur einen.
     private var topSchritte: [AnforderungMitStatus] {
         let sortiert = offeneAnforderungen.sorted { lhs, rhs in
             kategorieRang(lhs.anforderung.kategorie)
                 < kategorieRang(rhs.anforderung.kategorie)
         }
-        return Array(sortiert.prefix(3))
+        return Array(sortiert.prefix(4))
     }
 
     private func kategorieRang(_ k: AnforderungsKategorie) -> Int {
@@ -358,12 +358,18 @@ fileprivate struct NaechsteSchritteListe: View {
 
     private var header: some View {
         HStack(alignment: .firstTextBaseline) {
-            Text("Nächste Schritte")
+            Text("Noch zu erledigen")
                 .appFont(AppFont.Basis.kicker())
                 .foregroundStyle(DesignTokens.textSecondary)
             Spacer()
+            // +2pt ggue. `monoSmall()` (11 → 13) plus Medium-Weight —
+            // der Counter rechts oben war bisher zu leise.
             Text("\(gesamtOffen) offen")
-                .appFont(AppFont.Basis.monoSmall())
+                .appFont(AppFontStyle(
+                    font: AppFont.plexMono(.medium, 13),
+                    tracking: 0,
+                    uppercase: false
+                ))
                 .foregroundStyle(DesignTokens.textTertiary)
         }
         .padding(.horizontal, 16)
