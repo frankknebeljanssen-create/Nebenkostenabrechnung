@@ -90,9 +90,7 @@ struct KachelansichtView: View {
                 ],
                 spacing: 12
             ) {
-                NavigationLink {
-                    StammdatenView()
-                } label: {
+                NavigationLink(value: HomeDestination.stammdaten) {
                     KachelCardLabel(
                         titel: "Stammdaten",
                         icon: "person.text.rectangle",
@@ -101,9 +99,7 @@ struct KachelansichtView: View {
                 }
                 .buttonStyle(.plain)
 
-                NavigationLink {
-                    ZaehlerstaendeView()
-                } label: {
+                NavigationLink(value: HomeDestination.zaehlerstaende) {
                     KachelCardLabel(
                         titel: "Zählerstände",
                         icon: "gauge.medium",
@@ -111,9 +107,7 @@ struct KachelansichtView: View {
                     )
                 }
                 .buttonStyle(.plain)
-                NavigationLink {
-                    DokumenteRechnungenView()
-                } label: {
+                NavigationLink(value: HomeDestination.dokumenteRechnungen) {
                     KachelCardLabel(
                         titel: "Dokumente & Rechnungen",
                         icon: "doc.text.magnifyingglass",
@@ -121,9 +115,7 @@ struct KachelansichtView: View {
                     )
                 }
                 .buttonStyle(.plain)
-                NavigationLink {
-                    AbrechnungsKachelView()
-                } label: {
+                NavigationLink(value: HomeDestination.abrechnungsKachel) {
                     KachelCardLabel(
                         titel: "Abrechnung",
                         icon: "doc.badge.checkmark",

@@ -275,7 +275,12 @@ struct AppShell: View {
     private var aktiverTabInhalt: some View {
         switch router.aktiverTab {
         case .uebersicht:
-            NavigationStack(path: $pathUebersicht) { UebersichtView() }
+            NavigationStack(path: $pathUebersicht) {
+                UebersichtView()
+                    .navigationDestination(for: HomeDestination.self) { dest in
+                        homeDestinationView(dest)
+                    }
+            }
         case .zaehler:
             NavigationStack(path: $pathZaehler) { ZaehlerView() }
         case .rechnungen:
@@ -287,11 +292,31 @@ struct AppShell: View {
         }
     }
 
+    /// Zentrale Destination-Fabrik fuer den Home-Tab. Alle typed
+    /// `NavigationLink(value:)`-Pushes innerhalb von HomeView und
+    /// KachelansichtView landen hier.
+    @ViewBuilder
+    private func homeDestinationView(_ dest: HomeDestination) -> some View {
+        switch dest {
+        case .kachelansicht:      KachelansichtView()
+        case .stammdaten:         StammdatenView()
+        case .zaehlerstaende:     ZaehlerstaendeView()
+        case .dokumenteRechnungen: DokumenteRechnungenView()
+        case .abrechnungsKachel:  AbrechnungsKachelView()
+        }
+    }
+
     /// Pop-to-Root fuer den uebergebenen Tab. Wird vom Re-Tap-Callback
-    /// der `NebenkostenTabBar` aufgerufen.
+    /// der `NebenkostenTabBar` aufgerufen. Diagnose-Print laesst den
+    /// User im Dev-Build verifizieren, dass Pfade tatsaechlich geleert
+    /// werden — der frueher benutzte value-less `NavigationLink` lief
+    /// am Pfad vorbei, wodurch der Reset silent nichts tat.
     private func leerePfad(fuer tab: AppTab) {
+        print("🔵 leerePfad fuer \(tab.rawValue)")
         switch tab {
-        case .uebersicht:   pathUebersicht   = NavigationPath()
+        case .uebersicht:
+            print("   ↳ pathUebersicht.count vorher=\(pathUebersicht.count)")
+            pathUebersicht = NavigationPath()
         case .zaehler:      pathZaehler      = NavigationPath()
         case .rechnungen:   pathRechnungen   = NavigationPath()
         case .belege:       pathBelege       = NavigationPath()

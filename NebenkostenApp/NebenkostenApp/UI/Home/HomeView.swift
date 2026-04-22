@@ -219,9 +219,7 @@ struct HomeView: View {
                     )
                 }
                 .buttonStyle(.plain)
-                NavigationLink {
-                    KachelansichtView()
-                } label: {
+                NavigationLink(value: HomeDestination.kachelansicht) {
                     HomeCTALabel(
                         titel: "Zur Übersicht",
                         symbol: "square.grid.2x2",
@@ -230,9 +228,7 @@ struct HomeView: View {
                 }
                 .buttonStyle(.plain)
             } else {
-                NavigationLink {
-                    KachelansichtView()
-                } label: {
+                NavigationLink(value: HomeDestination.kachelansicht) {
                     HomeCTALabel(
                         titel: "Zur Übersicht",
                         symbol: "square.grid.2x2",
