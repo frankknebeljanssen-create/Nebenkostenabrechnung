@@ -29,6 +29,13 @@ struct NebenkostenTabBar: View {
     /// Verhalten). Optional — wenn nicht gesetzt, passiert bei Re-Tap
     /// nichts, wie vor dem Fix.
     var onReTap: ((AppTab) -> Void)? = nil
+    /// Ist der Home-NavigationPath leer? Nur dann gilt der Home-Tab
+    /// auch visuell als „aktiv" (accent + weiss). Sobald der User
+    /// tiefer gepusht hat (Kachelansicht, StammdatenView etc.), wird
+    /// die Home-Pill grau — deutlicher Hinweis „Du bist nicht mehr
+    /// auf Home, Tab-Tap bringt Dich zurueck". Default `true`, damit
+    /// Aufrufer, die den Pfad nicht wissen, den alten Default haben.
+    var pathUebersichtLeer: Bool = true
 
     var body: some View {
         HStack(spacing: 4) {
@@ -41,7 +48,7 @@ struct NebenkostenTabBar: View {
                 // Re-Render-Faellen zu einem stale `aktiv`-Flag,
                 // bei dem die Selected-Pill auf Home kleben blieb,
                 // obwohl der Content-Tab wechselte.
-                let aktiv = aktiverTab == tab
+                let aktiv = berechneAktiv(tab)
                 tabButton(tab: tab, aktiv: aktiv)
                     .frame(maxWidth: .infinity)
             }
@@ -62,10 +69,28 @@ struct NebenkostenTabBar: View {
         .padding(.bottom, 4)
     }
 
+    /// Selected-State-Regel:
+    /// - Home-Tab ist nur dann aktiv, wenn `aktiverTab == .uebersicht`
+    ///   UND der NavigationPath leer ist. Push in Kachelansicht etc.
+    ///   → Pill wird grau. Tap auf die graue Pill bringt zurueck.
+    /// - Alle anderen Tabs: klassisch `aktiverTab == tab`.
+    private func berechneAktiv(_ tab: AppTab) -> Bool {
+        if tab == .uebersicht {
+            return aktiverTab == .uebersicht && pathUebersichtLeer
+        }
+        return aktiverTab == tab
+    }
+
     private func wechsle(zu tab: AppTab) {
+        // Bei Home: auch wenn wir (logisch) bereits auf `.uebersicht`
+        // sind, aber tief gepusht haben, wollen wir den Re-Tap-Pfad
+        // — sonst muesste der User warten bis `aktiverTab` sich
+        // selbst wieder gleich setzt, was es nicht tut. Die
+        // Pop-to-Root-Logik sitzt im `onReTap`-Callback und leert den
+        // Pfad. Der visuelle Unterschied (Pill wird von grau zu
+        // accent) passiert automatisch, weil `pathUebersichtLeer`
+        // danach wieder true wird.
         if aktiverTab == tab {
-            // Re-Tap auf aktiven Tab: iOS-Standard ist Pop-to-Root.
-            // Das erledigt der Callback — wir loesen ihn nur aus.
             onReTap?(tab)
             return
         }

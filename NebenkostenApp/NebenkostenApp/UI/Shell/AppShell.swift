@@ -112,7 +112,8 @@ struct AppShell: View {
             NebenkostenTabBar(
                 aktiverTab: aktiveTab,
                 tabs: AppTab.allCases,
-                onReTap: { tab in leerePfad(fuer: tab) }
+                onReTap: { tab in leerePfad(fuer: tab) },
+                pathUebersichtLeer: pathUebersicht.isEmpty
             )
         }
         .background(DesignTokens.bgApp.ignoresSafeArea())
