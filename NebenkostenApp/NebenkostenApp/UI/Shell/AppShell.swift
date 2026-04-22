@@ -97,6 +97,11 @@ struct AppShell: View {
                 )
             }
         }
+        .sheet(item: zaehlerErfassenBinding) { kontext in
+            if let z = findeZaehler(id: kontext.zaehlerID) {
+                ZaehlerstandErfassenView(zaehler: z)
+            }
+        }
     }
 
     // MARK: - Bindings
@@ -131,6 +136,33 @@ struct AppShell: View {
             get: { router.zeigeEinstellungen },
             set: { router.zeigeEinstellungen = $0 }
         )
+    }
+
+    /// Bindings-Adapter auf `router.zaehlerErfassenSheet`. Schliesst
+    /// den Router-State beim User-Dismiss wieder — ohne das Binding
+    /// wuerde das Sheet bei jedem Re-Render erneut auftauchen.
+    private var zaehlerErfassenBinding: Binding<ZaehlerErfassenSheetKontext?> {
+        Binding(
+            get: { router.zaehlerErfassenSheet },
+            set: { router.zaehlerErfassenSheet = $0 }
+        )
+    }
+
+    /// Haupt- und Wohnungszaehler der aktiven Immobilie nach UUID
+    /// suchen. Der Router haelt nur die UUID, damit er SwiftData-
+    /// frei bleibt — die Aufloesung passiert hier in der View-Schicht.
+    private func findeZaehler(id: UUID) -> Zaehler? {
+        for immobilie in immobilien {
+            if let z = (immobilie.hauptzaehler ?? []).first(where: { $0.id == id }) {
+                return z
+            }
+            for einheit in immobilie.wohneinheiten ?? [] {
+                if let z = (einheit.zaehler ?? []).first(where: { $0.id == id }) {
+                    return z
+                }
+            }
+        }
+        return nil
     }
 
     private var aktuelleImmobilie: Immobilie? {

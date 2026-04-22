@@ -57,6 +57,14 @@ final class AppShellRouter {
     /// alle Einheiten ohne Fokus".
     var vorauszahlungSheet: VorauszahlungSheetKontext?
 
+    /// Kontext fuer das Zaehlerstand-Erfassen-Sheet. `nil` = Sheet
+    /// geschlossen. Wird von Views geoeffnet, die das Sheet OHNE
+    /// Tab-Wechsel zeigen wollen — z.B. die AbrechnungsKachel-
+    /// Blocker-Tap-Flow. Ueber `springe(zu: .zaehlerstandErfassen)`
+    /// landet man dagegen im Zaehler-Tab + Sheet dort (altes
+    /// Verhalten, sinnvoll aus Home heraus).
+    var zaehlerErfassenSheet: ZaehlerErfassenSheetKontext?
+
     /// Toggle fuer das Inspektor-Sheet („Was fehlt noch?"). Seit
     /// dem FAB-Rueckbau wird das Sheet ueber den „?"-Button im
     /// KontextHeader ausgeloest. Gebunden ist es in AppShell per
@@ -102,6 +110,13 @@ final class AppShellRouter {
         vorauszahlungSheet = VorauszahlungSheetKontext(einheitID: einheitID)
     }
 
+    /// Oeffnet das Zaehlerstand-Erfassen-Sheet direkt — ohne Tab-
+    /// Wechsel. Nach Schliessen landet der User dort, wo er den
+    /// Sprungziel-Tap ausgeloest hat (z.B. AbrechnungsKachel).
+    func oeffneZaehlerErfassenSheet(zaehlerID: UUID) {
+        zaehlerErfassenSheet = ZaehlerErfassenSheetKontext(zaehlerID: zaehlerID)
+    }
+
     // MARK: - Mapping AppTabKey ↔ AppTab
 
     /// Übersetzt den Calc-Layer-`AppTabKey` in das UI-`AppTab`-
@@ -127,4 +142,13 @@ struct VorauszahlungSheetKontext: Identifiable, Hashable, Sendable {
     /// zeigt alle aktiven Mietverhaeltnisse.
     let einheitID: String?
     var id: String { einheitID ?? "_alle_" }
+}
+
+/// Identifiable-Wrapper fuer `AppShellRouter.zaehlerErfassenSheet`.
+/// Traegt die Zaehler-UUID — der Sheet-Presenter (AppShell) schlaegt
+/// den Zaehler im `@Query` nach und uebergibt ihn an `Zaehlerstand
+/// ErfassenView`. So bleibt der Router SwiftData-frei.
+struct ZaehlerErfassenSheetKontext: Identifiable, Hashable, Sendable {
+    let zaehlerID: UUID
+    var id: UUID { zaehlerID }
 }

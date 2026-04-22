@@ -21,6 +21,7 @@ struct ZaehlerstandErfassenView: View {
     var body: some View {
         NavigationStack {
             Form {
+                zaehlerKontextSection
                 erfassungsModusSection
 
                 Section("Datum") {
@@ -106,6 +107,37 @@ struct ZaehlerstandErfassenView: View {
                    message: {
                        Text("Der neue Stand ist kleiner als der vorherige. Sicher, dass das stimmt?")
                    })
+        }
+    }
+
+    // MARK: - Kontext-Block (welchen Zaehler erfasst der User?)
+
+    /// Zeigt oben im Form, WELCHEN Zaehler wir gerade erfassen.
+    /// Wichtig beim Aufruf aus der AbrechnungsKachel — dort oeffnet
+    /// sich das Sheet ohne vorherigen Tab-Wechsel, also ohne visuellen
+    /// Kontext, welcher Zaehler adressiert ist. Nie interne Slug-IDs
+    /// zeigen — nur `anzeigename` und `anzeigetyp` (beide bereinigt
+    /// in `ZaehlerAnzeige.swift`).
+    @ViewBuilder
+    private var zaehlerKontextSection: some View {
+        Section {
+            HStack(spacing: 12) {
+                Image(systemName: MediumMeta.sfSymbol(vm.zaehler.medium))
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(MediumMeta.farbe(vm.zaehler.medium))
+                    .frame(width: 32)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(vm.zaehler.anzeigename)
+                        .appFont(AppFont.Basis.bodySemi())
+                        .foregroundStyle(DesignTokens.text)
+                        .lineLimit(2)
+                    Text(vm.zaehler.anzeigetyp)
+                        .appFont(AppFont.Basis.caption())
+                        .foregroundStyle(DesignTokens.textSecondary)
+                }
+                Spacer(minLength: 0)
+            }
+            .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
         }
     }
 

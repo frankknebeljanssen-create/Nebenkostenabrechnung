@@ -322,20 +322,24 @@ struct AbrechnungsKachelView: View {
         let akzent: Color = ist100OhneBlocker
             ? DesignTokens.statusWarn
             : DesignTokens.statusError
+        let punktWort = offenGesamt == 1 ? "Punkt" : "Punkte"
         return VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 24, weight: .semibold))
                     .foregroundStyle(akzent)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("\(offenGesamt) Punkt\(offenGesamt == 1 ? "" : "e") fehl\(offenGesamt == 1 ? "t" : "en") noch")
-                        .appFont(AppFont.Basis.bodySemi())
-                        .foregroundStyle(DesignTokens.text)
-                    Text("Ohne diese Daten kann keine finale Abrechnung erstellt werden.")
-                        .appFont(AppFont.Basis.caption())
-                        .foregroundStyle(DesignTokens.textSecondary)
-                        .multilineTextAlignment(.leading)
-                }
+                // Ein-Zeilen-Subtitle: „Noch nicht bereit · N Punkte
+                // offen". Die Zahl kommt aus offenGesamt (Summe
+                // aller Blocker, nicht nur der Top-3). Frueher hatte
+                // der Hero eine grosse „N Punkte fehlen noch"-
+                // Headline + einen erklaerenden Untertitel — das
+                // hat den Eindruck erweckt, die 6 muessten in der
+                // Liste stehen. Kompakter Subtitle-Stil macht
+                // sofort klar, dass die Liste ein Auszug ist.
+                Text("Noch nicht bereit · \(offenGesamt) \(punktWort) offen")
+                    .appFont(AppFont.Basis.bodySemi())
+                    .foregroundStyle(DesignTokens.text)
+                    .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
             }
             VStack(spacing: 0) {
@@ -348,11 +352,6 @@ struct AbrechnungsKachelView: View {
             }
             .background(DesignTokens.bgSurface)
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            if offenGesamt > top3Blocker.count {
-                Text("+ \(offenGesamt - top3Blocker.count) weitere — erscheinen nach Klärung der ersten.")
-                    .appFont(AppFont.Basis.smallCaption())
-                    .foregroundStyle(DesignTokens.textTertiary)
-            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 18)
@@ -363,10 +362,7 @@ struct AbrechnungsKachelView: View {
 
     private func blockerRow(_ a: AnforderungMitStatus) -> some View {
         Button {
-            if let ziel = a.sprungZiel {
-                router.springe(zu: ziel)
-                dismiss()
-            }
+            handleBlockerTap(a.sprungZiel)
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: "arrow.right.circle.fill")
@@ -387,6 +383,23 @@ struct AbrechnungsKachelView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+
+    /// Blocker-Tap-Handler. Fuer Zaehlerstand-Ziele oeffnen wir das
+    /// Sheet direkt via Router (global am AppShell praesentiert) —
+    /// damit bleibt die AbrechnungsKachel sichtbar, Abbrechen landet
+    /// NICHT im Zaehler-Tab (frueher Zwischenscreen-Bug). Fuer alle
+    /// anderen Ziele bleibt das alte Verhalten: `router.springe(...)`
+    /// wechselt den Tab, `dismiss()` poppt die Kachel-Push, so dass
+    /// der Ziel-Tab sauber sichtbar ist.
+    private func handleBlockerTap(_ ziel: Sprungziel?) {
+        guard let ziel else { return }
+        if case .zaehlerstandErfassen(let id) = ziel {
+            router.oeffneZaehlerErfassenSheet(zaehlerID: id)
+            return
+        }
+        router.springe(zu: ziel)
+        dismiss()
     }
 
     private var heroLeer: some View {
