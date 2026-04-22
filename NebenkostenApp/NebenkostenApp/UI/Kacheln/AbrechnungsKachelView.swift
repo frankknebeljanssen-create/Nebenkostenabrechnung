@@ -322,21 +322,21 @@ struct AbrechnungsKachelView: View {
         let akzent: Color = ist100OhneBlocker
             ? DesignTokens.statusWarn
             : DesignTokens.statusError
-        let punktWort = offenGesamt == 1 ? "Punkt" : "Punkte"
+        // Die Hero-Zahl soll GENAU der Anzahl der gelisteten Blocker
+        // entsprechen — wenn nur 3 Rows sichtbar sind, zeigt der
+        // Subtitle auch „3 Punkte offen". Den Rest signalisiert der
+        // „+ N weitere"-Hinweis unter der Liste. Vorher zeigte der
+        // Titel den Gesamt-Count (z.B. 6) und der User sah nur 3 —
+        // wirkte nach Mismatch.
+        let angezeigte = min(offenGesamt, top3Blocker.count)
+        let punktWort = angezeigte == 1 ? "Punkt" : "Punkte"
+        let weitere = max(0, offenGesamt - top3Blocker.count)
         return VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 24, weight: .semibold))
                     .foregroundStyle(akzent)
-                // Ein-Zeilen-Subtitle: „Noch nicht bereit · N Punkte
-                // offen". Die Zahl kommt aus offenGesamt (Summe
-                // aller Blocker, nicht nur der Top-3). Frueher hatte
-                // der Hero eine grosse „N Punkte fehlen noch"-
-                // Headline + einen erklaerenden Untertitel — das
-                // hat den Eindruck erweckt, die 6 muessten in der
-                // Liste stehen. Kompakter Subtitle-Stil macht
-                // sofort klar, dass die Liste ein Auszug ist.
-                Text("Noch nicht bereit · \(offenGesamt) \(punktWort) offen")
+                Text("Noch nicht bereit · \(angezeigte) \(punktWort) offen")
                     .appFont(AppFont.Basis.bodySemi())
                     .foregroundStyle(DesignTokens.text)
                     .fixedSize(horizontal: false, vertical: true)
@@ -352,6 +352,11 @@ struct AbrechnungsKachelView: View {
             }
             .background(DesignTokens.bgSurface)
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            if weitere > 0 {
+                Text("+ \(weitere) weitere")
+                    .appFont(AppFont.Basis.caption())
+                    .foregroundStyle(DesignTokens.textSecondary)
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 18)
