@@ -34,6 +34,7 @@ struct AbrechnungDetailView: View {
 
     @State private var zeigePDFVorschau = false
     @State private var zeigeMailSheet = false
+    @State private var druckFehler: String?
 
     /// Defensiver Check: liegt trotz berechneter Mieterabrechnung
     /// noch ein unbehandelter Blocker vor, rendert die View ohne
@@ -54,6 +55,13 @@ struct AbrechnungDetailView: View {
     /// die Attachments unterstuetzt (`mailto:` kann nur Text).
     private var mailExportAktiv: Bool {
         pdfExportAktiv && MailComposer.kannMailSenden
+    }
+
+    /// Drucken haengt zusaetzlich an `UIPrintInteractionController.
+    /// isPrintingAvailable` — Simulator liefert false. Button ist
+    /// dort disabled, analog zu "kein Mail-Account".
+    private var druckExportAktiv: Bool {
+        pdfExportAktiv && PrintService.kannDrucken
     }
 
     var body: some View {
@@ -103,6 +111,15 @@ struct AbrechnungDetailView: View {
                 )
             }
         }
+        .alert(
+            "Druck-Fehler",
+            isPresented: Binding(
+                get: { druckFehler != nil },
+                set: { if !$0 { druckFehler = nil } }
+            ),
+            actions: { Button("OK", role: .cancel) {} },
+            message: { Text(druckFehler ?? "") }
+        )
     }
 
     // MARK: - Hero
@@ -388,13 +405,38 @@ struct AbrechnungDetailView: View {
                 action: { zeigeMailSheet = true }
             )
             actionButton(
-                titel: hatBlocker
-                    ? "Drucken · gesperrt"
-                    : "Drucken (kommt spaeter)",
+                titel: druckButtonTitel,
                 symbol: "printer",
-                disabled: true,
-                action: {}
+                disabled: !druckExportAktiv,
+                action: starteDruck
             )
+        }
+    }
+
+    private var druckButtonTitel: String {
+        if hatBlocker { return "Drucken · gesperrt" }
+        if pdfPeriode == nil || pdfImmobilie == nil {
+            return "Drucken · nicht verfügbar"
+        }
+        if !PrintService.kannDrucken {
+            return "Drucken · nicht verfügbar auf diesem Gerät"
+        }
+        return "Drucken"
+    }
+
+    private func starteDruck() {
+        guard let p = pdfPeriode, let i = pdfImmobilie else { return }
+        Task { @MainActor in
+            do {
+                try await PrintService.druckeAbrechnung(
+                    abrechnung: abrechnung,
+                    immobilie: i,
+                    periode: p,
+                    user: pdfUser
+                )
+            } catch {
+                druckFehler = error.localizedDescription
+            }
         }
     }
 
