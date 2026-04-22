@@ -75,13 +75,13 @@ struct AppShell: View {
 
     var body: some View {
         shellStack
-            .overlay(alignment: .bottomTrailing) { scanFAB }
+            .overlay(alignment: .topTrailing) { scanFAB }
     }
 
-    /// Globaler Scan-FAB — 56 pt Kreis, accent-farben, sitzt 96 pt
-    /// ueber der Bottom-SafeArea (TabBar + ein Gap). Oeffnet das
-    /// bestehende `ScanEntryView`; bei erfolgreichem Einwurf wird der
-    /// `UniversellerAnalyseScreen` via `router.analyseSheet` gezeigt.
+    /// Globaler Scan-FAB — 56 pt Kreis, accent-farben. Sitzt rechts
+    /// unter dem Header (`.topTrailing`) mit Padding, statt wie vorher
+    /// unten rechts ueber der TabBar. So ist er besser erreichbar und
+    /// kollidiert nicht mehr optisch mit Bottom-CTAs der Kachel-Screens.
     private var scanFAB: some View {
         Button { zeigeScanEinwurf = true } label: {
             Image(systemName: "doc.viewfinder.fill")
@@ -92,8 +92,8 @@ struct AppShell: View {
                 .shadow(color: Color.black.opacity(0.18), radius: 10, x: 0, y: 4)
         }
         .buttonStyle(.plain)
-        .padding(.trailing, 18)
-        .padding(.bottom, 96)
+        .padding(.trailing, 16)
+        .padding(.top, 140)  // unter KontextHeader (inkl. SafeArea)
         .accessibilityLabel("Dokument scannen")
     }
 

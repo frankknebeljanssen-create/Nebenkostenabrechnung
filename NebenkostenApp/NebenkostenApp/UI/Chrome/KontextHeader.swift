@@ -45,36 +45,28 @@ struct KontextHeader: View {
         .padding(.top, 12)
         .padding(.bottom, 8)
         .background {
-            // Gemeinsame Braun-Stufe fuer Header + Footer
-            // (`DesignTokens.bgHeaderFooter` = #E4DFD3). Eine Stufe
-            // dunkler als bgAppCompact — die beiden Chrome-Raender
-            // oben + unten gehoeren visuell zusammen und heben sich
-            // deutlich vom Content ab.
-            DesignTokens.bgHeaderFooter
+            // Dunkler Accent-Header (wie die „Zur Uebersicht"-Card).
+            // Der Hintergrund zieht via `.ignoresSafeArea` bis unter
+            // die Notch durch — der User sieht einen klaren, breiten
+            // Accent-Balken oben.
+            DesignTokens.accent
                 .ignoresSafeArea(.container, edges: .top)
-        }
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(DesignTokens.separator)
-                .frame(height: 0.5)
         }
         .overlay(alignment: .bottomTrailing) {
             // „?" + Zahnrad immer unten rechts im Header sichtbar,
-            // unabhaengig vom aktiven Tab. Die Icons sitzen ueber
-            // der Pill-Reihe auf dem rechten Spacer-Bereich — die
-            // aktive Pill ist zentriert und intrinsisch breit, die
-            // Icons liegen daneben im leeren Bereich.
+            // unabhaengig vom aktiven Tab. Auf dem dunklen Accent
+            // jetzt in Weiss.
             HStack(spacing: 14) {
                 Button { router.zeigeInspektor = true } label: {
                     Image(systemName: "questionmark.circle")
                         .font(.title3)
-                        .foregroundStyle(DesignTokens.textSecondary)
+                        .foregroundStyle(Color.white.opacity(0.85))
                 }
                 .accessibilityLabel("Was fehlt noch?")
                 Button { router.zeigeEinstellungen = true } label: {
                     Image(systemName: "gearshape")
                         .font(.title3)
-                        .foregroundStyle(DesignTokens.textSecondary)
+                        .foregroundStyle(Color.white.opacity(0.85))
                 }
                 .accessibilityLabel("Einstellungen")
             }
@@ -103,22 +95,18 @@ struct KontextHeader: View {
     private var objektZeile: some View {
         Button { zeigeObjektPicker = true } label: {
             HStack(spacing: 6) {
-                // Label + Wert gleiche Groesse + gleiches Gewicht
-                // (Plex Sans semibold 16 pt). Der Task-Brief nennt
-                // „bold 700" — Plex Sans 700 ist in der App nicht
-                // gebundelt (siehe CLAUDE.md Typografie-Policy), 600
-                // ist das maximale verfuegbare Gewicht.
+                // Auf dem dunklen Accent-Header: komplett weiss.
                 Text("Objekt:")
                     .appFont(Self.objektStyle)
-                    .foregroundStyle(DesignTokens.text)
+                    .foregroundStyle(Color.white)
                 Text(objektLabel)
                     .appFont(Self.objektStyle)
-                    .foregroundStyle(DesignTokens.text)
+                    .foregroundStyle(Color.white)
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Image(systemName: "chevron.down")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(DesignTokens.text)
+                    .foregroundStyle(Color.white)
             }
             .contentShape(Rectangle())
         }
@@ -133,16 +121,20 @@ struct KontextHeader: View {
             }
         } label: {
             HStack(spacing: 6) {
+                // Auf dem dunklen Header: Sekundaer-Schrift in
+                // leicht abgemildertem Weiss — noch lesbar, aber
+                // visuell klar untergeordnet gegenueber der
+                // Objekt-Zeile.
                 Text("Abrechnungszeitraum:")
                     .appFont(Self.periodenLabelStyle)
-                    .foregroundStyle(DesignTokens.textSecondary)
+                    .foregroundStyle(Color.white.opacity(0.85))
                 Text(periodenLabel)
                     .appFont(Self.periodenWertStyle)
-                    .foregroundStyle(DesignTokens.textSecondary)
+                    .foregroundStyle(Color.white.opacity(0.85))
                     .lineLimit(1)
                 Image(systemName: "chevron.down")
                     .font(.system(size: 10, weight: .regular))
-                    .foregroundStyle(DesignTokens.textTertiary)
+                    .foregroundStyle(Color.white.opacity(0.7))
             }
             .contentShape(Rectangle())
         }
