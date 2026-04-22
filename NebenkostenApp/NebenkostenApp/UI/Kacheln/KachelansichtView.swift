@@ -84,12 +84,17 @@ struct KachelansichtView: View {
                 ],
                 spacing: 12
             ) {
-                KachelCard(
-                    titel: "Stammdaten",
-                    icon: "person.text.rectangle",
-                    prozent: stammdatenProzent,
-                    onTap: { aktiveKachelNotiz = platzhalterText("Stammdaten") }
-                )
+                NavigationLink {
+                    StammdatenView()
+                } label: {
+                    KachelCardLabel(
+                        titel: "Stammdaten",
+                        icon: "person.text.rectangle",
+                        prozent: stammdatenProzent
+                    )
+                }
+                .buttonStyle(.plain)
+
                 KachelCard(
                     titel: "Zählerstände",
                     icon: "gauge.medium",
@@ -137,37 +142,50 @@ fileprivate struct KachelCard: View {
     let prozent: Int
     let onTap: () -> Void
 
-    private var farbe: Color { CompletionFarbe.fuer(prozent: prozent) }
-
     var body: some View {
         Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 12) {
-                Image(systemName: icon)
-                    .font(.system(size: 28, weight: .medium))
-                    .foregroundStyle(farbe)
-
-                Text(titel)
-                    .appFont(AppFont.Basis.bodySemi())
-                    .foregroundStyle(DesignTokens.text)
-                    .multilineTextAlignment(.leading)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                Spacer(minLength: 0)
-
-                fortschrittBlock
-            }
-            .padding(14)
-            .frame(maxWidth: .infinity, minHeight: 160, alignment: .topLeading)
-            .background(DesignTokens.bgSurface)
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(DesignTokens.separator, lineWidth: 0.5)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            KachelCardLabel(titel: titel, icon: icon, prozent: prozent)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(titel), \(prozent) Prozent")
+    }
+}
+
+/// Reine Label-Darstellung einer Kachel — ohne Button-Wrapper.
+/// Wird sowohl direkt (NavigationLink-Label) als auch innerhalb
+/// von `KachelCard` (als Button-Label mit `onTap`) verwendet.
+fileprivate struct KachelCardLabel: View {
+    let titel: String
+    let icon: String
+    let prozent: Int
+
+    private var farbe: Color { CompletionFarbe.fuer(prozent: prozent) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 28, weight: .medium))
+                .foregroundStyle(farbe)
+
+            Text(titel)
+                .appFont(AppFont.Basis.bodySemi())
+                .foregroundStyle(DesignTokens.text)
+                .multilineTextAlignment(.leading)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Spacer(minLength: 0)
+
+            fortschrittBlock
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 160, alignment: .topLeading)
+        .background(DesignTokens.bgSurface)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(DesignTokens.separator, lineWidth: 0.5)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private var fortschrittBlock: some View {

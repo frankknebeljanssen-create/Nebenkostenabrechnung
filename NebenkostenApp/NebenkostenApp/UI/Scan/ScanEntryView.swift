@@ -35,11 +35,20 @@ struct ScanEntryView: View {
     /// mit Kostenart macht der Aufrufer im `onFertig`-Callback.
     let vorausgewaehlteKostenartName: String?
 
+    /// Optionaler Dokumenttyp, der im `DokumentErfassungView` als
+    /// Default im Pflicht-Picker vorausgewaehlt wird. Wird von der
+    /// Stammdaten-Kachel genutzt, wenn der User z.B. "Energieausweis
+    /// scannen" tippt — der Typ-Pflicht-Picker startet dann nicht
+    /// auf "— bitte waehlen —" sondern auf der vorgegebenen Option.
+    let vorausgewaehlterTyp: Dokumenttyp?
+
     init(
         vorausgewaehlteKostenartName: String? = nil,
+        vorausgewaehlterTyp: Dokumenttyp? = nil,
         onFertig: @escaping (GespeichertesDokument) -> Void = { _ in }
     ) {
         self.vorausgewaehlteKostenartName = vorausgewaehlteKostenartName
+        self.vorausgewaehlterTyp = vorausgewaehlterTyp
         self.onFertig = onFertig
     }
 
@@ -134,6 +143,7 @@ struct ScanEntryView: View {
                     dokument: doc,
                     einheitBezeichnungen: einheitBezeichnungen,
                     vorausgewaehlteKostenartName: vorausgewaehlteKostenartName,
+                    vorausgewaehlterTyp: vorausgewaehlterTyp,
                     onFertig: {
                         onFertig(doc)
                         erfassungsDokument = nil

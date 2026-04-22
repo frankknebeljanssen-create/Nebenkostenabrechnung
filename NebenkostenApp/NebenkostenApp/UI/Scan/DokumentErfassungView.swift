@@ -29,6 +29,13 @@ struct DokumentErfassungView: View {
     /// Erstellung mit Kostenart macht der ScanEntryView-Aufrufer.
     var vorausgewaehlteKostenartName: String? = nil
 
+    /// Optional gesetzt, wenn der Caller weiss welcher `Dokumenttyp`
+    /// gescannt wird (z.B. Stammdaten-Kachel: "Energieausweis"). Der
+    /// Pflicht-Picker oben startet dann bereits mit dieser Auswahl —
+    /// der User kann sie aendern, muss aber nicht nochmal aktiv
+    /// klicken.
+    var vorausgewaehlterTyp: Dokumenttyp? = nil
+
     /// Nach Speichern (Datei ist umbenannt, Model persistiert).
     let onFertig: () -> Void
     /// Bei "Verwerfen" — Caller muss Dokument + Datei entfernen.
@@ -114,6 +121,15 @@ struct DokumentErfassungView: View {
                 }
             }
             .keyboardFertigButton()
+            .onAppear {
+                // Pflicht-Picker auf den vom Caller vorgegebenen
+                // Typ setzen — aber nur beim ersten Erscheinen, damit
+                // eine manuelle Aenderung des Users nicht ueber­-
+                // schrieben wird.
+                if typ == nil, let vorgegeben = vorausgewaehlterTyp {
+                    typ = vorgegeben
+                }
+            }
         }
     }
 
