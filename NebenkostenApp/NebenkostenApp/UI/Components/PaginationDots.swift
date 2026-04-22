@@ -7,7 +7,10 @@
 //  Leicht animierter Uebergang macht den Scroll-Status lesbar,
 //  ohne den Blick vom eigentlichen Inhalt zu ziehen.
 //
-//  Aktuell genutzt von `WohneinheitCarousel` auf dem Home-Screen.
+//  Aktuell ungenutzt nach dem Home-Rebuild (Stufe 2) — der alte
+//  `WohneinheitCarousel` ist entfallen. Bleibt als wiederverwend-
+//  bare Komponente im Repo, falls ein zukuenftiger Paging-
+//  Container auftaucht.
 //  Kein Padding links/rechts — Parent zentriert.
 //
 

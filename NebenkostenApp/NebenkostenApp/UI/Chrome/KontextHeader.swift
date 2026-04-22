@@ -264,9 +264,10 @@ struct KontextHeader: View {
 
 /// Zeigt den aktuellen Scope als **eine** mittig zentrierte,
 /// breite Pill — reine Anzeige, nicht interaktiv. Die tatsaechliche
-/// Scope-Auswahl laeuft weiter unten im `WohneinheitCarousel` auf
-/// dem HomeScreen. Zweck hier: Orientierung im permanenten
-/// Header, egal auf welchem Tab sich der User gerade befindet.
+/// Scope-Auswahl laeuft ueber den Adress-Button im Chrome, der
+/// das `ScopePickerSheet` oeffnet. Zweck hier: Orientierung im
+/// permanenten Header, egal auf welchem Tab sich der User gerade
+/// befindet.
 ///
 /// Label-Format:
 /// - „Gesamt" fuer Objekt-Scope.
