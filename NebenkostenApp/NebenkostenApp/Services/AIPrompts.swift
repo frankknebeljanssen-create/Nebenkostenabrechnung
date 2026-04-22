@@ -25,26 +25,30 @@ enum AIPrompts {
     /// generische Fallback.
     static func fuer(typ: Dokumenttyp) -> String {
         switch typ {
-        case .rechnung:          return rechnungGas
-        case .handwerkerbeleg:   return handwerkerbeleg
-        case .winterdienstbeleg: return handwerkerbeleg
-        case .bescheid:          return bescheidKommunal
-        case .zaehlerfoto:       return fallback
-        case .mietvertrag:       return fallback
-        case .sonstiges:         return fallback
+        case .rechnung:            return rechnungGas
+        case .handwerkerbeleg:     return handwerkerbeleg
+        case .winterdienstbeleg:   return handwerkerbeleg
+        case .bescheid:            return bescheidKommunal
+        case .grundsteuerbescheid: return bescheidKommunal
+        case .zaehlerfoto:         return fallback
+        case .mietvertrag:         return fallback
+        case .energieausweis:      return fallback
+        case .sonstiges:           return fallback
         }
     }
 
     /// Prompt-Name für Logs / Tests (ohne den vollen Body rauszugeben).
     static func name(fuer typ: Dokumenttyp) -> String {
         switch typ {
-        case .rechnung:          return "rechnungGas"
+        case .rechnung:            return "rechnungGas"
         case .handwerkerbeleg,
-             .winterdienstbeleg: return "handwerkerbeleg"
-        case .bescheid:          return "bescheidKommunal"
+             .winterdienstbeleg:   return "handwerkerbeleg"
+        case .bescheid,
+             .grundsteuerbescheid: return "bescheidKommunal"
         case .zaehlerfoto,
              .mietvertrag,
-             .sonstiges:         return "fallback"
+             .energieausweis,
+             .sonstiges:           return "fallback"
         }
     }
 

@@ -428,13 +428,15 @@ struct BelegeView: View {
 
     private func symbolFuer(_ typ: Dokumenttyp) -> String {
         switch typ {
-        case .rechnung:          return "doc.text.fill"
-        case .bescheid:          return "building.columns.fill"
-        case .handwerkerbeleg:   return "wrench.and.screwdriver.fill"
-        case .winterdienstbeleg: return "snowflake"
-        case .zaehlerfoto:       return "gauge.medium"
-        case .mietvertrag:       return "person.text.rectangle.fill"
-        case .sonstiges:         return "doc.text"
+        case .rechnung:            return "doc.text.fill"
+        case .bescheid:            return "building.columns.fill"
+        case .handwerkerbeleg:     return "wrench.and.screwdriver.fill"
+        case .winterdienstbeleg:   return "snowflake"
+        case .zaehlerfoto:         return "gauge.medium"
+        case .mietvertrag:         return "person.text.rectangle.fill"
+        case .energieausweis:      return "doc.badge.gearshape"
+        case .grundsteuerbescheid: return "doc.text"
+        case .sonstiges:           return "doc.text"
         }
     }
 }
