@@ -5,6 +5,7 @@
 
 import SwiftUI
 import SwiftData
+import UIKit
 
 struct RechnungEditView: View {
     enum Modus {
@@ -14,6 +15,12 @@ struct RechnungEditView: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+
+    /// Alle Dokumente — fuer den Scan-Lookup oben im Form (Beleg-
+    /// Foto aus `GespeichertesDokument`, verknuepft via
+    /// `dokument.rechnungId == rechnung.id`). Frueher wurde nur
+    /// `rechnung.anhang: Data?` angezeigt; das bleibt als Fallback.
+    @Query private var alleDokumente: [GespeichertesDokument]
 
     let modus: Modus
 
@@ -97,12 +104,30 @@ struct RechnungEditView: View {
             }
             .keyboardFertigButton()
             .sheet(isPresented: $zeigeBelegVollbild) {
-                if case .bearbeiten(let r) = modus, let data = r.anhang {
-                    BelegVorschauSheet(
-                        anhang: data,
-                        anhangTyp: r.anhangTyp,
-                        titel: r.lieferant.isEmpty ? "Originalbeleg" : r.lieferant
-                    )
+                if case .bearbeiten(let r) = modus {
+                    if let url = verknuepftesDokumentURL(fuer: r) {
+                        // Scan-Pfad: PDF aus DokumentAblageService.
+                        NavigationStack {
+                            PDFVorschauView(url: url)
+                                .ignoresSafeArea(edges: .bottom)
+                                .navigationTitle(r.lieferant.isEmpty ? "Originalbeleg" : r.lieferant)
+                                .navigationBarTitleDisplayMode(.inline)
+                                .toolbar {
+                                    ToolbarItem(placement: .cancellationAction) {
+                                        SheetToolbar.abbrechen(titel: "Schließen") {
+                                            zeigeBelegVollbild = false
+                                        }
+                                    }
+                                }
+                        }
+                    } else if let data = r.anhang {
+                        // Legacy-Pfad: direkter `Rechnung.anhang`.
+                        BelegVorschauSheet(
+                            anhang: data,
+                            anhangTyp: r.anhangTyp,
+                            titel: r.lieferant.isEmpty ? "Originalbeleg" : r.lieferant
+                        )
+                    }
                 }
             }
             .alert(
@@ -121,25 +146,79 @@ struct RechnungEditView: View {
 
     // MARK: - Beleg-Sektion
 
+    /// Oben im Edit-Sheet: Beleg-Foto.
+    ///   1. Wenn ein `GespeichertesDokument` via `rechnungId`
+    ///      verknuepft ist, wird sein Thumbnail angezeigt.
+    ///      Tap oeffnet das volle PDF.
+    ///   2. Sonst faellt die Sektion auf den alten
+    ///      `rechnung.anhang`-Pfad zurueck (BelegVorschauCard).
+    ///   3. Wenn weder Dokument noch anhang da sind, rendert die
+    ///      Section gar nichts — kein Foto-Platzhalter (Design-
+    ///      Entscheidung aus Stufe 2).
     @ViewBuilder
     private var belegSektion: some View {
         if case .bearbeiten(let r) = modus {
-            Section {
-                BelegVorschauCard(
-                    anhang: r.anhang,
-                    anhangTyp: r.anhangTyp,
-                    onTap: {
-                        if r.anhang != nil {
-                            zeigeBelegVollbild = true
+            if let bild = verknuepftesDokumentThumbnail(fuer: r) {
+                Section {
+                    Image(uiImage: bild)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: .infinity)
+                        .frame(maxHeight: 220)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(DesignTokens.separator, lineWidth: 0.5)
+                        )
+                        .contentShape(Rectangle())
+                        .onTapGesture { zeigeBelegVollbild = true }
+                        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                        .listRowBackground(Color.clear)
+                } header: {
+                    Text("Originalbeleg")
+                } footer: {
+                    Text("Tippen zum Vergrößern")
+                        .appFont(AppFont.Basis.smallCaption())
+                        .foregroundStyle(DesignTokens.textTertiary)
+                }
+            } else if r.anhang != nil {
+                Section {
+                    BelegVorschauCard(
+                        anhang: r.anhang,
+                        anhangTyp: r.anhangTyp,
+                        onTap: {
+                            if r.anhang != nil {
+                                zeigeBelegVollbild = true
+                            }
                         }
-                    }
-                )
-                .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
-                .listRowBackground(Color.clear)
-            } header: {
-                Text("Originalbeleg")
+                    )
+                    .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+                    .listRowBackground(Color.clear)
+                } header: {
+                    Text("Originalbeleg")
+                }
             }
         }
+    }
+
+    // MARK: - Verknuepftes Scan-Dokument
+
+    private func verknuepftesDokument(fuer rechnung: Rechnung) -> GespeichertesDokument? {
+        alleDokumente.first { $0.rechnungId == rechnung.id }
+    }
+
+    private func verknuepftesDokumentThumbnail(fuer r: Rechnung) -> UIImage? {
+        guard let doc = verknuepftesDokument(fuer: r),
+              !doc.thumbnailPfad.isEmpty,
+              let url = try? DokumentAblageService.absoluterPfad(fuer: doc.thumbnailPfad),
+              let data = try? Data(contentsOf: url)
+        else { return nil }
+        return UIImage(data: data)
+    }
+
+    private func verknuepftesDokumentURL(fuer r: Rechnung) -> URL? {
+        guard let doc = verknuepftesDokument(fuer: r) else { return nil }
+        return try? DokumentAblageService.absoluterPfad(fuer: doc.dateipfadRelativ)
     }
 
     // MARK: - Sektionen
