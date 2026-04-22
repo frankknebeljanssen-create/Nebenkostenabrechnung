@@ -105,12 +105,16 @@ struct KachelansichtView: View {
                     )
                 }
                 .buttonStyle(.plain)
-                KachelCard(
-                    titel: "Dokumente & Rechnungen",
-                    icon: "doc.text.magnifyingglass",
-                    prozent: rechnungenProzent,
-                    onTap: { aktiveKachelNotiz = platzhalterText("Dokumente & Rechnungen") }
-                )
+                NavigationLink {
+                    DokumenteRechnungenView()
+                } label: {
+                    KachelCardLabel(
+                        titel: "Dokumente & Rechnungen",
+                        icon: "doc.text.magnifyingglass",
+                        prozent: rechnungenProzent
+                    )
+                }
+                .buttonStyle(.plain)
                 KachelCard(
                     titel: "Abrechnung",
                     icon: "doc.badge.checkmark",
