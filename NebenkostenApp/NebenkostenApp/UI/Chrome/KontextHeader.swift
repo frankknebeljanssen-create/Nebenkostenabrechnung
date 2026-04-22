@@ -262,21 +262,21 @@ struct KontextHeader: View {
 
 // MARK: - WohneinheitPillReihe
 
-/// Zeigt den aktuellen Scope als **eine** mittig zentrierte,
-/// breite Pill — reine Anzeige, nicht interaktiv. Die tatsaechliche
-/// Scope-Auswahl laeuft ueber den Adress-Button im Chrome, der
-/// das `ScopePickerSheet` oeffnet. Zweck hier: Orientierung im
-/// permanenten Header, egal auf welchem Tab sich der User gerade
-/// befindet.
+/// Horizontal scrollbare Reihe aus Scope-Pills: „Gesamt" zuerst,
+/// danach eine Pill pro Wohneinheit. Tap auf eine Pill setzt den
+/// aktiven Scope — aktive Pill ist farbig gefuellt (Scope-Farbe),
+/// inaktive Pills zeigen nur einen weichen Outline.
 ///
-/// Label-Format:
+/// Die frueher zentrierte Einzel-Pill war nicht-interaktiv; die
+/// Scope-Auswahl lief ueber ein separates Sheet. Die Reihe ist
+/// jetzt der primaere Auswahl-Pfad — kompakt, immer sichtbar,
+/// ohne Sheet-Umweg.
+///
+/// Label-Format je Pill:
 /// - „Gesamt" fuer Objekt-Scope.
 /// - „<EinheitID> · <Mieter-Abkuerzung>" fuer Einheit-Scopes mit
 ///   aktivem Mietverhaeltnis.
 /// - Nur „<EinheitID>" bei Leerstand.
-///
-/// Kommt evtl. spaeter wieder als Auswahl-Reihe zurueck — daher
-/// kein groesseres Refactoring als noetig.
 struct WohneinheitPillReihe: View {
     let immobilie: Immobilie
     @Environment(ScopeManager.self) private var scope
@@ -286,77 +286,91 @@ struct WohneinheitPillReihe: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
-            Spacer(minLength: 0)
-            aktivePill
-            Spacer(minLength: 0)
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                gesamtPill
+                ForEach(einheiten, id: \.bezeichnung) { e in
+                    einheitPill(fuer: e)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 2)
         }
-        .padding(.horizontal, 16)
+        // Scroll-Indikator-Reserve: damit die Pills beim Scrollen
+        // nicht vom rechten „?"-/Zahnrad-Overlay verdeckt werden.
+        .padding(.trailing, 60)
     }
 
-    private var aktivePill: some View {
+    private var gesamtPill: some View {
+        let aktiv: Bool = { if case .objekt = scope.scope { return true } else { return false } }()
+        return Button {
+            scope.scope = .objekt
+        } label: {
+            pillLabel(
+                icon: "square.stack.3d.up",
+                text: "Gesamt",
+                farbe: DesignTokens.unitObjekt,
+                aktiv: aktiv
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Gesamt-Objekt auswaehlen")
+        .accessibilityAddTraits(aktiv ? .isSelected : [])
+    }
+
+    private func einheitPill(fuer e: Wohneinheit) -> some View {
+        let aktiv: Bool = {
+            if case .einheit(let id) = scope.scope, id == e.bezeichnung { return true }
+            return false
+        }()
+        return Button {
+            scope.scope = .einheit(id: e.bezeichnung)
+        } label: {
+            pillLabel(
+                icon: ScopeFarbe.icon(fuer: e),
+                text: einheitLabel(fuer: e),
+                farbe: ScopeFarbe.farbe(fuer: e),
+                aktiv: aktiv
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Einheit \(e.bezeichnung) auswaehlen")
+        .accessibilityAddTraits(aktiv ? .isSelected : [])
+    }
+
+    /// Pill-Body — aktive Variante mit Farbfuellung + weisser Schrift,
+    /// inaktive mit transparentem Hintergrund + Outline in Scope-Farbe.
+    /// minWidth 80 pt verhindert zu schmale „OG"-Pills; padding 20 pt
+    /// horizontal gibt dem Label Luft und macht das Tap-Target gross
+    /// genug.
+    private func pillLabel(
+        icon: String,
+        text: String,
+        farbe: Color,
+        aktiv: Bool
+    ) -> some View {
         HStack(spacing: 6) {
-            Image(systemName: aktiverIcon)
+            Image(systemName: icon)
                 .font(.system(size: 11, weight: .semibold))
-            Text(aktiverLabel)
+            Text(text)
                 .appFont(Self.pillLabelStyle)
                 .lineLimit(1)
-                .minimumScaleFactor(0.9)
         }
-        .foregroundStyle(Color.white)
+        .foregroundStyle(aktiv ? Color.white : farbe)
+        .frame(minWidth: 80)
         .padding(.horizontal, 20)
         .padding(.vertical, 10)
-        // Pill-Farbe matched mit dem vertikalen UnitBalken der
-        // HomeScreen-Cards — Scope-Farbe aus ScopeFarbe bzw.
-        // unitObjekt im Gesamt-Scope. Damit ist die aktive
-        // Wahl ueber den gesamten Shell-Chrome in derselben
-        // Farbe markiert.
-        .background(Capsule().fill(aktiveFarbe))
-        .accessibilityLabel("Aktive Auswahl: \(aktiverLabel)")
+        .background(
+            Capsule(style: .continuous)
+                .fill(aktiv ? farbe : Color.clear)
+        )
+        .overlay(
+            Capsule(style: .continuous)
+                .stroke(aktiv ? Color.clear : farbe.opacity(0.6), lineWidth: 1)
+        )
     }
 
-    // MARK: - Scope-Ableitungen
-
-    private var aktiverLabel: String {
-        switch scope.scope {
-        case .objekt:
-            return "Gesamt"
-        case .einheit(let id):
-            guard let e = einheiten.first(where: { $0.bezeichnung == id }) else {
-                return id
-            }
-            return pillLabel(fuer: e)
-        }
-    }
-
-    private var aktiverIcon: String {
-        switch scope.scope {
-        case .objekt:
-            return "square.stack.3d.up"
-        case .einheit(let id):
-            guard let e = einheiten.first(where: { $0.bezeichnung == id }) else {
-                return "square.stack.3d.up"
-            }
-            return ScopeFarbe.icon(fuer: e)
-        }
-    }
-
-    /// Aktive Scope-Farbe — identisch zur UnitBalken-Logik in
-    /// den Home-Cards. Gesamt-Scope nutzt `unitObjekt`, Einheit-
-    /// Scope die ScopeFarbe der jeweiligen WE.
-    private var aktiveFarbe: Color {
-        switch scope.scope {
-        case .objekt:
-            return DesignTokens.unitObjekt
-        case .einheit(let id):
-            guard let e = einheiten.first(where: { $0.bezeichnung == id }) else {
-                return DesignTokens.unitObjekt
-            }
-            return ScopeFarbe.farbe(fuer: e)
-        }
-    }
-
-    private func pillLabel(fuer e: Wohneinheit) -> String {
+    private func einheitLabel(fuer e: Wohneinheit) -> String {
         let aktiv = (e.mietverhaeltnisse ?? []).first(where: { $0.auszugAm == nil })
         guard let mv = aktiv else { return e.bezeichnung }
         let kurz = ScopeTexte.abkuerzungName(mv.mieterName)
