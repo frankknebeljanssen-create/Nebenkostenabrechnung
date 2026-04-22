@@ -41,6 +41,17 @@ struct AppShell: View {
 
     @State private var zeigeScopePicker = false
 
+    // Pro Tab ein eigener NavigationPath — wird vom `NavigationStack`
+    // gehalten. Bei Re-Tap auf den aktiven Tab leeren wir den
+    // zugehoerigen Pfad → Pop-to-Root (iOS-Standardverhalten). Ohne
+    // diese Paths blieb der Tap auf den aktiven Tab wirkungslos
+    // (z.B. Home → Kachelansicht gepusht → Home-Tab-Tap = nichts).
+    @State private var pathUebersicht = NavigationPath()
+    @State private var pathZaehler = NavigationPath()
+    @State private var pathRechnungen = NavigationPath()
+    @State private var pathBelege = NavigationPath()
+    @State private var pathAbrechnungen = NavigationPath()
+
     private var aktiveTab: Binding<AppTab> {
         Binding(
             get: { router.aktiverTab },
@@ -62,7 +73,8 @@ struct AppShell: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             NebenkostenTabBar(
                 aktiverTab: aktiveTab,
-                tabs: AppTab.allCases
+                tabs: AppTab.allCases,
+                onReTap: { tab in leerePfad(fuer: tab) }
             )
         }
         .background(DesignTokens.bgApp.ignoresSafeArea())
@@ -138,15 +150,27 @@ struct AppShell: View {
     private var aktiverTabInhalt: some View {
         switch router.aktiverTab {
         case .uebersicht:
-            NavigationStack { UebersichtView() }
+            NavigationStack(path: $pathUebersicht) { UebersichtView() }
         case .zaehler:
-            NavigationStack { ZaehlerView() }
+            NavigationStack(path: $pathZaehler) { ZaehlerView() }
         case .rechnungen:
-            NavigationStack { RechnungenView() }
+            NavigationStack(path: $pathRechnungen) { RechnungenView() }
         case .belege:
-            NavigationStack { BelegeView() }
+            NavigationStack(path: $pathBelege) { BelegeView() }
         case .abrechnungen:
-            NavigationStack { AbrechnungenView() }
+            NavigationStack(path: $pathAbrechnungen) { AbrechnungenView() }
+        }
+    }
+
+    /// Pop-to-Root fuer den uebergebenen Tab. Wird vom Re-Tap-Callback
+    /// der `NebenkostenTabBar` aufgerufen.
+    private func leerePfad(fuer tab: AppTab) {
+        switch tab {
+        case .uebersicht:   pathUebersicht   = NavigationPath()
+        case .zaehler:      pathZaehler      = NavigationPath()
+        case .rechnungen:   pathRechnungen   = NavigationPath()
+        case .belege:       pathBelege       = NavigationPath()
+        case .abrechnungen: pathAbrechnungen = NavigationPath()
         }
     }
 }

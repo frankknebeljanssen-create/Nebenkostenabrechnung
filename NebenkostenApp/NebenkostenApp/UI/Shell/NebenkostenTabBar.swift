@@ -24,6 +24,11 @@ import SwiftUI
 struct NebenkostenTabBar: View {
     @Binding var aktiverTab: AppTab
     let tabs: [AppTab]
+    /// Wird ausgeloest, wenn der User auf den BEREITS aktiven Tab
+    /// tippt. Konsumenten nutzen das fuer Pop-to-Root (iOS-Standard-
+    /// Verhalten). Optional — wenn nicht gesetzt, passiert bei Re-Tap
+    /// nichts, wie vor dem Fix.
+    var onReTap: ((AppTab) -> Void)? = nil
 
     var body: some View {
         HStack(spacing: 4) {
@@ -56,7 +61,12 @@ struct NebenkostenTabBar: View {
     }
 
     private func wechsle(zu tab: AppTab) {
-        guard aktiverTab != tab else { return }
+        if aktiverTab == tab {
+            // Re-Tap auf aktiven Tab: iOS-Standard ist Pop-to-Root.
+            // Das erledigt der Callback — wir loesen ihn nur aus.
+            onReTap?(tab)
+            return
+        }
         aktiverTab = tab
     }
 
