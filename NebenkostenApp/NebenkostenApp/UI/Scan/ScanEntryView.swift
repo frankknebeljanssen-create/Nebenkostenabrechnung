@@ -231,7 +231,6 @@ struct ScanEntryView: View {
     /// Im Klassik-Modus (Home, Kacheln) zeigt sich wie bisher das
     /// Erfassungs-Sheet zur manuellen Typ-Auswahl.
     private func weiterleiten(_ doc: GespeichertesDokument) {
-        print("📦 ScanEntryView: Dokument persistiert id=\(doc.id) direkt=\(direktUebergeben)")
         if direktUebergeben {
             onFertig(doc)
             dismiss()

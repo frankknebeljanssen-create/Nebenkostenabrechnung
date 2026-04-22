@@ -147,7 +147,6 @@ struct AppShell: View {
                 // dismisst ist. Jetzt — und erst jetzt — koennen
                 // wir den Analyse-Screen sauber aufpoppen lassen.
                 if let id = pendingAnalyseDokumentID {
-                    print("🧭 AppShell onDismiss: oeffne Analyse-Sheet fuer \(id)")
                     router.oeffneAnalyseSheet(dokumentID: id)
                     pendingAnalyseDokumentID = nil
                 }
@@ -158,7 +157,6 @@ struct AppShell: View {
             // unseren `onFertig`-Callback — der Universeller-Analyse-
             // Screen uebernimmt die Typ-Bestimmung.
             ScanEntryView(direktUebergeben: true) { dokument in
-                print("📥 AppShell.onFertig: dokumentID=\(dokument.id)")
                 pendingAnalyseDokumentID = dokument.id
             }
         }

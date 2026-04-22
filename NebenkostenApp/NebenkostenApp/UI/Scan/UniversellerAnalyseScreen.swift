@@ -213,10 +213,6 @@ struct UniversellerAnalyseScreen: View {
                 }
             }
         }
-        .onAppear {
-            print("🟢 UniversellerAnalyseScreen erscheint dokumentID=\(dokument.id)")
-            print("🔀 Toggle: \(devModusAktiv)  🔑 Key: \(apiKeyDa)")
-        }
         .task { await klassifiziere() }
         .sheet(isPresented: $zeigeTypPicker) {
             UniversellerTypPicker { neuerTyp in
