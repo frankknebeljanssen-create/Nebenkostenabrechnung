@@ -221,9 +221,24 @@ struct AbrechnungsKachelView: View {
         }
     }
 
+    /// Kompaktes Jahres-Label fuer Chips und Archiv-Header.
+    /// Vermeidet `Text("\(jahr)")`-Bug (SwiftUI formatiert Int via
+    /// Locale → „2.025"). Format: „2024" bei gleichem Jahr,
+    /// sonst „2024/25".
+    fileprivate static func periodeKurzLabel(_ p: Abrechnungsperiode) -> String {
+        let cal = Calendar(identifier: .gregorian)
+        let von = cal.component(.year, from: p.von)
+        let bis = cal.component(.year, from: p.bis)
+        if von == bis {
+            return "\(von)"
+        }
+        let bisKurz = bis % 100
+        return "\(von)/\(String(format: "%02d", bisKurz))"
+    }
+
     private func chip(fuer p: Abrechnungsperiode) -> some View {
         let istAktiv = aktivePeriode?.id == p.id
-        let jahr = Calendar(identifier: .gregorian).component(.year, from: p.bis)
+        let label = Self.periodeKurzLabel(p)
         return Button {
             gewaehltePeriodeID = p.id
         } label: {
@@ -233,7 +248,7 @@ struct AbrechnungsKachelView: View {
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(istAktiv ? Color.white : DesignTokens.statusOk)
                 }
-                Text("\(jahr)")
+                Text(label)
                     .appFont(AppFont.Basis.captionMedium())
             }
             .foregroundStyle(istAktiv ? Color.white : DesignTokens.text)
@@ -506,9 +521,9 @@ struct AbrechnungsKachelView: View {
                 (lhs.mietverhaeltnis?.mieterName ?? "")
                     < (rhs.mietverhaeltnis?.mieterName ?? "")
             }
-        let jahr = Calendar(identifier: .gregorian).component(.year, from: p.bis)
+        let label = Self.periodeKurzLabel(p)
         return CollapsibleSection(
-            titel: "Periode \(jahr)",
+            titel: "Periode \(label)",
             summary: Formatting.periode(p.von, p.bis),
             persistKey: "abrechnungskachel.archiv.\(p.id.uuidString)",
             defaultOffen: p.id == aktivePeriode?.id
