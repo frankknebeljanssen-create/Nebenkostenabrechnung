@@ -285,26 +285,39 @@ struct WohneinheitPillReihe: View {
         immobilie.wohneinheiten ?? []
     }
 
-    var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                gesamtPill
-                ForEach(einheiten, id: \.bezeichnung) { e in
-                    einheitPill(fuer: e)
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 2)
-        }
-        // Scroll-Indikator-Reserve: damit die Pills beim Scrollen
-        // nicht vom rechten „?"-/Zahnrad-Overlay verdeckt werden.
-        .padding(.trailing, 60)
+    /// Stabile Pill-IDs fuer `ScrollViewReader.scrollTo`. Die
+    /// Gesamt-Pill teilt sich den Namensraum mit den Einheit-Pills,
+    /// der Praefix verhindert Kollisionen mit realen WE-Bezeichnungen.
+    private static let gesamtPillID = "__scope_gesamt__"
+    private func einheitPillID(_ e: Wohneinheit) -> String {
+        "__scope_einheit__\(e.bezeichnung)"
     }
 
-    private var gesamtPill: some View {
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    gesamtPill(proxy: proxy)
+                    ForEach(einheiten, id: \.bezeichnung) { e in
+                        einheitPill(fuer: e, proxy: proxy)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 2)
+            }
+            // Scroll-Indikator-Reserve: damit die Pills beim Scrollen
+            // nicht vom rechten „?"-/Zahnrad-Overlay verdeckt werden.
+            .padding(.trailing, 60)
+        }
+    }
+
+    private func gesamtPill(proxy: ScrollViewProxy) -> some View {
         let aktiv: Bool = { if case .objekt = scope.scope { return true } else { return false } }()
         return Button {
             scope.scope = .objekt
+            withAnimation(.easeInOut(duration: 0.3)) {
+                proxy.scrollTo(Self.gesamtPillID, anchor: .center)
+            }
         } label: {
             pillLabel(
                 icon: "square.stack.3d.up",
@@ -314,17 +327,22 @@ struct WohneinheitPillReihe: View {
             )
         }
         .buttonStyle(.plain)
+        .id(Self.gesamtPillID)
         .accessibilityLabel("Gesamt-Objekt auswaehlen")
         .accessibilityAddTraits(aktiv ? .isSelected : [])
     }
 
-    private func einheitPill(fuer e: Wohneinheit) -> some View {
+    private func einheitPill(fuer e: Wohneinheit, proxy: ScrollViewProxy) -> some View {
         let aktiv: Bool = {
             if case .einheit(let id) = scope.scope, id == e.bezeichnung { return true }
             return false
         }()
+        let pillID = einheitPillID(e)
         return Button {
             scope.scope = .einheit(id: e.bezeichnung)
+            withAnimation(.easeInOut(duration: 0.3)) {
+                proxy.scrollTo(pillID, anchor: .center)
+            }
         } label: {
             pillLabel(
                 icon: ScopeFarbe.icon(fuer: e),
@@ -334,6 +352,7 @@ struct WohneinheitPillReihe: View {
             )
         }
         .buttonStyle(.plain)
+        .id(pillID)
         .accessibilityLabel("Einheit \(e.bezeichnung) auswaehlen")
         .accessibilityAddTraits(aktiv ? .isSelected : [])
     }
