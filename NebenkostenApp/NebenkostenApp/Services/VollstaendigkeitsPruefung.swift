@@ -508,6 +508,31 @@ enum VollstaendigkeitsPruefung {
         let nichtErwartet: Int
         var total: Int { erfuellt + teilweise + offen + nichtErwartet }
         var bereit: Bool { erfuellt == total - nichtErwartet && total > 0 }
+
+        /// Completion-Prozent fuer den Home-Ring. Nenner = `total`
+        /// MINUS `nichtErwartet` — sonst wuerde eine nicht relevante
+        /// Regel (z.B. Vorauszahlung ohne Mieter) den Wert kuenstlich
+        /// druecken und 100 % unerreichbar machen. `teilweise` zaehlt
+        /// konservativ NICHT als erfuellt; der User sieht so erst
+        /// grun, wenn wirklich alles durch ist (deckt sich mit dem
+        /// bestehenden `bereit`-Flag).
+        var completionProzent: Int {
+            let nenner = total - nichtErwartet
+            guard nenner > 0 else { return 0 }
+            let anteil = Double(erfuellt) / Double(nenner) * 100
+            return Int(anteil.rounded())
+        }
+    }
+
+    /// Completion-Prozent pro Kategorie — Input fuer die
+    /// Kachelansicht. Stats-Nenner wie bei `Zusammenfassung`
+    /// (ohne `nichtErwartet`). Leere Kategorie → 0.
+    static func completionProzent(
+        _ anforderungen: [AnforderungMitStatus],
+        kategorie: AnforderungsKategorie
+    ) -> Int {
+        let gefiltert = anforderungen.filter { $0.anforderung.kategorie == kategorie }
+        return zusammenfassung(fuer: gefiltert).completionProzent
     }
 
     static func zusammenfassung(fuer anforderungen: [AnforderungMitStatus]) -> Zusammenfassung {

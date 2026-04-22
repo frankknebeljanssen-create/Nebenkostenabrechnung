@@ -2,21 +2,20 @@
 //  HomeView.swift
 //  NebenkostenApp — UI/Home
 //
-//  Context-First-Einstieg. Nach Home-Refactor (Layout-Pass) eine
-//  schlanke Kartenleiste:
-//    1. WohneinheitCarousel — horizontales Paging zwischen
-//       Gesamt-Objekt und einzelner Einheit.
-//    2. HomeStatusCard     — Kennzahlen + Periodenzustand-Pill.
-//    3. NaechsterSchrittCard — Liste offener Punkte oder
-//       Final-CTA „Abrechnungsdokumente erstellen".
+//  Home-Screen-Rebuild (Stufe 2 nach docs/home-bestandsanalyse.md):
+//  Ein Ring, eine Top-Schritte-Liste, zwei feste CTAs am unteren
+//  Rand. Kein Scroll — der gesamte Content sitzt in einer VStack
+//  unter dem `KontextHeader` und nutzt `Spacer` fuer die vertikale
+//  Verteilung.
 //
-//  Das ObjektCarousel ist entfallen, weil die Objekt-Selektion
-//  jetzt im permanenten KontextHeader lebt. Kein Redundanz-
-//  Zustand mehr zwischen Header und Home.
-//
-//  Alle Cards haben identische Breite (ScrollView-Padding 16 pt
-//  links/rechts, keine zusaetzlichen horizontalen Paddings in den
-//  Cards selbst). Vertikales Spacing: einheitlich 12 pt.
+//  Komponenten in dieser Datei (private fileprivate structs):
+//    - `CompletionRingView`        — animierter Kreis-Ring
+//    - `NaechsteSchritteListe`     — max. 3 tappbare Zeilen
+//    - `HomeCTAButtonPrimary`      — Accent, nur bei 100 % sichtbar
+//    - `HomeCTAButtonSecondary`    — immer sichtbar, fuehrt zur
+//                                    KachelansichtView via
+//                                    `NavigationLink`
+//    - `HomeLeerzustand`           — Keine Immobilie/Periode
 //
 
 import SwiftUI
@@ -29,16 +28,9 @@ struct HomeView: View {
 
     @State private var zeigeScopePicker = false
     @State private var zeigeEinstellungen = false
-    /// Scope, fuer den aktuell das KontextDetailSheet offen ist.
-    /// Nil = Sheet zu. Wird per Tap auf eine Home-Card gesetzt.
-    @State private var detailScope: AppScope? = nil
-    /// Steuert das AbrechnungsDatenSheet (zweit-Nav-Card).
-    @State private var zeigeAbrechnungsDaten: Bool = false
 
-    /// Aktuell angezeigte Immobilie — aus dem persistierten
-    /// ScopeManager-Kontext, Fallback auf die erste verfuegbare.
+    /// Aktuell angezeigte Immobilie — Fallback auf die erste.
     private var aktiveImmobilie: Immobilie? {
-        guard !immobilien.isEmpty else { return nil }
         if let id = scope.aktuelleImmobilieID,
            let treffer = immobilien.first(where: { $0.id == id }) {
             return treffer
@@ -46,139 +38,133 @@ struct HomeView: View {
         return immobilien.first
     }
 
+    /// Die aktivste Periode: entweder die zuletzt abgeschlossene
+    /// (bis < heute), sonst die erste sortiert nach bis-Datum.
     private var aktivePeriode: Abrechnungsperiode? {
-        let perioden = (aktiveImmobilie?.perioden ?? []).sorted(by: { $0.bis > $1.bis })
+        let perioden = (aktiveImmobilie?.perioden ?? [])
+            .sorted(by: { $0.bis > $1.bis })
         let heute = Date()
         return perioden.first(where: { $0.bis < heute }) ?? perioden.first
     }
 
+    /// Alle Anforderungen der aktiven Periode.
     private var anforderungen: [AnforderungMitStatus] {
-        guard let immobilie = aktiveImmobilie, let p = aktivePeriode else { return [] }
+        guard let immobilie = aktiveImmobilie,
+              let p = aktivePeriode else { return [] }
         return VollstaendigkeitsPruefung.pruefe(immobilie: immobilie, periode: p)
     }
 
-    /// Farbbalken-Farbe fuer die drei Home-Cards — spiegelt den
-    /// aktiven Scope:
-    /// - `.objekt` → `DesignTokens.unitObjekt`
-    /// - `.einheit(id:)` → `ScopeFarbe.farbe(fuer:)` der WE.
-    private var aktuelleScopeFarbe: Color {
-        guard let immobilie = aktiveImmobilie else {
-            return DesignTokens.unitObjekt
+    private var zusammenfassung: VollstaendigkeitsPruefung.Zusammenfassung {
+        VollstaendigkeitsPruefung.zusammenfassung(fuer: anforderungen)
+    }
+
+    private var prozent: Int { zusammenfassung.completionProzent }
+
+    /// Die drei nachsten Anforderungen — gefiltert (nur mit
+    /// Sprungziel, keine erfuellten, keine nichtErwartet) und sortiert
+    /// nach Kategorie-Rang (stammdaten → zaehlerstand → rechnung).
+    /// WMZ-Plausi (Warnung, kein Blocker) fliegt raus — die gehoert
+    /// nicht in "Naechste Schritte".
+    private var topSchritte: [AnforderungMitStatus] {
+        let offen = anforderungen.filter {
+            $0.sprungZiel != nil
+                && $0.status != .erfuellt
+                && $0.status != .nichtErwartet
+                && $0.anforderung.id != "plausi-wmz"
         }
-        switch scope.current {
-        case .objekt:
-            return DesignTokens.unitObjekt
-        case .einheit(let id):
-            if let e = (immobilie.wohneinheiten ?? []).first(where: { $0.bezeichnung == id }) {
-                return ScopeFarbe.farbe(fuer: e)
-            }
-            return DesignTokens.unitObjekt
+        let sortiert = offen.sorted { lhs, rhs in
+            kategorieRang(lhs.anforderung.kategorie)
+                < kategorieRang(rhs.anforderung.kategorie)
+        }
+        return Array(sortiert.prefix(3))
+    }
+
+    private func kategorieRang(_ k: AnforderungsKategorie) -> Int {
+        switch k {
+        case .stammdaten:   return 0
+        case .zaehlerstand: return 1
+        case .rechnung:     return 2
         }
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                if immobilien.isEmpty {
-                    kopfLeer
-                    EmptyStateCard(onPrimaerAktion: {
-                        zeigeEinstellungen = true
-                    })
-                } else if let immobilie = aktiveImmobilie {
-                    WohneinheitCarousel(
-                        immobilie: immobilie,
-                        scope: Binding(
-                            get: { scope.current },
-                            set: { scope.current = $0 }
-                        ),
-                        onOeffnen: oeffneEinheit
-                    )
-                    AbrechnungsdatenCard {
-                        zeigeAbrechnungsDaten = true
-                    }
-                    HomeStatusCard(
-                        anforderungen: anforderungen,
-                        immobilie: immobilie,
-                        periode: aktivePeriode,
-                        balkenFarbe: aktuelleScopeFarbe
-                    )
-                    NaechsterSchrittCard(
-                        anforderungen: anforderungen,
-                        onSprung: { ziel in
-                            router.springe(zu: ziel)
-                        },
-                        onFinalAktion: {
-                            router.aktiverTab = .abrechnungen
-                        },
-                        balkenFarbe: aktuelleScopeFarbe
-                    )
+        inhalt
+            .appShellChrome(
+                titel: nil,
+                subtitel: nil,
+                onAdresse: { zeigeScopePicker = true },
+                onEinstellungen: { zeigeEinstellungen = true },
+                zeigeAdresseOben: false,
+                zeigeScopeStrip: false
+            )
+            .sheet(isPresented: $zeigeScopePicker) { ScopePickerSheet() }
+            .sheet(isPresented: $zeigeEinstellungen) { EinstellungenSheet() }
+            .onChange(of: router.aktuellesSprungziel) { _, neu in
+                reagiereAufSprungziel(neu)
+            }
+    }
+
+    @ViewBuilder
+    private var inhalt: some View {
+        if immobilien.isEmpty || aktivePeriode == nil {
+            HomeLeerzustand(ctaAktion: { zeigeEinstellungen = true })
+        } else {
+            hauptStapel
+        }
+    }
+
+    /// Der eigentliche Home-Content — Ring + Schritte + CTAs.
+    /// Wir verteilen Ring-Block (oben) und CTA-Block (unten) ueber
+    /// einen `Spacer()` zwischen Schritten und Buttons, damit der
+    /// Screen auf kleinen iPhones ohne Scroll funktioniert.
+    private var hauptStapel: some View {
+        VStack(spacing: 0) {
+            Spacer(minLength: 16)
+            CompletionRingView(prozent: prozent)
+            Spacer(minLength: 16)
+            NaechsteSchritteListe(
+                items: topSchritte,
+                onTap: { ziel in
+                    router.springe(zu: ziel)
+                }
+            )
+            .padding(.horizontal, 16)
+            Spacer()
+            ctaBlock
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(DesignTokens.bgAppCompact)
+    }
+
+    private var ctaBlock: some View {
+        VStack(spacing: 10) {
+            if prozent == 100 {
+                HomeCTAButtonPrimary(
+                    titel: "Abrechnung erstellen",
+                    symbol: "doc.text.fill"
+                ) {
+                    router.aktiverTab = .abrechnungen
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 12)
-            .padding(.bottom, 40)
-        }
-        .background(DesignTokens.bgAppCompact)
-        .appShellChrome(
-            titel: nil,                       // kein "Start"
-            subtitel: nil,
-            onAdresse: { zeigeScopePicker = true },
-            onEinstellungen: { zeigeEinstellungen = true },
-            zeigeAdresseOben: false,          // Adresse lebt in der Carousel-Card
-            zeigeScopeStrip: false            // Scope lebt im WohneinheitCarousel
-        )
-        .sheet(isPresented: $zeigeScopePicker) { ScopePickerSheet() }
-        .sheet(isPresented: $zeigeEinstellungen) { EinstellungenSheet() }
-        .sheet(isPresented: $zeigeAbrechnungsDaten) {
-            AbrechnungsDatenSheet(onVorauszahlungen: {
-                router.oeffneVorauszahlungSheet(einheitID: nil)
-            })
-        }
-        .sheet(isPresented: Binding(
-            get: { detailScope != nil },
-            set: { if !$0 { detailScope = nil } }
-        )) {
-            if let immobilie = aktiveImmobilie, let s = detailScope {
-                KontextDetailSheet(immobilie: immobilie, scope: s)
+            NavigationLink {
+                KachelansichtView()
+            } label: {
+                HomeCTAButtonSecondaryLabel(
+                    titel: "Zur Kachelansicht",
+                    symbol: "square.grid.2x2"
+                )
             }
+            .buttonStyle(.plain)
         }
-        .onChange(of: router.aktuellesSprungziel) { _, neu in
-            reagiereAufSprungziel(neu)
-        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 16)
     }
 
-    // MARK: - Kopfzone (Leer-State)
-
-    /// Kopf fuer den leeren Store. Die Perioden-Ueberschrift lebt
-    /// jetzt komplett im KontextHeader oben — hier reicht ein
-    /// schlichtes "Willkommen".
-    private var kopfLeer: some View {
-        Text("Willkommen")
-            .appFont(AppFont.Basis.periodenHeader())
-            .foregroundStyle(DesignTokens.text)
-            .padding(.horizontal, 4)
-    }
-
-    // MARK: - Tap auf eine Wohneinheit-Card
-
-    /// Aktive Wohneinheit-Card angetippt → Scope wurde durch
-    /// Swipen schon aktualisiert, Tap oeffnet das scope-abhaengige
-    /// KontextDetailSheet. Einstellungen wird bewusst NICHT mehr
-    /// hier geoeffnet — die sind systemweit nur ueber das Zahnrad
-    /// in der Top-Bar erreichbar.
-    private func oeffneEinheit(_ scopeAuswahl: AppScope) {
-        scope.current = scopeAuswahl
-        detailScope = scopeAuswahl
-    }
-
-    // MARK: - Sprungziel-Reaktion
+    // MARK: - Router-Reaktion
 
     private func reagiereAufSprungziel(_ ziel: Sprungziel?) {
         switch ziel {
         case .mieterVorauszahlung(let einheitId):
-            // Direkt ins VorauszahlungEingabeSheet — nicht mehr
-            // ueber das EinstellungenSheet, wo die VZ-Zeilen
-            // ohnehin nicht editierbar sind.
             router.oeffneVorauszahlungSheet(einheitID: einheitId)
             router.quittiere()
         case .einstellungenObjekt,
@@ -188,5 +174,239 @@ struct HomeView: View {
         default:
             break
         }
+    }
+}
+
+// MARK: - Ring
+
+fileprivate struct CompletionRingView: View {
+    let prozent: Int
+
+    /// `.onAppear` sorgt fuer den Ease-In, `.onChange` fuer Updates
+    /// nach dem Pruefen (z.B. wenn der User aus einem Sheet zurueck-
+    /// kehrt und Stammdaten geaendert hat).
+    @State private var animatedProzent: CGFloat = 0
+
+    private var farbe: Color { CompletionFarbe.fuer(prozent: prozent) }
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(farbe.opacity(0.15), style: strokeStyle)
+                .frame(width: 140, height: 140)
+            Circle()
+                .trim(from: 0, to: animatedProzent / 100)
+                .stroke(farbe, style: strokeStyle)
+                .rotationEffect(.degrees(-90))
+                .frame(width: 140, height: 140)
+            VStack(spacing: 2) {
+                Text("\(prozent)%")
+                    .appFont(AppFontStyle(
+                        font: AppFont.plexMono(.semibold, 36),
+                        tracking: -0.5,
+                        uppercase: false
+                    ))
+                    .foregroundStyle(DesignTokens.text)
+                Text("vollständig")
+                    .appFont(AppFont.Basis.subtitle())
+                    .foregroundStyle(DesignTokens.textSecondary)
+            }
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 0.6)) {
+                animatedProzent = CGFloat(prozent)
+            }
+        }
+        .onChange(of: prozent) { _, neu in
+            withAnimation(.easeInOut(duration: 0.4)) {
+                animatedProzent = CGFloat(neu)
+            }
+        }
+    }
+
+    private var strokeStyle: StrokeStyle {
+        StrokeStyle(lineWidth: 12, lineCap: .round)
+    }
+}
+
+// MARK: - Naechste Schritte
+
+fileprivate struct NaechsteSchritteListe: View {
+    let items: [AnforderungMitStatus]
+    let onTap: (Sprungziel) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Nächste Schritte")
+                .appFont(AppFont.Basis.kicker())
+                .foregroundStyle(DesignTokens.textSecondary)
+
+            if items.isEmpty {
+                alleBereitZeile
+            } else {
+                VStack(spacing: 8) {
+                    ForEach(items, id: \.anforderung.id) { anf in
+                        schrittRow(anf)
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var alleBereitZeile: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(DesignTokens.statusOk)
+            Text("Alles vollständig")
+                .appFont(AppFont.Basis.bodySemi())
+                .foregroundStyle(DesignTokens.statusOk)
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 12)
+        .padding(.horizontal, 14)
+        .background(DesignTokens.statusOkSoft)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private func schrittRow(_ anf: AnforderungMitStatus) -> some View {
+        Button {
+            if let ziel = anf.sprungZiel { onTap(ziel) }
+        } label: {
+            HStack(spacing: 12) {
+                Circle()
+                    .fill(statusFarbe(anf.status))
+                    .frame(width: 8, height: 8)
+                Text(anf.anforderung.titel)
+                    .appFont(AppFont.Basis.bodySemi())
+                    .foregroundStyle(DesignTokens.text)
+                    .multilineTextAlignment(.leading)
+                    .lineLimit(2)
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(DesignTokens.textTertiary)
+            }
+            .padding(.vertical, 12)
+            .padding(.horizontal, 14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(DesignTokens.bgSurface)
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(DesignTokens.separator, lineWidth: 0.5)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func statusFarbe(_ status: AnforderungsStatus) -> Color {
+        switch status {
+        case .offen:     return DesignTokens.statusError
+        case .teilweise: return DesignTokens.statusWarn
+        default:         return DesignTokens.textSecondary
+        }
+    }
+}
+
+// MARK: - CTAs
+
+fileprivate struct HomeCTAButtonPrimary: View {
+    let titel: String
+    let symbol: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: symbol)
+                    .font(.system(size: 15, weight: .semibold))
+                Text(titel)
+                    .appFont(AppFont.Basis.bodySemi())
+                Spacer(minLength: 4)
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 13, weight: .semibold))
+            }
+            .foregroundStyle(Color.white)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .frame(maxWidth: .infinity)
+            .background(DesignTokens.accent)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(titel)
+    }
+}
+
+fileprivate struct HomeCTAButtonSecondaryLabel: View {
+    let titel: String
+    let symbol: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: symbol)
+                .font(.system(size: 15, weight: .semibold))
+            Text(titel)
+                .appFont(AppFont.Basis.bodySemi())
+            Spacer(minLength: 4)
+            Image(systemName: "chevron.right")
+                .font(.system(size: 13, weight: .semibold))
+        }
+        .foregroundStyle(DesignTokens.text)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .frame(maxWidth: .infinity)
+        .background(DesignTokens.bgSurface)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(DesignTokens.separator, lineWidth: 0.5)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
+// MARK: - Leerzustand
+
+fileprivate struct HomeLeerzustand: View {
+    let ctaAktion: () -> Void
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Spacer()
+            Image(systemName: "house")
+                .font(.system(size: 56, weight: .light))
+                .foregroundStyle(DesignTokens.textSecondary)
+            Text("Willkommen")
+                .appFont(AppFont.Basis.periodenHeader())
+                .foregroundStyle(DesignTokens.text)
+            Text("Legen Sie Ihr erstes Objekt mit Abrechnungsperiode an, dann erscheint hier der Completion-Ring.")
+                .appFont(AppFont.Basis.body())
+                .foregroundStyle(DesignTokens.textSecondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+            Spacer()
+            Button(action: ctaAktion) {
+                HStack(spacing: 10) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 15, weight: .semibold))
+                    Text("Erstes Objekt anlegen")
+                        .appFont(AppFont.Basis.bodySemi())
+                }
+                .foregroundStyle(Color.white)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+                .frame(maxWidth: .infinity)
+                .background(DesignTokens.accent)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 16)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(DesignTokens.bgAppCompact)
     }
 }
