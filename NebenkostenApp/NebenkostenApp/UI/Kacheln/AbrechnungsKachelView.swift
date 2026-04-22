@@ -376,8 +376,16 @@ struct AbrechnungsKachelView: View {
             .background(DesignTokens.bgSurface)
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             if weitere > 0 {
+                // +2pt gegenueber `Basis.caption()` (12 → 14) und
+                // Medium-Weight — der Hinweis „+ N weitere" sollte
+                // klar lesbar neben den Top-3 stehen, nicht als
+                // Fussnote verschwinden.
                 Text("+ \(weitere) weitere")
-                    .appFont(AppFont.Basis.caption())
+                    .appFont(AppFontStyle(
+                        font: AppFont.plexSans(.medium, 14),
+                        tracking: 0,
+                        uppercase: false
+                    ))
                     .foregroundStyle(DesignTokens.textSecondary)
             }
         }
