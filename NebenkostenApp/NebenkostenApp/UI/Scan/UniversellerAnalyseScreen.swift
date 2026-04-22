@@ -43,6 +43,16 @@ struct UniversellerAnalyseScreen: View {
     /// automatisch auf den User-Picker-Fluss zurueck.
     @State private var klassifikationsFehler: String?
 
+    // Reaktive Spiegel der beiden Entscheidungs-Flags — so reagieren
+    // Banner und Diagnose live auf Aenderungen in den Einstellungen.
+    @AppStorage(ScanKlassifikator.debugFlagKey)
+    private var devModusAktiv: Bool = false
+    @AppStorage("anthropic.apiKey")
+    private var apiKeyRoh: String = ""
+    private var apiKeyDa: Bool {
+        !apiKeyRoh.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
     /// Welches Folge-Sheet nach „Uebernehmen" gezeigt werden soll.
     /// Nil = keins (Typ verarbeitet ohne zusaetzlichen Screen, z.B.
     /// Stammdaten-Doks werden nur verknuepft).
@@ -85,7 +95,7 @@ struct UniversellerAnalyseScreen: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    if ScanKlassifikator.devModusAktiv {
+                    if devModusAktiv {
                         devModusBanner
                     }
                     if laeuft {
@@ -94,6 +104,11 @@ struct UniversellerAnalyseScreen: View {
                         if let fehler = klassifikationsFehler {
                             fehlerBanner(fehler)
                         }
+                        // Diagnose-Card zeigt live, welchen Pfad der
+                        // Klassifikator genommen hat — so siehst Du
+                        // ohne Xcode-Console, warum ein bestimmter
+                        // Typ (oder eben .unbekannt) rauskam.
+                        diagnoseCard
                         typBadge
                         if let erg = ergebnis, !erg.felder.isEmpty {
                             felderCard(erg.felder)
@@ -145,6 +160,73 @@ struct UniversellerAnalyseScreen: View {
             ergebnis = ScanKlassifikationsErgebnis(
                 typ: neu, konfidenz: 0, felder: [:]
             )
+        }
+    }
+
+    // MARK: - Diagnose-Card
+
+    /// Zeigt den tatsaechlichen Pfad des Klassifikators live in der UI.
+    /// Spart den Umweg ueber die Xcode-Konsole: Du siehst sofort, ob
+    /// der Dev-Toggle aktiv war, ob der API-Key gefunden wurde und
+    /// welche Route gelaufen ist (Stub / Echt / Fehler).
+    @ViewBuilder
+    private var diagnoseCard: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            diagZeile(
+                label: "Dev-Toggle",
+                wert: devModusAktiv ? "AN" : "AUS",
+                ok: devModusAktiv
+            )
+            diagZeile(
+                label: "API-Key",
+                wert: apiKeyDa ? "vorhanden" : "fehlt",
+                ok: apiKeyDa
+            )
+            diagZeile(
+                label: "Pfad",
+                wert: pfadBeschreibung,
+                ok: {
+                    if case .echt = ScanKlassifikator.letzterPfad { return true }
+                    return false
+                }()
+            )
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(DesignTokens.bgSurface)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(DesignTokens.separator, lineWidth: 0.5)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private func diagZeile(label: String, wert: String, ok: Bool) -> some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(ok ? DesignTokens.statusOk : DesignTokens.statusWarn)
+                .frame(width: 6, height: 6)
+            Text(label)
+                .appFont(AppFont.Basis.caption())
+                .foregroundStyle(DesignTokens.textSecondary)
+            Spacer(minLength: 8)
+            Text(wert)
+                .appFont(AppFont.Basis.monoCaption())
+                .foregroundStyle(DesignTokens.text)
+                .multilineTextAlignment(.trailing)
+        }
+    }
+
+    private var pfadBeschreibung: String {
+        switch ScanKlassifikator.letzterPfad {
+        case .idle:
+            return "läuft …"
+        case .stub(let grund):
+            return "Stub · \(grund)"
+        case .echt(let typ, let anzahl):
+            return "Claude · \(typ.rawValue) · \(anzahl) Felder"
+        case .echtFehler(let b):
+            return "Fehler: \(b.prefix(60))"
         }
     }
 

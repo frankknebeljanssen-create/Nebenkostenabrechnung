@@ -35,6 +35,11 @@
 import Foundation
 import PDFKit
 import UIKit
+import OSLog
+
+/// Logger fuer den Klassifikations-Flow. Filter in Xcode-Console via
+/// `subsystem:de.nebenkosten category:scan.klassifikator`.
+private let log = Logger(subsystem: "de.nebenkosten", category: "scan.klassifikator")
 
 /// Ergebnis einer Scan-Klassifikation. `felder` ist ein Typ-unabhaengiges
 /// Dictionary — der `UniversellerAnalyseScreen` rendert Schluessel und
@@ -74,25 +79,51 @@ enum ScanKlassifikator {
         dokument: GespeichertesDokument
     ) async -> ScanKlassifikationsErgebnis {
         letzterFehler = nil
+        letzterPfad = .idle
+        log.info("🔍 Klassifikation startet — dokumentID=\(dokument.id, privacy: .public)")
+        log.info("🔀 devModusAktiv = \(devModusAktiv, privacy: .public)")
+        log.info("🔑 apiKeyKonfiguriert = \(AnthropicClient.istKonfiguriert, privacy: .public)")
         guard devModusAktiv else {
+            log.info("🧪 Pfad: Stub (devModus aus) — liefere .unbekannt")
+            letzterPfad = .stub(grund: "Dev-Toggle ist aus")
             return ScanKlassifikationsErgebnis(
                 typ: .unbekannt, konfidenz: 0, felder: [:]
             )
         }
         guard AnthropicClient.istKonfiguriert else {
-            letzterFehler = "Kein API-Key hinterlegt (Einstellungen → Debug)."
+            log.error("🔑 Kein API-Key — Abbruch")
+            letzterFehler = "Kein API-Key hinterlegt (Einstellungen → KI-Extraktion)."
+            letzterPfad = .stub(grund: "API-Key fehlt")
             return ScanKlassifikationsErgebnis(
                 typ: .unbekannt, konfidenz: 0, felder: [:]
             )
         }
         do {
-            return try await klassifiziereEcht(dokument: dokument)
+            log.info("📤 Pfad: Echt — sende an Anthropic …")
+            let ergebnis = try await klassifiziereEcht(dokument: dokument)
+            log.info("✅ Klassifikation OK: typ=\(ergebnis.typ.rawValue, privacy: .public) konfidenz=\(ergebnis.konfidenz, privacy: .public) felder=\(ergebnis.felder.count, privacy: .public)")
+            letzterPfad = .echt(typ: ergebnis.typ, felderAnzahl: ergebnis.felder.count)
+            return ergebnis
         } catch {
+            log.error("💥 Klassifikations-Fehler: \(error.localizedDescription, privacy: .public)")
             letzterFehler = error.localizedDescription
+            letzterPfad = .echtFehler(beschreibung: error.localizedDescription)
             return ScanKlassifikationsErgebnis(
                 typ: .unbekannt, konfidenz: 0, felder: [:]
             )
         }
+    }
+
+    /// Ausfuehrlicher Pfad-State fuer die Diagnose-UI. Wird nach jedem
+    /// `klassifiziere`-Call aktualisiert — die View liest ihn im
+    /// `task` nach dem Await und zeigt ihn als Info-Card an.
+    private(set) static var letzterPfad: LetzterPfad = .idle
+
+    enum LetzterPfad: Sendable {
+        case idle
+        case stub(grund: String)
+        case echt(typ: Dokumenttyp, felderAnzahl: Int)
+        case echtFehler(beschreibung: String)
     }
 
     /// Letzter Klassifikationsfehler — fuer den UI-Banner. Wird vor
@@ -105,13 +136,19 @@ enum ScanKlassifikator {
         dokument: GespeichertesDokument
     ) async throws -> ScanKlassifikationsErgebnis {
         let url = try DokumentAblageService.absoluterPfad(fuer: dokument.dateipfadRelativ)
+        log.debug("📄 PDF: \(url.lastPathComponent, privacy: .public)")
         let bilder = try rendereSeitenAlsBilder(pdfURL: url, maxSeiten: 3)
+        log.debug("🖼️ Seiten gerendert: \(bilder.count, privacy: .public)")
         let rohText = try await AnthropicClient.extrahiere(
             bilder: bilder,
             systemPrompt: systemPrompt,
             userPrompt: userPrompt,
             maxTokens: 1500
         )
+        log.debug("📥 Response laenge=\(rohText.count, privacy: .public) chars")
+        // Roh-Response privat loggen — hilft beim Debuggen, landet
+        // aber nicht in Release-Logs (OSLog redaktion default).
+        log.debug("📥 Response raw: \(rohText, privacy: .private)")
         return try parse(rohText)
     }
 
