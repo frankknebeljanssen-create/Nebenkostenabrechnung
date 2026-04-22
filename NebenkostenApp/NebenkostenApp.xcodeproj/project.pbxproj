@@ -398,6 +398,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Nebenkosten;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Kamera wird für das Scannen von Rechnungen und Zählerständen verwendet.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Fotos aus der Galerie können als Rechnungs- oder Zählerstand-Beleg importiert werden.";
 				INFOPLIST_KEY_UIAppFonts = "IBMPlexSans-Regular.ttf,IBMPlexSans-Medium.ttf,IBMPlexSans-SemiBold.ttf,IBMPlexMono-Regular.ttf,IBMPlexMono-Medium.ttf,IBMPlexMono-SemiBold.ttf";
@@ -445,6 +446,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Nebenkosten;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Kamera wird für das Scannen von Rechnungen und Zählerständen verwendet.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Fotos aus der Galerie können als Rechnungs- oder Zählerstand-Beleg importiert werden.";
 				INFOPLIST_KEY_UIAppFonts = "IBMPlexSans-Regular.ttf,IBMPlexSans-Medium.ttf,IBMPlexSans-SemiBold.ttf,IBMPlexMono-Regular.ttf,IBMPlexMono-Medium.ttf,IBMPlexMono-SemiBold.ttf";
