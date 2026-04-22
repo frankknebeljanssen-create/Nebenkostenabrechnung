@@ -33,15 +33,17 @@ struct NebenkostenTabBar: View {
     var body: some View {
         HStack(spacing: 4) {
             ForEach(tabs) { tab in
-                Button {
-                    wechsle(zu: tab)
-                } label: {
-                    tabZelle(tab)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(tab.titel)
-                .accessibilityAddTraits(aktiverTab == tab ? .isSelected : [])
-                .frame(maxWidth: .infinity)
+                // `aktiv` einmal pro Loop-Iteration explizit berechnen
+                // und an die Sub-Funktionen durchreichen. Frueher sass
+                // die Berechnung im `@ViewBuilder`-Body von `tabZelle`
+                // und las `aktiverTab` aus dem enclosing Scope — das
+                // fuehrte (nachweislich auf iOS 26) in seltenen
+                // Re-Render-Faellen zu einem stale `aktiv`-Flag,
+                // bei dem die Selected-Pill auf Home kleben blieb,
+                // obwohl der Content-Tab wechselte.
+                let aktiv = aktiverTab == tab
+                tabButton(tab: tab, aktiv: aktiv)
+                    .frame(maxWidth: .infinity)
             }
         }
         .padding(.horizontal, 6)
@@ -70,9 +72,18 @@ struct NebenkostenTabBar: View {
         aktiverTab = tab
     }
 
-    @ViewBuilder
-    private func tabZelle(_ tab: AppTab) -> some View {
-        let aktiv = aktiverTab == tab
+    private func tabButton(tab: AppTab, aktiv: Bool) -> some View {
+        Button {
+            wechsle(zu: tab)
+        } label: {
+            tabZelleInhalt(tab: tab, aktiv: aktiv)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(tab.titel)
+        .accessibilityAddTraits(aktiv ? .isSelected : [])
+    }
+
+    private func tabZelleInhalt(tab: AppTab, aktiv: Bool) -> some View {
         VStack(spacing: 2) {
             Image(systemName: tab.sfSymbol)
                 .font(.system(size: 18, weight: aktiv ? .semibold : .regular))
@@ -85,12 +96,18 @@ struct NebenkostenTabBar: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
         .padding(.horizontal, 4)
-        .background {
-            if aktiv {
-                Capsule(style: .continuous)
-                    .fill(DesignTokens.accent)
-            }
-        }
-        .contentShape(Rectangle())
+        .background(
+            // Expliziter Fill statt leerem `@ViewBuilder`-Closure —
+            // vermeidet Viewtype-Wechsel beim Aktiv/Inaktiv-Flip,
+            // den SwiftUI gelegentlich nicht invalidiert.
+            Capsule(style: .continuous)
+                .fill(aktiv ? DesignTokens.accent : Color.clear)
+        )
+        // Capsule statt Rectangle als Hit-Shape — passt exakt zum
+        // visuellen Pill-Umriss. `Rectangle()` machte den Tap-Bereich
+        // kuenstlich rechteckig; beim eng gesetzten Tab-Abstand
+        // landete ein Daumen-Tap zwischen zwei Pills ggf. auf dem
+        // Nachbarn.
+        .contentShape(Capsule())
     }
 }
