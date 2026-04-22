@@ -54,23 +54,39 @@ enum ScanZuordnung {
     ) -> Ergebnis {
         let objektWeit = istObjektWeit(typ)
 
-        // Query-Strings aus den Feldern.
-        let adressQuery = normalisiere(
-            felder["objektAdresse"] ?? felder["adresse"] ?? ""
+        // Query-Strings aus den Feldern. Claude schreibt den Mieter-
+        // Namen je nach Prompt mal unter `mieterName`, mal unter
+        // `empfaenger`, mal als `mieter` — wir pruefen alle drei.
+        // Analog die Adresse: `objektAdresse` bevorzugt, sonst
+        // `mieterAnschrift`, sonst generisch `adresse`.
+        let adressQuery = strasseHausnr(
+            felder["objektAdresse"]
+            ?? felder["mieterAnschrift"]
+            ?? felder["adresse"]
+            ?? ""
         )
         let mieterQuery = normalisiere(
-            felder["mieterName"] ?? felder["empfaenger"] ?? ""
+            felder["mieterName"]
+            ?? felder["empfaenger"]
+            ?? felder["mieter"]
+            ?? ""
         )
         let einheitQuery = normalisiere(
             felder["einheit"] ?? felder["wohneinheit"] ?? felder["geschoss"] ?? ""
         )
 
+        print("🔍 ScanZuordnung.finde typ=\(typ.rawValue)")
+        print("   mieterQuery='\(mieterQuery)'")
+        print("   adressQuery='\(adressQuery)'")
+        print("   einheitQuery='\(einheitQuery)'")
+
         var kandidaten: [Kandidat] = []
 
         for immo in immobilien {
-            let immoAdresse = normalisiere(immo.adresse)
+            let immoAdresse = strasseHausnr(immo.adresse)
             let adressMatch = !adressQuery.isEmpty
-                && enthaeltWortweise(target: immoAdresse, query: adressQuery)
+                && istAehnlich(immoAdresse, adressQuery)
+            print("   · Immobilie '\(immo.adresse)' → normalisiert='\(immoAdresse)' adressMatch=\(adressMatch)")
 
             if objektWeit {
                 // Energieausweis / Grundsteuer: nur Objekt-Match zaehlt.
@@ -90,23 +106,28 @@ enum ScanZuordnung {
             // Einheiten-bezogener Typ (Rechnung, Mieterhoehung, Mietvertrag, …)
             for einheit in (immo.wohneinheiten ?? []) {
                 var score = adressMatch ? 3 : 0
+                var grund = adressMatch ? "Adresse(+3) " : ""
 
                 // Aktiver Mieter
                 let aktiverMV = (einheit.mietverhaeltnisse ?? [])
                     .first(where: { $0.auszugAm == nil })
                 if let mv = aktiverMV, !mieterQuery.isEmpty {
                     let mvName = normalisiere(mv.mieterName)
-                    if enthaeltWortweise(target: mvName, query: mieterQuery) {
+                    if istAehnlich(mvName, mieterQuery) {
                         score += 2
+                        grund += "Mieter(+2) "
                     }
                 }
 
                 // WE-Bezeichnung
                 let einheitBez = normalisiere(einheit.bezeichnung)
                 if !einheitQuery.isEmpty
-                    && enthaeltWortweise(target: einheitBez, query: einheitQuery) {
+                    && istAehnlich(einheitBez, einheitQuery) {
                     score += 1
+                    grund += "Einheit(+1)"
                 }
+
+                print("     ↳ WE \(einheit.bezeichnung) mv='\(aktiverMV?.mieterName ?? "–")' score=\(score) \(grund)")
 
                 if score > 0 {
                     kandidaten.append(Kandidat(
@@ -118,13 +139,18 @@ enum ScanZuordnung {
             }
         }
 
-        guard !kandidaten.isEmpty else { return .nichtGefunden }
+        guard !kandidaten.isEmpty else {
+            print("   ⇒ kein Kandidat")
+            return .nichtGefunden
+        }
         let sortiert = kandidaten.sorted(by: { $0.score > $1.score })
         let topScore = sortiert[0].score
         let tops = sortiert.filter { $0.score == topScore }
         if tops.count == 1 {
+            print("   ⇒ gefunden score=\(topScore)")
             return .gefunden(tops[0])
         }
+        print("   ⇒ mehrdeutig: \(tops.count) Kandidaten mit score=\(topScore)")
         return .mehrdeutig(tops)
     }
 
@@ -161,12 +187,41 @@ enum ScanZuordnung {
         return s.trimmingCharacters(in: .whitespaces)
     }
 
-    /// Alle Worte (>=3 Zeichen) aus `query` muessen in `target` vorkommen
-    /// (Teilstring). Sehr kurze Worte (und, der, …) werden ignoriert,
-    /// damit „Fam. Kossak" → nur Kossak pruefen.
-    private static func enthaeltWortweise(target: String, query: String) -> Bool {
-        let worte = query.split(separator: " ").filter { $0.count >= 3 }
-        guard !worte.isEmpty else { return false }
-        return worte.allSatisfy { target.contains($0) }
+    /// Robustes Match: zwei (normalisierte) Strings gelten als aehnlich,
+    /// wenn einer den anderen als Teilstring enthaelt.
+    /// Beispiele (beide normalisiert):
+    ///   - „rolf kossak" ↔ „herr rolf kossak"  → match (query ⊂ target)
+    ///   - „familie pfaffenbach" ↔ „sandra pfaffenbach"  → kein Match
+    ///     (weder enthaelt den anderen) — bewusst: „Familie" ohne
+    ///     Nachnamen-Uebereinstimmung ist zu vage. Beide haben aber
+    ///     „pfaffenbach" als Wort — dafuer gibt es den WE-bezogenen
+    ///     Score-Fallback via Adresse.
+    ///   - „kossak" ↔ „rolf kossak"  → match (query ⊂ target)
+    /// Zusatz: Auch wenn query nur EIN Wort ist, pruefen wir, ob
+    /// dieses Wort im Target vorkommt — deckt den Claude-Fall ab, wo
+    /// nur der Nachname extrahiert wird.
+    static func istAehnlich(_ a: String, _ b: String) -> Bool {
+        guard !a.isEmpty, !b.isEmpty else { return false }
+        if a == b { return true }
+        if a.contains(b) || b.contains(a) { return true }
+        // Fallback: wenn die Query nur ein „wichtiges" Wort ist
+        // (>=4 Zeichen, um „herr"/„frau" auszublenden), pruefe,
+        // ob das Wort im Target vorkommt. Loest den Fall
+        // „Kossak" gegen „Rolf Kossak".
+        let aWorte = a.split(separator: " ").filter { $0.count >= 4 }
+        let bWorte = b.split(separator: " ").filter { $0.count >= 4 }
+        if aWorte.count == 1, b.contains(aWorte[0]) { return true }
+        if bWorte.count == 1, a.contains(bWorte[0]) { return true }
+        return false
+    }
+
+    /// Reduziert eine Adresse auf Strasse + Hausnummer — der erste
+    /// Komma-Teil. So matched „Hindenburgdamm 102" auch dann, wenn das
+    /// System die PLZ + Ort dahinter speichert („Hindenburgdamm 102,
+    /// 12203 Berlin"). Output wird gleich normalisiert.
+    static func strasseHausnr(_ adresse: String) -> String {
+        let teile = adresse.split(separator: ",")
+        let erster = teile.first.map(String.init) ?? adresse
+        return normalisiere(erster)
     }
 }
