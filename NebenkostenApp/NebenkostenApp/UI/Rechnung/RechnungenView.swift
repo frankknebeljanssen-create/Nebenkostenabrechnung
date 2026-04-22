@@ -31,6 +31,7 @@ struct RechnungenView: View {
     @Environment(ScopeManager.self) private var scope
     @Environment(AppShellRouter.self) private var router
     @Query(sort: \Immobilie.erstelltAm) private var immobilien: [Immobilie]
+    @Query private var alleDokumente: [GespeichertesDokument]
 
     @State private var zeigeScopePicker = false
     @State private var zeigeEinstellungen = false
@@ -317,42 +318,16 @@ struct RechnungenView: View {
         Button {
             auswahl = r
         } label: {
-            VStack(alignment: .leading, spacing: 4) {
-                // Zeile 1: Aussteller links (Sans 15/500), Betrag
-                // rechts (Mono 15/600). Keine Sans+Mono-Mischung.
-                LabelMitBetrag(
-                    label: r.lieferant.isEmpty ? "Ohne Lieferant" : r.lieferant,
-                    betrag: Formatting.euro(r.betragBruttoEuro)
-                )
-                // Zeile 2: Datum · Periode (Mono 11/400) + StatusPill.
-                HStack(spacing: 8) {
-                    DatumPeriodeZeile(
-                        rechnungsdatum: r.rechnungsdatum,
-                        periodeVon: r.leistungVon,
-                        periodeBis: r.leistungBis
-                    )
-                    pillFuer(r)
-                    Spacer(minLength: 0)
-                }
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .contentShape(Rectangle())
+            RechnungRow(
+                rechnung: r,
+                dokument: dokumentFuer(rechnung: r)
+            )
         }
         .buttonStyle(.plain)
     }
 
-    private func pillFuer(_ r: Rechnung) -> some View {
-        let (text, style) = pillDaten(r)
-        return StatusPill(text: text, style: style)
-    }
-
-    private func pillDaten(_ r: Rechnung) -> (String, StatusPill.Style) {
-        if let ka = r.kostenart, ka.paragraph35a, r.lohnanteilBruttoEuro == nil {
-            return ("§35a offen", .warn)
-        }
-        if !r.geprueft { return ("ungeprüft", .warn) }
-        return ("validiert", .ok)
+    private func dokumentFuer(rechnung: Rechnung) -> GespeichertesDokument? {
+        alleDokumente.first { $0.rechnungId == rechnung.id }
     }
 
     // MARK: - Scope-Hinweis + Leer
