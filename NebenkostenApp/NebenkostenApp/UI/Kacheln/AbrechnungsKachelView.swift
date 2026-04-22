@@ -38,6 +38,14 @@ struct AbrechnungsKachelView: View {
     @State private var gewaehltePeriodeID: UUID?
     @State private var auswahl: Mieterabrechnung?
 
+    // Batch-State: Confirm-Dialog, Fortschritt und Fehler-Alert.
+    @State private var zeigeBatchConfirm = false
+    @State private var batchLaeuft = false
+    @State private var batchFehler: String?
+    @State private var archivAuswahlURL: URL?
+
+    @Query(sort: \Abrechnung.erstelltAm, order: .reverse) private var alleAbrechnungen: [Abrechnung]
+
     // MARK: - Abgeleitet
 
     private var aktiveImmobilie: Immobilie? {
@@ -121,6 +129,9 @@ struct AbrechnungsKachelView: View {
                 if istBereit && !mieterabrechnungen.isEmpty {
                     mieterListe
                 }
+                if !archivPerioden.isEmpty {
+                    archivSektion
+                }
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)
@@ -142,6 +153,53 @@ struct AbrechnungsKachelView: View {
                 )
             }
         }
+        .sheet(item: $archivAuswahlURL) { url in
+            NavigationStack {
+                PDFVorschauView(url: url)
+                    .ignoresSafeArea(edges: .bottom)
+                    .navigationTitle("Abrechnung")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            SheetToolbar.abbrechen(titel: "Schließen") {
+                                archivAuswahlURL = nil
+                            }
+                        }
+                        ToolbarItem(placement: .confirmationAction) {
+                            ShareLink(item: url) {
+                                Image(systemName: "square.and.arrow.up")
+                            }
+                        }
+                    }
+            }
+        }
+        .alert(
+            "Abrechnung erstellen?",
+            isPresented: $zeigeBatchConfirm,
+            actions: {
+                Button("Abbrechen", role: .cancel) {}
+                Button("Erstellen") {
+                    Task { await erstelleBatch() }
+                }
+            },
+            message: { Text(batchConfirmText) }
+        )
+        .alert(
+            "Abrechnungs-Fehler",
+            isPresented: Binding(
+                get: { batchFehler != nil },
+                set: { if !$0 { batchFehler = nil } }
+            ),
+            actions: { Button("OK", role: .cancel) {} },
+            message: { Text(batchFehler ?? "") }
+        )
+    }
+
+    private var batchConfirmText: String {
+        let n = mieterabrechnungen.count
+        return "Für \(n) Mieter" + (n == 1 ? "" : "")
+            + " wird je ein PDF erzeugt und die Periode als abgeschlossen markiert."
+            + " Diese Aktion kann nicht rückgängig gemacht werden."
     }
 
     /// Warnungen (nicht blockierend, z.B. WMZ-Plausi, §35a-Lohn)
@@ -205,22 +263,37 @@ struct AbrechnungsKachelView: View {
     }
 
     private var heroBereit: some View {
-        VStack(spacing: 10) {
-            Image(systemName: "checkmark.seal.fill")
+        let abgeschlossen = aktivePeriode?.abgeschlossen == true
+        return VStack(spacing: 10) {
+            Image(systemName: abgeschlossen ? "checkmark.circle.fill" : "checkmark.seal.fill")
                 .font(.system(size: 44, weight: .semibold))
                 .foregroundStyle(DesignTokens.statusOk)
-            Text("Bereit zur Abrechnung")
+            Text(abgeschlossen ? "Abrechnung abgeschlossen" : "Bereit zur Abrechnung")
                 .appFont(AppFont.Basis.bodySemi())
                 .foregroundStyle(DesignTokens.text)
-            Text("Alle Pflichtdaten vollständig.")
+            Text(heroBereitUntertitel)
                 .appFont(AppFont.Basis.caption())
                 .foregroundStyle(DesignTokens.textSecondary)
+                .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 22)
         .padding(.horizontal, 16)
         .background(DesignTokens.statusOkSoft)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private var heroBereitUntertitel: String {
+        if aktivePeriode?.abgeschlossen == true {
+            let n = abrechnungenZurAktivenPeriode.count
+            return "\(n) PDF\(n == 1 ? "" : "s") im Archiv — jederzeit teilen oder neu drucken."
+        }
+        return "Alle Pflichtdaten vollständig. Tippen Sie unten, um die Abrechnung zu erstellen."
+    }
+
+    private var abrechnungenZurAktivenPeriode: [Abrechnung] {
+        guard let p = aktivePeriode else { return [] }
+        return alleAbrechnungen.filter { $0.periode?.id == p.id }
     }
 
     private var heroBlockiert: some View {
@@ -352,27 +425,40 @@ struct AbrechnungsKachelView: View {
         VStack(spacing: 0) {
             DividerLine()
             Button {
-                // Batch-Erstellung folgt im naechsten Commit.
+                zeigeBatchConfirm = true
             } label: {
                 HStack(spacing: 10) {
-                    Image(systemName: ctaIcon)
-                        .font(.system(size: 15, weight: .semibold))
-                    Text(ctaText)
+                    if batchLaeuft {
+                        ProgressView()
+                            .tint(Color.white)
+                    } else {
+                        Image(systemName: ctaIcon)
+                            .font(.system(size: 15, weight: .semibold))
+                    }
+                    Text(batchLaeuft ? "PDFs werden erzeugt …" : ctaText)
                         .appFont(AppFont.Basis.bodySemi())
                 }
                 .foregroundStyle(Color.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
-                .background(istBereit ? DesignTokens.accent : DesignTokens.textQuaternary)
+                .background(ctaFarbe)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
             .buttonStyle(.plain)
-            .disabled(!istBereit)
+            .disabled(!ctaAktiv || batchLaeuft)
             .padding(.horizontal, 16)
             .padding(.top, 12)
             .padding(.bottom, 16)
         }
         .background(DesignTokens.bgAppCompact)
+    }
+
+    private var ctaAktiv: Bool {
+        istBereit && aktivePeriode?.abgeschlossen != true
+    }
+
+    private var ctaFarbe: Color {
+        ctaAktiv ? DesignTokens.accent : DesignTokens.textQuaternary
     }
 
     private var ctaIcon: String {
@@ -387,6 +473,173 @@ struct AbrechnungsKachelView: View {
             return "Abrechnung abgeschlossen"
         }
         return istBereit ? "Abrechnung erstellen" : "Abrechnung erstellen · gesperrt"
+    }
+
+    // MARK: - Archiv-Sektion
+
+    /// Perioden mit mindestens einer gespeicherten `Abrechnung`-
+    /// Entity. Abgeschlossene Perioden ohne Entities werden nicht
+    /// gezeigt — das waere ein alter Zustand aus der Zeit vor dem
+    /// Batch-Commit. Sortierung: juengste zuerst (analog Chips).
+    private var archivPerioden: [Abrechnungsperiode] {
+        let pIDsMitAbrechnungen = Set(alleAbrechnungen.compactMap { $0.periode?.id })
+        return allePerioden
+            .filter { pIDsMitAbrechnungen.contains($0.id) }
+    }
+
+    @ViewBuilder
+    private var archivSektion: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionHeader("Archiv")
+            VStack(spacing: 10) {
+                ForEach(archivPerioden) { p in
+                    archivPeriodenCard(p)
+                }
+            }
+        }
+    }
+
+    private func archivPeriodenCard(_ p: Abrechnungsperiode) -> some View {
+        let rows = alleAbrechnungen
+            .filter { $0.periode?.id == p.id }
+            .sorted { (lhs, rhs) in
+                (lhs.mietverhaeltnis?.mieterName ?? "")
+                    < (rhs.mietverhaeltnis?.mieterName ?? "")
+            }
+        let jahr = Calendar(identifier: .gregorian).component(.year, from: p.bis)
+        return CollapsibleSection(
+            titel: "Periode \(jahr)",
+            summary: Formatting.periode(p.von, p.bis),
+            persistKey: "abrechnungskachel.archiv.\(p.id.uuidString)",
+            defaultOffen: p.id == aktivePeriode?.id
+        ) {
+            VStack(spacing: 0) {
+                ForEach(Array(rows.enumerated()), id: \.element.id) { idx, a in
+                    archivRow(a)
+                    if idx < rows.count - 1 {
+                        DividerLine().padding(.leading, 16)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func archivRow(_ a: Abrechnung) -> some View {
+        let name = a.mietverhaeltnis?.mieterName ?? "Mieter"
+        let saldo = a.saldoEuro
+        Button {
+            oeffneArchivPDF(a)
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "doc.fill")
+                    .font(.system(size: 18, weight: .regular))
+                    .foregroundStyle(DesignTokens.textSecondary)
+                    .frame(width: 28)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(name.isEmpty ? "Mieter" : name)
+                        .appFont(AppFont.Basis.bodySemi())
+                        .foregroundStyle(DesignTokens.text)
+                        .lineLimit(1)
+                    Text(Formatting.datum(a.erstelltAm))
+                        .appFont(AppFont.Basis.caption())
+                        .foregroundStyle(DesignTokens.textSecondary)
+                }
+                Spacer(minLength: 8)
+                Text(Formatting.euro(abs(saldo)))
+                    .appFont(AppFont.Basis.monoCaption())
+                    .foregroundStyle(archivSaldoFarbe(saldo))
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(DesignTokens.textTertiary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func archivSaldoFarbe(_ saldo: Decimal) -> Color {
+        if saldo > 0 { return DesignTokens.statusError }
+        if saldo < 0 { return DesignTokens.statusOk }
+        return DesignTokens.textSecondary
+    }
+
+    /// Schreibt die gespeicherte PDF-Data in ein Temp-File und
+    /// oeffnet `PDFVorschauView` in einem NavigationStack mit
+    /// ShareLink in der Toolbar.
+    private func oeffneArchivPDF(_ a: Abrechnung) {
+        guard let data = a.pdfDatei else { return }
+        let name = a.mietverhaeltnis?.mieterName ?? "Abrechnung"
+        let sicher = name
+            .replacingOccurrences(of: "/", with: "-")
+            .replacingOccurrences(of: " ", with: "_")
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("Archiv_\(sicher)_\(a.id.uuidString.prefix(6)).pdf")
+        do {
+            try data.write(to: url, options: .atomic)
+            archivAuswahlURL = url
+        } catch {
+            batchFehler = error.localizedDescription
+        }
+    }
+
+    // MARK: - Batch-Erstellung
+
+    /// Erzeugt pro Mieter ein PDF und speichert es als `Abrechnung`-
+    /// Entity. Am Ende wird die Periode als `abgeschlossen` markiert.
+    /// Fehler aus AbrechnungsService / PDFGenerator / Save landen
+    /// im `batchFehler`-Alert.
+    @MainActor
+    private func erstelleBatch() async {
+        guard let immobilie = aktiveImmobilie,
+              let periode = aktivePeriode else { return }
+        batchLaeuft = true
+        defer { batchLaeuft = false }
+
+        do {
+            let alle = try AbrechnungsService.aggregiere(
+                periode: periode,
+                immobilie: immobilie
+            )
+            guard !alle.isEmpty else {
+                batchFehler = "Keine aktiven Mietverhältnisse für diese Periode."
+                return
+            }
+            let user = users.first
+            for ma in alle {
+                let kontext = PDFAbrechnungsKontext.baue(
+                    abrechnung: ma,
+                    immobilie: immobilie,
+                    user: user,
+                    periode: periode
+                )
+                let data = try await PDFGenerator.generiereAbrechnungsPDF(
+                    context: kontext
+                )
+                let abrechnung = Abrechnung()
+                abrechnung.pdfDatei = data
+                abrechnung.erstelltAm = Date()
+                abrechnung.periode = periode
+                abrechnung.mietverhaeltnis = mietverhaeltnis(fuer: ma)
+                abrechnung.gesamtkostenEuro = ma.gesamtkostenEuro
+                abrechnung.vorauszahlungenEuro = ma.vorauszahlungenEuro
+                abrechnung.saldoEuro = ma.saldoEuro
+                abrechnung.steuer35aBetragEuro = ma.steuer35aBetragEuro
+                modelContext.insert(abrechnung)
+            }
+            periode.abgeschlossen = true
+            try modelContext.save()
+        } catch {
+            batchFehler = error.localizedDescription
+        }
+    }
+
+    private func mietverhaeltnis(fuer ma: Mieterabrechnung) -> Mietverhaeltnis? {
+        (aktiveImmobilie?.wohneinheiten ?? [])
+            .flatMap { $0.mietverhaeltnisse ?? [] }
+            .first { $0.id == ma.mieterID }
     }
 }
 
