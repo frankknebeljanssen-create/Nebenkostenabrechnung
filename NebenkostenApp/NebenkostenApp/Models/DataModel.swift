@@ -136,6 +136,15 @@ final class Immobilie {
     @Relationship(deleteRule: .cascade, inverse: \HVAbrechnung.immobilie)
     var hvAbrechnungen: [HVAbrechnung]? = []
 
+    /// Stammdaten-Dokumente der Liegenschaft — Energieausweis,
+    /// Grundsteuer-Bescheid, sonstige objektweite Scans. Wird von
+    /// der Stammdaten-Kachel als eigene Sektion angezeigt und
+    /// fliesst in `VollstaendigkeitsPruefung` als zwei nicht
+    /// blockierende Regeln ein (Warnung bei Fehlen). Die inverse
+    /// Relation sitzt auf `GespeichertesDokument.immobilie`.
+    @Relationship(deleteRule: .cascade, inverse: \GespeichertesDokument.immobilie)
+    var stammdatenDokumente: [GespeichertesDokument]? = []
+
     init() {}
 }
 
@@ -246,6 +255,14 @@ final class Mietverhaeltnis {
 
     @Relationship(deleteRule: .cascade, inverse: \Abrechnung.mietverhaeltnis)
     var abrechnungen: [Abrechnung]? = []
+
+    /// Optional: der Scan des Mietvertrags. Wird in der Stammdaten-
+    /// Kachel (Sektion „Mieter") als eigene Row gezeigt — mit CTA
+    /// „Scannen" wenn nil, sonst „Anzeigen". `deleteRule: .nullify`
+    /// damit ein geloeschter Mietvertrag das Mietverhaeltnis selbst
+    /// nicht mitreisst.
+    @Relationship(deleteRule: .nullify)
+    var mietvertragDokument: GespeichertesDokument?
 
     init() {}
 }
@@ -612,17 +629,24 @@ enum Dokumenttyp: String, Codable, CaseIterable, Sendable {
     case winterdienstbeleg
     case zaehlerfoto
     case mietvertrag
+    /// Stammdaten-Dokument: gueltig 10 Jahre nach Ausstellung.
+    /// Wird von der Stammdaten-Kachel separat angezeigt.
+    case energieausweis
+    /// Jahres-Bescheid der Grundsteuer. Stammdaten-Dokument.
+    case grundsteuerbescheid
     case sonstiges
 
     var anzeigeName: String {
         switch self {
-        case .rechnung:          return "Rechnung"
-        case .bescheid:          return "Bescheid"
-        case .handwerkerbeleg:   return "Handwerkerbeleg"
-        case .winterdienstbeleg: return "Winterdienstbeleg"
-        case .zaehlerfoto:       return "Zählerfoto"
-        case .mietvertrag:       return "Mietvertrag"
-        case .sonstiges:         return "Sonstiges"
+        case .rechnung:            return "Rechnung"
+        case .bescheid:            return "Bescheid"
+        case .handwerkerbeleg:     return "Handwerkerbeleg"
+        case .winterdienstbeleg:   return "Winterdienstbeleg"
+        case .zaehlerfoto:         return "Zählerfoto"
+        case .mietvertrag:         return "Mietvertrag"
+        case .energieausweis:      return "Energieausweis"
+        case .grundsteuerbescheid: return "Grundsteuer-Bescheid"
+        case .sonstiges:           return "Sonstiges"
         }
     }
 }
@@ -706,6 +730,12 @@ final class GespeichertesDokument {
     /// wenn der User die AI-Vorschläge übernommen hat. nil = noch
     /// nicht übernommen (oder nie übernommen, z.B. Zählerstand-Foto).
     var rechnungId: UUID?
+
+    /// Zugeordnete Immobilie fuer Stammdaten-Dokumente (Energie-
+    /// ausweis, Grundsteuer-Bescheid, Mietvertrag). Inverse von
+    /// `Immobilie.stammdatenDokumente`. Optional — Dokumente aus
+    /// dem Rechnungs-Scan bleiben ohne diese Relation.
+    var immobilie: Immobilie?
 
     init() {}
 }

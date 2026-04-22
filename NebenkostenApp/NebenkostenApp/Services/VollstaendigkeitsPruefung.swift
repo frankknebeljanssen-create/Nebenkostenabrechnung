@@ -196,7 +196,55 @@ enum VollstaendigkeitsPruefung {
             sprungZiel: .einstellungenPeriode
         ))
 
+        // 6. Energieausweis vorhanden (Warnung, nicht-blockierend).
+        ergebnis.append(dokumentAnforderung(
+            id: "stammdaten-energieausweis",
+            titel: "Energieausweis hinterlegen",
+            details: "Gueltig 10 Jahre ab Ausstellung",
+            typ: .energieausweis,
+            immobilie: immobilie
+        ))
+
+        // 7. Grundsteuer-Bescheid vorhanden (Warnung).
+        ergebnis.append(dokumentAnforderung(
+            id: "stammdaten-grundsteuer",
+            titel: "Grundsteuer-Bescheid hinterlegen",
+            details: "Jaehrlicher Bescheid vom Finanzamt",
+            typ: .grundsteuerbescheid,
+            immobilie: immobilie
+        ))
+
         return ergebnis
+    }
+
+    /// Gemeinsamer Builder fuer die zwei Stammdaten-Dokument-Regeln.
+    /// `.stammdaten`-Kategorie, `schwere: .warnung` (blockiert die
+    /// Abrechnung NICHT — der User soll nur erinnert werden). Status
+    /// ist `.erfuellt`, sobald mindestens ein Dokument dieses Typs
+    /// an der Immobilie haengt.
+    private static func dokumentAnforderung(
+        id: String,
+        titel: String,
+        details: String,
+        typ: Dokumenttyp,
+        immobilie: Immobilie
+    ) -> AnforderungMitStatus {
+        let vorhanden = (immobilie.stammdatenDokumente ?? [])
+            .contains { $0.dokumenttyp == typ }
+        let anf = DatenAnforderung(
+            id: id,
+            kategorie: .stammdaten,
+            titel: titel,
+            details: details,
+            erforderlich: false
+        )
+        return .init(
+            anforderung: anf,
+            status: vorhanden ? .erfuellt : .offen,
+            hinweis: vorhanden ? nil : "Noch kein \(typ.anzeigeName) erfasst",
+            sprungZiel: nil,
+            schwere: .warnung
+        )
     }
 
     /// Prüft, ob alle Abrechnungsperioden der Immobilie `von < bis`
