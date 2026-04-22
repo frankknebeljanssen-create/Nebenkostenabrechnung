@@ -223,7 +223,7 @@ struct HomeView: View {
                     KachelansichtView()
                 } label: {
                     HomeCTALabel(
-                        titel: "Home",
+                        titel: "Zur Übersicht",
                         symbol: "square.grid.2x2",
                         istPrimaer: false
                     )
@@ -234,7 +234,7 @@ struct HomeView: View {
                     KachelansichtView()
                 } label: {
                     HomeCTALabel(
-                        titel: "Home",
+                        titel: "Zur Übersicht",
                         symbol: "square.grid.2x2",
                         istPrimaer: true
                     )
