@@ -42,13 +42,22 @@ struct ScanEntryView: View {
     /// auf "— bitte waehlen —" sondern auf der vorgegebenen Option.
     let vorausgewaehlterTyp: Dokumenttyp?
 
+    /// Wenn true: nach dem Foto direkt `onFertig(doc)` + dismiss —
+    /// OHNE den manuellen `DokumentErfassungView`-Picker dazwischen.
+    /// Wird vom Universeller-Einwurf-FAB gesetzt; dort uebernimmt
+    /// der `UniversellerAnalyseScreen` die Typ-Bestimmung. Alle
+    /// anderen Caller (Home-Scan, Kachel-Scan) behalten den Picker.
+    let direktUebergeben: Bool
+
     init(
         vorausgewaehlteKostenartName: String? = nil,
         vorausgewaehlterTyp: Dokumenttyp? = nil,
+        direktUebergeben: Bool = false,
         onFertig: @escaping (GespeichertesDokument) -> Void = { _ in }
     ) {
         self.vorausgewaehlteKostenartName = vorausgewaehlteKostenartName
         self.vorausgewaehlterTyp = vorausgewaehlterTyp
+        self.direktUebergeben = direktUebergeben
         self.onFertig = onFertig
     }
 
@@ -215,6 +224,22 @@ struct ScanEntryView: View {
 
     // MARK: - Speichern
 
+    /// Nach erfolgreichem Ablegen weiterleiten. Im Direkt-Modus
+    /// (Universeller Einwurf, FAB) ueberspringen wir den
+    /// `DokumentErfassungView`-Picker und dismissen sofort, damit
+    /// der `UniversellerAnalyseScreen` die Typ-Bestimmung uebernimmt.
+    /// Im Klassik-Modus (Home, Kacheln) zeigt sich wie bisher das
+    /// Erfassungs-Sheet zur manuellen Typ-Auswahl.
+    private func weiterleiten(_ doc: GespeichertesDokument) {
+        print("📦 ScanEntryView: Dokument persistiert id=\(doc.id) direkt=\(direktUebergeben)")
+        if direktUebergeben {
+            onFertig(doc)
+            dismiss()
+        } else {
+            erfassungsDokument = doc
+        }
+    }
+
     private func speicherKamera(_ bilder: [UIImage]) {
         do {
             let pdf = try DokumentAblageService.pdfAusBildern(bilder)
@@ -225,7 +250,7 @@ struct ScanEntryView: View {
                 context: modelContext
             )
             try modelContext.save()
-            erfassungsDokument = doc
+            weiterleiten(doc)
         } catch {
             fehlermeldung = error.localizedDescription
         }
@@ -244,7 +269,7 @@ struct ScanEntryView: View {
                 context: modelContext
             )
             try modelContext.save()
-            erfassungsDokument = doc
+            weiterleiten(doc)
         } catch {
             fehlermeldung = error.localizedDescription
         }
@@ -273,7 +298,7 @@ struct ScanEntryView: View {
                 return
             }
             try modelContext.save()
-            erfassungsDokument = doc
+            weiterleiten(doc)
         } catch {
             fehlermeldung = error.localizedDescription
         }

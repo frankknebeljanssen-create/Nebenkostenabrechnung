@@ -48,6 +48,12 @@ struct AppShell: View {
     /// Folge-Screen lebt im Router, damit er auch aus anderen Kontexten
     /// adressierbar bleibt.
     @State private var zeigeScanEinwurf = false
+    /// Zwischen-State zwischen ScanEntryView-Dismiss und Analyse-Sheet-
+    /// Praesentation. Ohne den Wert koennen die beiden Sheets nicht
+    /// sauber aneinander geketted werden — SwiftUI erlaubt nur ein
+    /// aktives Sheet pro Presenter, der `onDismiss`-Callback des
+    /// ersten Sheets triggert dann das zweite.
+    @State private var pendingAnalyseDokumentID: UUID?
 
     // Pro Tab ein eigener NavigationPath — wird vom `NavigationStack`
     // gehalten. Bei Re-Tap auf den aktiven Tab leeren wir den
@@ -134,18 +140,27 @@ struct AppShell: View {
                 ZaehlerstandErfassenView(zaehler: z)
             }
         }
-        .sheet(isPresented: $zeigeScanEinwurf) {
-            ScanEntryView(onFertig: { dokument in
-                // Sobald das Dokument persistiert ist, schliesst
-                // `ScanEntryView` und der Router oeffnet den
-                // Universeller-Analyse-Screen. Kleines Delay, damit
-                // das erste Sheet dismisst ist bevor das zweite
-                // aufschwebt — sonst blockt SwiftUI die Animation.
-                Task { @MainActor in
-                    try? await Task.sleep(nanoseconds: 200_000_000)
-                    router.oeffneAnalyseSheet(dokumentID: dokument.id)
+        .sheet(
+            isPresented: $zeigeScanEinwurf,
+            onDismiss: {
+                // Wird gerufen, nachdem ScanEntryView komplett
+                // dismisst ist. Jetzt — und erst jetzt — koennen
+                // wir den Analyse-Screen sauber aufpoppen lassen.
+                if let id = pendingAnalyseDokumentID {
+                    print("🧭 AppShell onDismiss: oeffne Analyse-Sheet fuer \(id)")
+                    router.oeffneAnalyseSheet(dokumentID: id)
+                    pendingAnalyseDokumentID = nil
                 }
-            })
+            }
+        ) {
+            // direktUebergeben=true: ScanEntryView ueberspringt den
+            // alten `DokumentErfassungView`-Picker und ruft sofort
+            // unseren `onFertig`-Callback — der Universeller-Analyse-
+            // Screen uebernimmt die Typ-Bestimmung.
+            ScanEntryView(direktUebergeben: true) { dokument in
+                print("📥 AppShell.onFertig: dokumentID=\(dokument.id)")
+                pendingAnalyseDokumentID = dokument.id
+            }
         }
         .sheet(item: analyseBinding) { kontext in
             if let dok = findeDokument(id: kontext.dokumentID) {
