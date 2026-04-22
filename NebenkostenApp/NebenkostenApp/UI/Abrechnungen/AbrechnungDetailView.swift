@@ -33,6 +33,7 @@ struct AbrechnungDetailView: View {
     @Environment(AppShellRouter.self) private var router
 
     @State private var zeigePDFVorschau = false
+    @State private var zeigeMailSheet = false
 
     /// Defensiver Check: liegt trotz berechneter Mieterabrechnung
     /// noch ein unbehandelter Blocker vor, rendert die View ohne
@@ -45,6 +46,14 @@ struct AbrechnungDetailView: View {
 
     private var pdfExportAktiv: Bool {
         !hatBlocker && pdfPeriode != nil && pdfImmobilie != nil
+    }
+
+    /// Mail zusaetzlich an `MailComposer.kannMailSenden` geknuepft —
+    /// auf Simulatoren ohne Konto oder frischen Geraeten oeffnet die
+    /// Compose-Maske sonst nicht. MFMailCompose ist einzige Mail-API
+    /// die Attachments unterstuetzt (`mailto:` kann nur Text).
+    private var mailExportAktiv: Bool {
+        pdfExportAktiv && MailComposer.kannMailSenden
     }
 
     var body: some View {
@@ -74,6 +83,16 @@ struct AbrechnungDetailView: View {
         .sheet(isPresented: $zeigePDFVorschau) {
             if let p = pdfPeriode, let i = pdfImmobilie {
                 PDFVorschauSheet(
+                    abrechnung: abrechnung,
+                    immobilie: i,
+                    periode: p,
+                    user: pdfUser
+                )
+            }
+        }
+        .sheet(isPresented: $zeigeMailSheet) {
+            if let p = pdfPeriode, let i = pdfImmobilie {
+                AbrechnungsMailSheet(
                     abrechnung: abrechnung,
                     immobilie: i,
                     periode: p,
@@ -321,12 +340,10 @@ struct AbrechnungDetailView: View {
                 action: { zeigePDFVorschau = true }
             )
             actionButton(
-                titel: hatBlocker
-                    ? "Per Mail versenden · gesperrt"
-                    : "Per Mail versenden (kommt spaeter)",
+                titel: mailButtonTitel,
                 symbol: "envelope",
-                disabled: true,
-                action: {}
+                disabled: !mailExportAktiv,
+                action: { zeigeMailSheet = true }
             )
             actionButton(
                 titel: hatBlocker
@@ -345,6 +362,17 @@ struct AbrechnungDetailView: View {
             return "PDF-Vorschau · nicht verfügbar"
         }
         return "PDF-Vorschau"
+    }
+
+    private var mailButtonTitel: String {
+        if hatBlocker { return "Per Mail versenden · gesperrt" }
+        if pdfPeriode == nil || pdfImmobilie == nil {
+            return "Per Mail versenden · nicht verfügbar"
+        }
+        if !MailComposer.kannMailSenden {
+            return "Per Mail versenden · kein Mail-Account"
+        }
+        return "Per Mail versenden"
     }
 
     private func actionButton(

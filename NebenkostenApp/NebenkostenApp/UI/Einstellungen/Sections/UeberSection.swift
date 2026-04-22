@@ -2,15 +2,25 @@
 //  UeberSection.swift
 //  NebenkostenApp — UI/Einstellungen/Sections
 //
-//  Meta-Info über die App: Version, Build, Bundle-ID, Gerät.
-//  Ersatz für die alte AboutSection — semantisch dasselbe, aber im
-//  UI-Fix-2-Design mit Mono-Werten und Device-Zeile.
+//  Meta-Info über die App: Version, Build, Bundle-ID, Gerät, plus
+//  „Feedback senden". Der Feedback-Button oeffnet MFMailCompose mit
+//  vorgegebenem Empfaenger + Diagnose-Footer (Version, Build, Device).
+//  Wenn iOS keinen Mail-Account eingerichtet hat (Simulator ohne
+//  Konfiguration oder frisches Geraet), faellt er auf eine
+//  `mailto:`-URL zurueck — iOS uebergibt das an die Default-Mail-App.
 //
 
 import SwiftUI
 import UIKit
 
 struct UeberSection: View {
+    /// Platzhalter — vor Launch auf echte Supporter-Adresse aendern.
+    /// Der mailto-Fallback nutzt denselben Wert.
+    static let feedbackEmail = "feedback@nebenkosten.app"
+
+    @State private var zeigeMailComposer = false
+    @State private var mailInhalt = MailInhalt()
+
     var body: some View {
         Section {
             zeile("Version", wert: version)
@@ -18,7 +28,7 @@ struct UeberSection: View {
             zeile("Bundle-ID", wert: bundleId, mono: true)
             zeile("Gerät", wert: geraet, mono: true)
             Button {
-                // TODO: Mail-Composer mit Platzhalter-Empfänger-Adresse.
+                starteFeedbackMail()
             } label: {
                 HStack {
                     Text("Feedback senden")
@@ -28,15 +38,52 @@ struct UeberSection: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            .disabled(true)
         } header: {
             Text("Über die App")
         } footer: {
-            Text("Feedback-Integration folgt — bis dahin per App Store Review oder persönlichem E-Mail.")
+            Text("Empfänger: \(Self.feedbackEmail)")
                 .appFont(AppFont.smallCaption())
                 .foregroundStyle(DesignTokens.textTertiary)
         }
+        .sheet(isPresented: $zeigeMailComposer) {
+            MailComposer(inhalt: mailInhalt)
+                .ignoresSafeArea()
+        }
     }
+
+    // MARK: - Feedback-Trigger
+
+    /// Wenn ein Mail-Account da ist, oeffnet den MFMailCompose-Sheet
+    /// mit Diagnose-Info. Ohne Account: `mailto:`-URL an die Default-
+    /// Mail-App. Fallback-URL enthaelt denselben Text — der User
+    /// weiss also in beiden Wegen, welche Info er absendet.
+    private func starteFeedbackMail() {
+        let inhalt = baueFeedbackInhalt()
+        if MailComposer.kannMailSenden {
+            mailInhalt = inhalt
+            zeigeMailComposer = true
+        } else if let url = MailToFallback.url(fuer: inhalt) {
+            UIApplication.shared.open(url)
+        }
+    }
+
+    private func baueFeedbackInhalt() -> MailInhalt {
+        let diagnose = """
+
+
+        ——————————————
+        App-Version: \(version) (\(build))
+        Bundle: \(bundleId)
+        Gerät: \(geraet)
+        """
+        return MailInhalt(
+            empfaenger: [Self.feedbackEmail],
+            betreff: "Feedback zur Nebenkosten-App",
+            nachricht: "Mein Feedback:\n\n" + diagnose
+        )
+    }
+
+    // MARK: - Info-Zeile
 
     private func zeile(_ label: String, wert: String, mono: Bool = false) -> some View {
         HStack {
