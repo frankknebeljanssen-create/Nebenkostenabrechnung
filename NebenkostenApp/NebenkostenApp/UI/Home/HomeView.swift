@@ -100,6 +100,12 @@ struct HomeView: View {
 
     var body: some View {
         inhalt
+            // Unsichtbarer navigationTitle — AppShellChrome blendet
+            // die NavBar eh aus. iOS nutzt ihn aber fuer den
+            // automatischen Back-Button-Text beim Push
+            // (Kachelansicht → zurueck zu „Home").
+            .navigationTitle("Home")
+            .navigationBarTitleDisplayMode(.inline)
             .appShellChrome(
                 titel: nil,
                 subtitel: nil,
@@ -195,11 +201,11 @@ struct HomeView: View {
     }
 
     /// CTA-Block. Regel:
-    ///   - prozent < 100  → "Zur Übersicht" ist primaer (Accent).
+    ///   - prozent < 100  → "Home" ist primaer (Accent).
     ///     "Abrechnung erstellen" ist nicht sichtbar, solange nicht
     ///     alle Anforderungen erfuellt sind.
     ///   - prozent == 100 → "Abrechnung erstellen" ist primaer,
-    ///     "Zur Übersicht" rutscht auf secondary (Outline).
+    ///     "Home" rutscht auf secondary (Outline).
     private var ctaBlock: some View {
         VStack(spacing: 10) {
             if prozent == 100 {
@@ -217,7 +223,7 @@ struct HomeView: View {
                     KachelansichtView()
                 } label: {
                     HomeCTALabel(
-                        titel: "Zur Übersicht",
+                        titel: "Home",
                         symbol: "square.grid.2x2",
                         istPrimaer: false
                     )
@@ -228,7 +234,7 @@ struct HomeView: View {
                     KachelansichtView()
                 } label: {
                     HomeCTALabel(
-                        titel: "Zur Übersicht",
+                        titel: "Home",
                         symbol: "square.grid.2x2",
                         istPrimaer: true
                     )
