@@ -201,6 +201,12 @@ struct KIExtraktionSection: View {
     /// von SwiftUI nicht beobachtet und waere stale.
     @AppStorage("anthropic.apiKey") private var apiKey: String = ""
 
+    /// Dev-Modus: Universeller Scan-Einwurf klassifiziert ueber einen
+    /// echten Claude-Vision-Call. Nur fuer Entwicklung — der Cloudflare-
+    /// Worker-Proxy und PII-Schwaerzung fehlen noch (CLAUDE.md-Regeln).
+    @AppStorage(ScanKlassifikator.debugFlagKey)
+    private var klassifikationsDebug: Bool = false
+
     private var istKonfiguriert: Bool {
         !apiKey.trimmingCharacters(in: .whitespaces).isEmpty
     }
@@ -218,6 +224,15 @@ struct KIExtraktionSection: View {
                         .foregroundStyle(istKonfiguriert ? DesignTokens.statusOk : DesignTokens.statusError)
                 }
             }
+            Toggle(isOn: $klassifikationsDebug) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Auto-Klassifikation (Dev)")
+                    Text("Schickt Scan-PDFs an Claude zur Typ-Erkennung. Ungeschwärzt — nur für Tests.")
+                        .appFont(AppFont.caption())
+                        .foregroundStyle(DesignTokens.textSecondary)
+                }
+            }
+            .disabled(!istKonfiguriert)
         } header: {
             Text("KI-Extraktion")
         } footer: {

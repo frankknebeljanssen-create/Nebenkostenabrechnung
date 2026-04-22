@@ -38,6 +38,10 @@ struct UniversellerAnalyseScreen: View {
     @State private var laeuft = true
     @State private var zeigeTypPicker = false
     @State private var subSheet: SubSheet?
+    /// Nach einem echten Claude-Call gesetzt, wenn der Request geschlagen
+    /// ist — der User sieht einen Banner mit dem Grund und faellt
+    /// automatisch auf den User-Picker-Fluss zurueck.
+    @State private var klassifikationsFehler: String?
 
     /// Welches Folge-Sheet nach „Uebernehmen" gezeigt werden soll.
     /// Nil = keins (Typ verarbeitet ohne zusaetzlichen Screen, z.B.
@@ -81,9 +85,15 @@ struct UniversellerAnalyseScreen: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
+                    if ScanKlassifikator.devModusAktiv {
+                        devModusBanner
+                    }
                     if laeuft {
                         analyseLaeuftBlock
                     } else {
+                        if let fehler = klassifikationsFehler {
+                            fehlerBanner(fehler)
+                        }
                         typBadge
                         if let erg = ergebnis, !erg.felder.isEmpty {
                             felderCard(erg.felder)
@@ -118,6 +128,9 @@ struct UniversellerAnalyseScreen: View {
     private func klassifiziere() async {
         let erg = await ScanKlassifikator.klassifiziere(dokument: dokument)
         ergebnis = erg
+        // `letzterFehler` wird vom Klassifikator vor jedem Call
+        // geleert — nur Fehler dieser Runde kommen an.
+        klassifikationsFehler = ScanKlassifikator.letzterFehler
         laeuft = false
     }
 
@@ -133,6 +146,56 @@ struct UniversellerAnalyseScreen: View {
                 typ: neu, konfidenz: 0, felder: [:]
             )
         }
+    }
+
+    // MARK: - Banner
+
+    /// Sichtbar, solange der Debug-Toggle `scan.klassifikation.debug
+    /// .aktiv` gesetzt ist. Macht dem User klar, dass das Dokument
+    /// ungeschwaerzt an Anthropic geschickt wird — diese Offenheit
+    /// ist DSGVO-relevant und steht explizit in CLAUDE.md (Mode B
+    /// Opt-in).
+    private var devModusBanner: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(DesignTokens.statusError)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Dev-Modus · ungeschwärzter Versand")
+                    .appFont(AppFont.Basis.bodySemi())
+                    .foregroundStyle(DesignTokens.text)
+                Text("Das Dokument wird vollständig an Anthropic gesendet. Nicht für Produktiv-Daten.")
+                    .appFont(AppFont.Basis.caption())
+                    .foregroundStyle(DesignTokens.textSecondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(DesignTokens.statusErrorSoft)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private func fehlerBanner(_ meldung: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "wifi.exclamationmark")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(DesignTokens.statusWarn)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Automatische Erkennung fehlgeschlagen")
+                    .appFont(AppFont.Basis.bodySemi())
+                    .foregroundStyle(DesignTokens.text)
+                Text(meldung)
+                    .appFont(AppFont.Basis.caption())
+                    .foregroundStyle(DesignTokens.textSecondary)
+                    .lineLimit(3)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(DesignTokens.statusWarnSoft)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     // MARK: - Analyse-Animation
