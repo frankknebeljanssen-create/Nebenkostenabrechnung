@@ -237,7 +237,7 @@ struct HomeView: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.bottom, 16)
+        .padding(.bottom, 32)
     }
 
     // MARK: - Router-Reaktion
@@ -424,8 +424,9 @@ fileprivate struct NaechsteSchritteListe: View {
 /// `NavigationLink` fuer den Kachelansicht-Push, unter `Button`
 /// fuer "Abrechnung erstellen". `istPrimaer` steuert Accent-Fill
 /// + weisse Schrift (primaer) vs. Outline + text-Farbe (secondary).
-/// Fixe 50-pt-Mindesthoehe, damit der primaere Button sich klar
-/// absetzt und der User Daumen-gerecht trifft.
+/// 62-pt-Mindesthoehe — nach Geraete-Feedback vergroessert, damit
+/// der Hero-CTA sich klar absetzt und der Daumen zuverlaessig
+/// trifft (Zielgruppe 50+).
 fileprivate struct HomeCTALabel: View {
     let titel: String
     let symbol: String
@@ -434,26 +435,26 @@ fileprivate struct HomeCTALabel: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: symbol)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 17, weight: .semibold))
             Text(titel)
                 .appFont(AppFont.Basis.bodySemi())
             Spacer(minLength: 4)
             Image(systemName: istPrimaer ? "arrow.right" : "chevron.right")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold))
         }
         .foregroundStyle(istPrimaer ? Color.white : DesignTokens.text)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .frame(maxWidth: .infinity, minHeight: 50)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 18)
+        .frame(maxWidth: .infinity, minHeight: 62)
         .background(istPrimaer ? DesignTokens.accent : DesignTokens.bgSurface)
         .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .stroke(
                     istPrimaer ? Color.clear : DesignTokens.separator,
                     lineWidth: 0.5
                 )
         )
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 
