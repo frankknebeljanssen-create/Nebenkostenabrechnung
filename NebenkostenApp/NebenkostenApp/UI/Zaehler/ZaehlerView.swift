@@ -36,6 +36,12 @@ struct ZaehlerView: View {
 
     @State private var zeigeScopePicker = false
     @State private var zeigeEinstellungen = false
+    /// Detail-Sheet aus Row-Tap: zeigt Stammdaten + History + Neuer-
+    /// Stand-Button. Der Erfassen-Flow laeuft aus dem Detail heraus.
+    @State private var detailZaehler: Zaehler?
+    /// Direkter Erfassen-Shortcut aus Warn-Card und Sprungziel
+    /// `.zaehlerstandErfassen`. Umgeht das Detail-Sheet bewusst —
+    /// der User hat dort explizit den Weg zum Erfassen gewaehlt.
     @State private var erfassenZaehler: Zaehler?
 
     private var immobilie: Immobilie? { immobilien.first }
@@ -65,7 +71,7 @@ struct ZaehlerView: View {
                         medium: g.medium,
                         zaehler: g.zaehler,
                         periode: aktivePeriode,
-                        onTapZaehler: { erfassenZaehler = $0 }
+                        onTapZaehler: { detailZaehler = $0 }
                     )
                 }
             }
@@ -82,6 +88,9 @@ struct ZaehlerView: View {
         )
         .sheet(isPresented: $zeigeScopePicker) { ScopePickerSheet() }
         .sheet(isPresented: $zeigeEinstellungen) { EinstellungenSheet() }
+        .sheet(item: $detailZaehler) { z in
+            NavigationStack { ZaehlerDetailView(zaehler: z) }
+        }
         .sheet(item: $erfassenZaehler) { z in
             NavigationStack { ZaehlerstandErfassenView(zaehler: z) }
         }
