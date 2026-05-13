@@ -13,21 +13,26 @@ struct ValidationService {
     static func validateStruktur(abrechnung: Abrechnung) -> (valid: Bool, fehler: [String]) {
         var fehler: [String] = []
 
-        if abrechnung.meta.objekt.gesamtflaecheQm <= 0 {
-            fehler.append("Gesamtfläche fehlt oder ist 0")
+        // Gesamtfläche ist jetzt optional — fehlend = Warnung, nicht Fehler.
+        // Wir können auch ohne Objekt-Gesamtfläche prüfen (z. B. wenn alle
+        // Positionen einen Mieteranteil und Verteilerschlüssel haben).
+        if let gqm = abrechnung.meta.objekt.gesamtflaecheQm, gqm <= 0 {
+            fehler.append("Gesamtfläche ist 0 oder negativ")
         }
         if abrechnung.kostenpositionen.isEmpty {
             fehler.append("Keine Kostenpositionen extrahiert")
         }
         for pos in abrechnung.kostenpositionen {
-            if pos.gesamtkosten <= 0 {
+            // gesamtkosten optional: wenn nil, kein Fehler — kann auf der
+            // Abrechnung schlicht fehlen (z. B. nur Mieteranteile angegeben).
+            if let gk = pos.gesamtkosten, gk <= 0 {
                 fehler.append("Position \(pos.id) '\(pos.bezeichnungOriginal)': Gesamtkosten ≤ 0")
             }
             if pos.mieterAnteil < 0 {
                 fehler.append("Position \(pos.id): negativer Mieteranteil")
             }
         }
-        if abrechnung.summeAnteile < 0 {
+        if let summe = abrechnung.summeAnteile, summe < 0 {
             fehler.append("Summe der Mieteranteile ist negativ")
         }
 
@@ -40,14 +45,18 @@ struct ValidationService {
         var fehler: [String] = []
 
         let berechnete = abrechnung.kostenpositionen.reduce(Decimal(0)) { $0 + $1.mieterAnteil }
-        let differenz = abs(berechnete - abrechnung.summeAnteile)
-        if differenz > 1 {
-            fehler.append("Summe der Einzelposten (\(berechnete)) weicht von Gesamtsumme (\(abrechnung.summeAnteile)) ab")
+        if let summe = abrechnung.summeAnteile {
+            let differenz = abs(berechnete - summe)
+            if differenz > 1 {
+                fehler.append("Summe der Einzelposten (\(berechnete)) weicht von Gesamtsumme (\(summe)) ab")
+            }
         }
+        // Wenn `summeAnteile` nil ist, können wir den Cross-Check nicht
+        // machen — das ist kein Validierungsfehler, sondern fehlende Quelle.
 
         for pos in abrechnung.kostenpositionen {
-            if pos.mieterAnteil > pos.gesamtkosten {
-                fehler.append("Position \(pos.id): Mieteranteil (\(pos.mieterAnteil)) > Gesamtkosten (\(pos.gesamtkosten))")
+            if let gk = pos.gesamtkosten, pos.mieterAnteil > gk {
+                fehler.append("Position \(pos.id): Mieteranteil (\(pos.mieterAnteil)) > Gesamtkosten (\(gk))")
             }
         }
 

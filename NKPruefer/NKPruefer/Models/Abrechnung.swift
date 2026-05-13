@@ -1,13 +1,18 @@
 import Foundation
 
 // MARK: - Abrechnung (Parser-Output)
+//
+// v4-16c: Fast alle Felder sind optional. Der Parser-LLM liefert `null`
+// für Werte, die nicht auf der Abrechnung stehen — das ist korrektes
+// Verhalten. Required bleiben nur die Felder, ohne die die Pipeline
+// gar nicht laufen kann (`zeitraum.von/bis`, Kostenpositions-Kern).
 
 struct Abrechnung: Codable, Sendable {
     let meta: AbrechnungMeta
     let kostenpositionen: [Kostenposition]
-    let summeAnteile: Decimal
-    let confidenceGesamt: Confidence
-    let warnungen: [String]
+    let summeAnteile: Decimal?
+    let confidenceGesamt: Confidence?
+    let warnungen: [String]?
 
     enum CodingKeys: String, CodingKey {
         case meta
@@ -25,9 +30,9 @@ struct AbrechnungMeta: Codable, Sendable {
     let objekt: ParsedObjekt
     let zeitraum: Zeitraum
     let mieterEinheit: MieterEinheit
-    let vorauszahlungenGesamt: Decimal
-    let nachzahlungOderGuthaben: Decimal
-    let typ: AbrechnungsTyp
+    let vorauszahlungenGesamt: Decimal?
+    let nachzahlungOderGuthaben: Decimal?
+    let typ: AbrechnungsTyp?
 
     enum CodingKeys: String, CodingKey {
         case vermieter
@@ -41,14 +46,14 @@ struct AbrechnungMeta: Codable, Sendable {
 }
 
 struct ParsedVermieter: Codable, Sendable {
-    let name: String
-    let adresse: String
+    let name: String?
+    let adresse: String?
 }
 
 struct ParsedObjekt: Codable, Sendable {
-    let adresse: String
-    let gesamtflaecheQm: Decimal
-    let anzahlEinheiten: Int
+    let adresse: String?
+    let gesamtflaecheQm: Decimal?
+    let anzahlEinheiten: Int?
     let baujahr: Int?
 
     enum CodingKeys: String, CodingKey {
@@ -66,7 +71,7 @@ struct Zeitraum: Codable, Sendable {
 
 struct MieterEinheit: Codable, Sendable {
     let bezeichnung: String?
-    let flaecheQm: Decimal
+    let flaecheQm: Decimal?
     let personen: Int?
 
     enum CodingKeys: String, CodingKey {
@@ -87,10 +92,10 @@ struct Kostenposition: Codable, Identifiable, Sendable {
     let id: Int
     let bezeichnungOriginal: String
     let kostenartNormalisiert: String?
-    let gesamtkosten: Decimal
+    let gesamtkosten: Decimal?
     let verteilerschluessel: Verteilerschluessel
     let mieterAnteil: Decimal
-    let confidence: Confidence
+    let confidence: Confidence?
     let notiz: String?
 
     enum CodingKeys: String, CodingKey {

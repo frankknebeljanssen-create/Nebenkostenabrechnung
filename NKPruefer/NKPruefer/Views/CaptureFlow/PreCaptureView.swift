@@ -1,15 +1,28 @@
 import SwiftUI
+import PhotosUI
+import UIKit
 
 /// v4-PreCapture-Screen — die Erklärseite vor dem Kamera-Start.
 ///
-/// Layout-Regeln (v4-11):
-///   • System-NavigationBar mit nativem Back-Button (kein NKHeader,
-///     der mit Content überlappt)
-///   • 3 NummerKarten, gestapelt mit konsistentem Spacing
-///   • Info-Box + primärer „Kamera öffnen"-Button am unteren Rand
-///   • Bottom-Padding für Tab-Bar-Clearance
+/// v4-16: Bietet jetzt BEIDE Wege schon hier an — „Kamera öffnen" und
+/// „Aus Fotos wählen". Wer schon fertige Fotos auf dem iPhone hat, soll
+/// nicht erst durch den Kamera-Screen klicken müssen, nur um dort die
+/// Galerie zu öffnen.
 struct PreCaptureView: View {
     @State private var auftrag = PruefungsAuftrag()
+
+    /// Vom PhotosPicker auf diesem Screen ausgewählte Items.
+    @State private var selectedPhotos: [PhotosPickerItem] = []
+
+    /// Bilder, die nach dem Laden an `CaptureView` durchgereicht werden.
+    @State private var vorausgewaehlteBilder: [UIImage] = []
+
+    /// Programmatischer Navigation-Trigger: wird nach erfolgreichem Laden
+    /// der Fotos gesetzt, damit der Push mit gefüllten Bildern passiert.
+    @State private var navigiereMitBildern: Bool = false
+
+    /// Lädt-State während der PhotosPicker-Items in UIImages umgewandelt werden.
+    @State private var ladeFotos: Bool = false
 
     var body: some View {
         ScrollView {
@@ -25,7 +38,7 @@ struct PreCaptureView: View {
                     NummerKarte(
                         nummer: 1,
                         icon: "camera",
-                        text: "Fotografiere die Seiten mit Beträgen und Kostenaufstellung — meistens 2–4 Seiten"
+                        text: "Fotografiere mindestens die Zusammenfassung und alle Seiten mit Kostenaufstellungen — meistens 2–4 Seiten"
                     )
                     NummerKarte(
                         nummer: 2,
@@ -45,34 +58,109 @@ struct PreCaptureView: View {
                             .font(.system(size: 14))
                             .foregroundStyle(AppTheme.accent)
                             .padding(.top, 2)
-                        Text("Gleich fragt dein Handy, ob die App die Kamera benutzen darf. Tippe auf „Erlauben“.")
+                        Text("Falls dein Handy fragt, ob die App die Kamera benutzen darf — tippe auf „Erlauben“.")
                             .font(AppTypography.body)
                             .foregroundStyle(AppTheme.textPrimary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
 
-                NavigationLink {
-                    CaptureView(auftrag: auftrag)
-                } label: {
-                    HStack(spacing: AppSpacing.sm) {
-                        Image(systemName: "camera.fill")
-                        Text("Kamera öffnen")
-                    }
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 50)
-                    .background(AppTheme.accent)
-                    .clipShape(RoundedRectangle(cornerRadius: AppSpacing.buttonRadius))
-                }
-                .padding(.top, AppSpacing.xs)
+                aktionsButtons
+                    .padding(.top, AppSpacing.xs)
             }
             .padding(.horizontal, AppSpacing.contentPadding)
         }
         .background(AppTheme.screenBg.ignoresSafeArea())
         .navigationTitle("Abrechnung prüfen")
         .navigationBarTitleDisplayMode(.inline)
+        // Standard-Push zum Kamera-Screen (frische auftrag, keine Bilder).
+        // Wird vom „Kamera öffnen"-NavigationLink genutzt.
+        // Programmatischer Push für den „Aus Fotos wählen"-Pfad, der mit
+        // bereits geladenen Bildern in CaptureView springt.
+        .navigationDestination(isPresented: $navigiereMitBildern) {
+            CaptureView(auftrag: auftrag, vorausgewaehlteBilder: vorausgewaehlteBilder)
+        }
+        .onChange(of: selectedPhotos) { _, neue in
+            Task { await ladeFotosUndNavigiere(neue) }
+        }
+    }
+
+    // MARK: - Aktions-Buttons (beide gleich-prominent gefüllt)
+
+    private var aktionsButtons: some View {
+        VStack(spacing: AppSpacing.md) {
+            // 1. Kamera öffnen (primär)
+            NavigationLink {
+                CaptureView(auftrag: auftrag)
+            } label: {
+                HStack(spacing: AppSpacing.sm) {
+                    Image(systemName: "camera.fill")
+                    Text("Kamera öffnen")
+                }
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: 50)
+                .background(AppTheme.accent)
+                .clipShape(RoundedRectangle(cornerRadius: AppSpacing.buttonRadius))
+            }
+            .accessibilityLabel("Kamera öffnen, um die Abrechnung zu fotografieren")
+
+            // 2. Aus Fotos wählen — EXAKT gleiche Geometrie und Schrift-
+            // Stärke wie der „Kamera öffnen"-Button. Unterscheidet sich
+            // NUR in der Hintergrundfarbe (success-grün statt accent-blau),
+            // damit beide klar als gleichwertige CTAs lesbar sind.
+            PhotosPicker(
+                selection: $selectedPhotos,
+                maxSelectionCount: 10,
+                matching: .images
+            ) {
+                HStack(spacing: AppSpacing.sm) {
+                    if ladeFotos {
+                        ProgressView()
+                            .controlSize(.small)
+                            .tint(.white)
+                    } else {
+                        Image(systemName: "photo.on.rectangle")
+                    }
+                    Text(ladeFotos ? "Fotos werden geladen …" : "Aus Fotos wählen")
+                }
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: 50)
+                .background(AppTheme.success)
+                .clipShape(RoundedRectangle(cornerRadius: AppSpacing.buttonRadius))
+            }
+            .disabled(ladeFotos)
+            .accessibilityLabel("Aus Fotos wählen, statt zu fotografieren")
+        }
+    }
+
+    // MARK: - Photo-Picker-Loading
+    //
+    // Wandelt die ausgewählten Picker-Items asynchron in UIImages um und
+    // triggert dann den Push zur CaptureView mit gefüllten Bildern.
+
+    private func ladeFotosUndNavigiere(_ items: [PhotosPickerItem]) async {
+        guard !items.isEmpty else { return }
+        await MainActor.run { ladeFotos = true }
+
+        var geladen: [UIImage] = []
+        for item in items {
+            if let data = try? await item.loadTransferable(type: Data.self),
+               let image = UIImage(data: data) {
+                geladen.append(image)
+            }
+        }
+
+        await MainActor.run {
+            ladeFotos = false
+            selectedPhotos = []
+            guard !geladen.isEmpty else { return }
+            vorausgewaehlteBilder = geladen
+            navigiereMitBildern = true
+        }
     }
 }
 

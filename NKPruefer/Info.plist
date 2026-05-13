@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
-	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<string>de</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -18,10 +18,18 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Der Nebenkosten-Prüfer braucht Zugriff auf deine Kamera, um die Abrechnung zu fotografieren.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Der Nebenkosten-Prüfer verwendet Face ID um deine Daten zu schützen.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string></string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Der Nebenkosten-Prüfer braucht Zugriff auf deine Fotos, damit du bereits fotografierte Abrechnungen auswählen kannst.</string>
 	<key>UIDesignRequiresCompatibility</key>
 	<true/>
 	<key>UILaunchScreen</key>

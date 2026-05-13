@@ -23,6 +23,9 @@ struct WiderspruchView: View {
     let bericht: Pruefbericht
     let mietobjekt: Mietobjekt
 
+    /// v4-21: Demo-Modus deaktiviert echten Versand.
+    var isDemo: Bool = false
+
     @EnvironmentObject var userProfile: UserProfile
 
     // Generierungs-State
@@ -44,6 +47,9 @@ struct WiderspruchView: View {
     @State private var zeigeShareSheet = false
     @State private var sharePDFURL: URL? = nil
     @State private var kopiertToast = false
+
+    /// v4-21: Alert wenn ein Versand-Button im Demo-Modus getippt wird.
+    @State private var zeigeDemoAlert = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -77,6 +83,10 @@ struct WiderspruchView: View {
         .task {
             guard !datenGeprueft else { return }
             datenGeprueft = true
+            // v4-19 Fix 4: Vermieter aus Parser-Output vorausfüllen
+            // (falls noch nicht im Mietobjekt hinterlegt). Der User kann
+            // im VermieterDatenSheet weiter editieren.
+            fuelleVermieterAusBerichtFallsLeer()
             if mietobjekt.kannWiderspruchErstellen {
                 await starteGenerierung()
             } else {
@@ -110,6 +120,12 @@ struct WiderspruchView: View {
                     .ignoresSafeArea()
             }
         }
+        // v4-21: Demo-Modus blockt echten Versand mit einem Hinweis.
+        .alert("Im Demo-Modus nicht möglich", isPresented: $zeigeDemoAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Im Demo-Modus kann der Widerspruch nicht wirklich versendet werden. Probiere die App mit deiner eigenen Abrechnung aus, um den Widerspruch tatsächlich zu erstellen.")
+        }
     }
 
     // MARK: - Lade-Ansicht
@@ -132,6 +148,7 @@ struct WiderspruchView: View {
 
     private func ergebnisAnsicht(output: WiderspruchOutput) -> some View {
         VStack(alignment: .leading, spacing: AppSpacing.lg) {
+            if isDemo { demoBanner }
             fristCard
             fristErklaerung
             infoBox
@@ -141,6 +158,24 @@ struct WiderspruchView: View {
             versandOptionen(output: output)
             disclaimer
         }
+    }
+
+    // MARK: - Demo-Banner (v4-21)
+
+    private var demoBanner: some View {
+        HStack(spacing: AppSpacing.sm) {
+            Image(systemName: "play.circle.fill")
+                .font(.system(size: 16))
+                .foregroundStyle(AppTheme.accent)
+            Text("Demo-Modus — Versand deaktiviert")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(AppTheme.accent)
+            Spacer(minLength: 0)
+        }
+        .padding(AppSpacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppTheme.accent.opacity(0.10))
+        .clipShape(RoundedRectangle(cornerRadius: AppSpacing.cardRadius))
     }
 
     // v4-15: Erklärung unter der Frist-Card — räumt das Missverständnis aus,
@@ -225,28 +260,49 @@ struct WiderspruchView: View {
         }
     }
 
-    // 2. Brieftext in scrollbarer Karte
+    // 2. Brieftext — inline editierbar (v4-20)
+    //
+    // Statt eines readonly Text + separates Edit-Sheet zeigen wir jetzt
+    // direkt einen `TextEditor`. Der User kann KI-Fehler korrigieren,
+    // bevor er den Widerspruch versendet. `bearbeiteterText` ist die
+    // einzige Quelle der Wahrheit — Email, PDF und WhatsApp lesen
+    // daraus.
 
     private var briefKarte: some View {
-        NKCard {
-            ScrollView {
-                Text(bearbeiteterText)
-                    .font(.system(size: 14))
+        VStack(alignment: .leading, spacing: AppSpacing.xs) {
+            HStack {
+                Text("Widerspruch-Text")
+                    .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(AppTheme.textPrimary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .textSelection(.enabled)
-                    .fixedSize(horizontal: false, vertical: true)
+                Spacer()
+                Text("Tippe zum Bearbeiten")
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppTheme.textTertiary)
             }
-            .frame(maxHeight: 320)
+
+            TextEditor(text: $bearbeiteterText)
+                .font(.system(size: 14))
+                .foregroundStyle(AppTheme.textPrimary)
+                .scrollContentBackground(.hidden)
+                .padding(AppSpacing.md)
+                .frame(minHeight: 220, maxHeight: 360)
+                .background(AppTheme.cardBg)
+                .clipShape(RoundedRectangle(cornerRadius: AppSpacing.cardRadius))
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppSpacing.cardRadius)
+                        .stroke(AppTheme.border, lineWidth: 0.5)
+                )
+                .accessibilityLabel("Widerspruch-Text bearbeiten")
         }
     }
 
-    // 3. „Text bearbeiten"-Button
+    // 3. „Text bearbeiten"-Button — wird mit dem inline-Editor obsolet.
+    //    Wir behalten ihn als EmptyView, damit der Body-Aufruf nicht
+    //    angepasst werden muss; alternativ kann der Aufruf entfernt
+    //    werden ohne den Editor zu verlieren.
 
     private var textBearbeitenButton: some View {
-        NKSecondaryButton("Text bearbeiten", icon: "pencil") {
-            zeigeEditor = true
-        }
+        EmptyView()
     }
 
     // 3b. Editor-Sheet
@@ -374,6 +430,25 @@ struct WiderspruchView: View {
 
     // MARK: - Actions
 
+    /// v4-19 Fix 4: Falls das Mietobjekt noch keinen Vermieter hat,
+    /// übernehmen wir Name und Adresse aus dem Parser-Output. Der User
+    /// kann das im `VermieterDatenSheet` immer noch ändern.
+    private func fuelleVermieterAusBerichtFallsLeer() {
+        let parserName = bericht.abrechnung.meta.vermieter.name?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let parserAdresse = bericht.abrechnung.meta.vermieter.adresse?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if (mietobjekt.vermieterName?.isEmpty ?? true),
+           let n = parserName, !n.isEmpty {
+            mietobjekt.vermieterName = n
+        }
+        if (mietobjekt.vermieterAdresse?.isEmpty ?? true),
+           let a = parserAdresse, !a.isEmpty {
+            mietobjekt.vermieterAdresse = a
+        }
+    }
+
     private func starteGenerierung() async {
         laeuft = true
         fehler = nil
@@ -400,6 +475,10 @@ struct WiderspruchView: View {
     /// PDF herunterladen → Share-Sheet mit der PDF-Datei (für Einschreiben).
     /// Wir verwenden den ggf. editierten `bearbeiteterText` als Brieftext.
     private func teilePDF(output: WiderspruchOutput) {
+        if isDemo {
+            zeigeDemoAlert = true
+            return
+        }
         let aktuelleDaten = pdfDatenMitAktuellemText(output: output)
         let dateiname = "Widerspruch_Nebenkosten_\(safeDateiname(for: aktuelleDaten.datum))"
         sharePDFURL = PDFService.writeTempFile(from: aktuelleDaten, fileName: dateiname)
@@ -407,6 +486,10 @@ struct WiderspruchView: View {
     }
 
     private func emailAktion(output: WiderspruchOutput) {
+        if isDemo {
+            zeigeDemoAlert = true
+            return
+        }
         if MFMailComposeViewController.canSendMail() {
             zeigeMailCompose = true
         } else {
@@ -423,6 +506,10 @@ struct WiderspruchView: View {
     /// sofort beim App-Backgrounding. Diese Logik darf NICHT verändert oder
     /// gekürzt werden.
     private func sendeWhatsApp(nachricht: String, nummer: String?) {
+        if isDemo {
+            zeigeDemoAlert = true
+            return
+        }
         let kodiert = nachricht.addingPercentEncoding(
             withAllowedCharacters: .urlQueryAllowed
         ) ?? ""

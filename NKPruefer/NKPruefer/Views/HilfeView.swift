@@ -77,6 +77,8 @@ struct HilfeView: View {
 
     private var artikelListe: some View {
         List {
+            // v4-19b: Glossar-Link entfernt — Glossar ist jetzt ein
+            // eigener Tab in der MainTabView, deshalb hier redundant.
             ForEach(HilfeKatalog.sektionen, id: \.self) { section in
                 let artikelInSektion = gefilterte.filter { $0.section == section }
                 if !artikelInSektion.isEmpty {

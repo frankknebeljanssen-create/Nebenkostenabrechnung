@@ -33,13 +33,23 @@ struct MainTabView: View {
             }
             .tag(1)
 
+            // v4-19b: Glossar als eigener Tab — durchsuchbare Vollansicht
+            // aller 130 Begriffe (8 Kategorien). Ersetzt den Hilfe-Link.
+            NavigationStack {
+                GlossarBrowseView()
+            }
+            .tabItem {
+                Label("Glossar", systemImage: "character.book.closed.fill")
+            }
+            .tag(2)
+
             NavigationStack {
                 HilfeView()
             }
             .tabItem {
                 Label("Hilfe", systemImage: "questionmark.circle")
             }
-            .tag(2)
+            .tag(3)
 
             NavigationStack {
                 MehrView()
@@ -47,7 +57,7 @@ struct MainTabView: View {
             .tabItem {
                 Label("Mehr", systemImage: "ellipsis.circle")
             }
-            .tag(3)
+            .tag(4)
         }
         .tint(AppTheme.accent)
         .onReceive(NotificationCenter.default.publisher(for: .nkResetToHome)) { _ in

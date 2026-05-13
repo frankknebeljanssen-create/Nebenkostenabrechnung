@@ -20,6 +20,9 @@ struct EckdatenQuickView: View {
     // Force Mode A obwohl bereits Mietobjekt existiert (über "Andere Wohnung?")
     @State private var forceNeueWohnung = false
 
+    // v4-19 Fix 2: Optionaler OCR-Review-Sheet
+    @State private var zeigeOCRReview = false
+
     // Navigation zum (Platzhalter-)Analyse-Screen
     @State private var navigiereZurAnalyse: Mietobjekt? = nil
 
@@ -40,6 +43,51 @@ struct EckdatenQuickView: View {
         .navigationDestination(item: $navigiereZurAnalyse) { obj in
             AnalyseView(auftrag: pruefungsAuftrag ?? makeFallbackAuftrag(mietobjekt: obj))
         }
+        // v4-19 Fix 2: optionaler OCR-Review-Sheet
+        .sheet(isPresented: $zeigeOCRReview) {
+            if let auftrag = pruefungsAuftrag {
+                NavigationStack {
+                    OCRReviewView(auftrag: auftrag)
+                }
+            }
+        }
+    }
+
+    // MARK: - OCR-Review-Trigger
+
+    /// Card mit Link zum OCR-Review-Sheet. Erscheint nur, wenn der
+    /// `pruefungsAuftrag` einen OCR-Text trägt — bei Mode-B (bestehende
+    /// Wohnung ohne Capture-Flow) gibt es nichts zu prüfen.
+    @ViewBuilder
+    private var ocrReviewLink: some View {
+        if let auftrag = pruefungsAuftrag,
+           !auftrag.ocrText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            Button {
+                zeigeOCRReview = true
+            } label: {
+                HStack(spacing: AppSpacing.sm) {
+                    Image(systemName: "doc.text")
+                        .font(.system(size: 14))
+                        .foregroundStyle(AppTheme.accent)
+                    Text("Erkannten Text prüfen")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(AppTheme.accent)
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(AppTheme.accent.opacity(0.6))
+                }
+                .padding(AppSpacing.md)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(AppTheme.cardBg)
+                .clipShape(RoundedRectangle(cornerRadius: AppSpacing.cardRadius))
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppSpacing.cardRadius)
+                        .stroke(AppTheme.border, lineWidth: 0.5)
+                )
+            }
+            .accessibilityLabel("Erkannten Text der Abrechnung prüfen")
+        }
     }
 
     // MARK: - Mode A: Neuer User
@@ -56,6 +104,8 @@ struct EckdatenQuickView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
+                ocrReviewLink
+
                 NKTextField(
                     label: "Adresse",
                     placeholder: "Musterstr. 12, 12345 Berlin",
@@ -67,16 +117,30 @@ struct EckdatenQuickView: View {
                     errorText: "Bitte gib deine Adresse an."
                 )
 
+                // v4-19 Fix 6d: Wohnfläche jetzt optional — leer lassen
+                // erlaubt, aber ein dezenter Warnhinweis erscheint.
                 NKDecimalField(
                     label: "Wohnfläche",
                     unit: "m²",
                     placeholder: "68,5",
                     value: $flaecheQm,
-                    helperText: "Steht im Mietvertrag.",
-                    isRequired: true,
-                    hasError: flaecheHasError,
-                    errorText: "Bitte gib die Wohnfläche in m² an."
+                    helperText: "Steht im Mietvertrag. Optional — ohne Wohnfläche können flächenbezogene Kosten nicht geprüft werden.",
+                    isRequired: false,
+                    hasError: false,
+                    errorText: ""
                 )
+
+                if (flaecheQm ?? 0) <= 0 {
+                    HStack(alignment: .top, spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 12))
+                            .foregroundStyle(AppTheme.warning)
+                        Text("Ohne Wohnfläche können flächenbezogene Kosten nicht geprüft werden.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(AppTheme.warning)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Personen im Haushalt")
@@ -104,6 +168,8 @@ struct EckdatenQuickView: View {
                 .font(.system(size: 24, weight: .semibold))
                 .padding(.top, 8)
 
+            ocrReviewLink
+
             BestehendeWohnungCard(mietobjekt: mietobjekt)
 
             NKBigButton(title: "Ja, Prüfung starten", icon: "checkmark", style: .success) {
@@ -130,13 +196,18 @@ struct EckdatenQuickView: View {
     private func starteMitNeuerWohnung() {
         let trimmedAdresse = adresse.trimmingCharacters(in: .whitespacesAndNewlines)
         adresseHasError = trimmedAdresse.isEmpty
-        flaecheHasError = (flaecheQm ?? 0) <= 0
+        // v4-19 Fix 6d: Wohnfläche ist optional. Kein Validation-Error
+        // mehr — bei fehlender Fläche speichern wir 0; Calculator und
+        // Plausibilitäts-Checks springen flächenabhängige Posten dann
+        // per `if let`-Guards sauber drüber weg.
+        flaecheHasError = false
 
-        guard !adresseHasError, let flaeche = flaecheQm, flaeche > 0 else {
+        guard !adresseHasError else {
             NKHaptic.error()
             return
         }
 
+        let flaeche = flaecheQm ?? 0
         let neu = Mietobjekt(
             adresse: trimmedAdresse,
             flaecheQm: flaeche,

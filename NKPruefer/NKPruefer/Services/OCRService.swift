@@ -20,6 +20,51 @@ actor OCRService {
 
     // MARK: - Public API
 
+    /// Multi-Page-OCR: erkennt Text aus mehreren Seiten und fügt sie
+    /// mit `--- Seite N ---`-Markern zusammen. Die Marker helfen den
+    /// KI-Agenten in der Pipeline, die Seitenstruktur zu verstehen.
+    ///
+    /// Konfidenz ist der Durchschnitt aller Seiten (durch Block-Anzahl
+    /// gewichtet, damit eine fast leere Seite das Ergebnis nicht
+    /// verzerrt). Blocks werden über alle Seiten konkateniert.
+    static func recognizeText(from images: [UIImage]) async throws -> OCRResult {
+        guard !images.isEmpty else { throw OCRError.noTextFound }
+        if images.count == 1 {
+            // Fast path — eine Seite, kein Marker nötig.
+            return try await recognizeText(from: images[0])
+        }
+
+        var stuecke: [String] = []
+        var alleBlocks: [TextBlock] = []
+        var summe = 0.0
+        var blockCount = 0
+
+        for (idx, image) in images.enumerated() {
+            do {
+                let einzel = try await recognizeText(from: image)
+                stuecke.append("--- Seite \(idx + 1) ---")
+                stuecke.append(einzel.fullText)
+                alleBlocks.append(contentsOf: einzel.blocks)
+                let n = einzel.blocks.count
+                summe += einzel.confidence * Double(n)
+                blockCount += n
+            } catch OCRError.noTextFound {
+                // Seite ohne erkennbaren Text wird übersprungen, aber
+                // im Output trotzdem markiert — der User sieht, dass
+                // Seite N leer war.
+                stuecke.append("--- Seite \(idx + 1) (kein Text erkannt) ---")
+            }
+        }
+
+        guard !alleBlocks.isEmpty else { throw OCRError.noTextFound }
+
+        return OCRResult(
+            fullText: stuecke.joined(separator: "\n"),
+            blocks: alleBlocks,
+            confidence: blockCount > 0 ? summe / Double(blockCount) : 0
+        )
+    }
+
     static func recognizeText(from image: UIImage) async throws -> OCRResult {
         guard let cgImage = image.cgImage else {
             throw OCRError.imageConversionFailed

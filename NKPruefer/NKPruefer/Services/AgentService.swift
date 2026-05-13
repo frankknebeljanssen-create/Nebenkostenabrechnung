@@ -42,7 +42,9 @@ actor AgentService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(NKConfig.claudeAPIKey, forHTTPHeaderField: "x-api-key")
         request.setValue(NKConfig.anthropicVersion, forHTTPHeaderField: "anthropic-version")
-        request.timeoutInterval = 60
+        // v4-20: 60s war für Berichterstatter/Audit zu knapp.
+        // 120s gibt genug Headroom für die größten Prompts (3000+ Tokens).
+        request.timeoutInterval = 120
 
         do {
             request.httpBody = try JSONEncoder().encode(body)
@@ -97,13 +99,21 @@ actor AgentService {
             maxTokens: maxTokens
         )
 
-        let cleaned = text
+        // 1) Code-Fences und Whitespace abstreifen
+        var cleaned = text
             .replacingOccurrences(of: "```json", with: "")
             .replacingOccurrences(of: "```", with: "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
+        // 2) Wenn der LLM Prosa vor/nach dem JSON gesetzt hat
+        //    („Hier ist die Antwort: { … }"), extrahieren wir das erste
+        //    geschlossene JSON-Objekt per Klammer-Balance.
+        if let extracted = extractFirstJSONObject(from: cleaned) {
+            cleaned = extracted
+        }
+
         guard let data = cleaned.data(using: .utf8) else {
-            throw AgentError.decodingFailed("Antworttext ist kein gültiges UTF-8")
+            throw AgentError.decodingFailed("Antworttext ist kein gültiges UTF-8.")
         }
 
         let decoder = JSONDecoder()
@@ -123,9 +133,77 @@ actor AgentService {
 
         do {
             return try decoder.decode(T.self, from: data)
+        } catch let DecodingError.keyNotFound(key, ctx) {
+            let pfad = beschreibePfad(ctx.codingPath) + "." + key.stringValue
+            #if DEBUG
+            print("⚠️ Parser-Output (key fehlt: \(pfad)):\n\(cleaned.prefix(800))")
+            #endif
+            throw AgentError.decodingFailed(
+                "Die KI-Antwort ist unvollständig — das Feld \u{201E}\(pfad)\u{201C} fehlt. " +
+                "Vermutlich ist das Foto keine vollständige Nebenkostenabrechnung."
+            )
+        } catch let DecodingError.valueNotFound(_, ctx) {
+            let pfad = beschreibePfad(ctx.codingPath)
+            #if DEBUG
+            print("⚠️ Parser-Output (Wert fehlt: \(pfad)):\n\(cleaned.prefix(800))")
+            #endif
+            throw AgentError.decodingFailed(
+                "Die KI-Antwort enthält ein leeres Feld (\u{201E}\(pfad)\u{201C}). " +
+                "Versuche es mit einem klareren Foto."
+            )
+        } catch let DecodingError.typeMismatch(_, ctx) {
+            let pfad = beschreibePfad(ctx.codingPath)
+            #if DEBUG
+            print("⚠️ Parser-Output (Typ-Mismatch: \(pfad) — \(ctx.debugDescription)):\n\(cleaned.prefix(800))")
+            #endif
+            throw AgentError.decodingFailed(
+                "Die KI-Antwort konnte nicht gelesen werden (\u{201E}\(pfad)\u{201C}: \(ctx.debugDescription))."
+            )
+        } catch let DecodingError.dataCorrupted(ctx) {
+            #if DEBUG
+            print("⚠️ Parser-Output (dataCorrupted: \(ctx.debugDescription)):\n\(cleaned.prefix(800))")
+            #endif
+            throw AgentError.decodingFailed(
+                "Die KI-Antwort war kein gültiges JSON: \(ctx.debugDescription)"
+            )
         } catch {
+            #if DEBUG
+            print("⚠️ Parser-Output (anderer Fehler: \(error)):\n\(cleaned.prefix(800))")
+            #endif
             throw AgentError.decodingFailed(error.localizedDescription)
         }
+    }
+
+    /// Sucht das ERSTE balanciert-geklammerte `{ … }`-Objekt im Text und
+    /// liefert es als Substring. Brauchen wir, wenn der LLM Prosa vor
+    /// und/oder nach dem JSON einbaut (kommt vor allem bei „Das ist
+    /// keine Abrechnung"-Antworten vor).
+    private static func extractFirstJSONObject(from text: String) -> String? {
+        guard let start = text.firstIndex(of: "{") else { return nil }
+        var depth = 0
+        var inString = false
+        var escape = false
+        for idx in text[start...].indices {
+            let c = text[idx]
+            if escape { escape = false; continue }
+            if c == "\\" { escape = true; continue }
+            if c == "\"" { inString.toggle(); continue }
+            if inString { continue }
+            if c == "{" { depth += 1 }
+            if c == "}" {
+                depth -= 1
+                if depth == 0 {
+                    return String(text[start...idx])
+                }
+            }
+        }
+        return nil
+    }
+
+    /// Liefert einen lesbaren Pfad wie „meta.zeitraum.von" aus dem
+    /// `codingPath` eines Decoding-Errors.
+    private static func beschreibePfad(_ pfad: [CodingKey]) -> String {
+        pfad.map(\.stringValue).joined(separator: ".")
     }
 }
 

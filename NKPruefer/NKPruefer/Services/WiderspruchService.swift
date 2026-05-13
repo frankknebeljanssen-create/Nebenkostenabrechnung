@@ -202,9 +202,12 @@ struct WiderspruchService {
         nf.currencyCode = "EUR"
         nf.locale = Locale(identifier: "de_DE")
         let ersparnisStr = nf.string(from: ersparnis as NSDecimalNumber) ?? "0 €"
-        let nachzahlungStr = nf.string(
-            from: bericht.abrechnung.meta.nachzahlungOderGuthaben as NSDecimalNumber
-        ) ?? "0 €"
+        let nachzahlungStr: String
+        if let betrag = bericht.abrechnung.meta.nachzahlungOderGuthaben {
+            nachzahlungStr = nf.string(from: betrag as NSDecimalNumber) ?? "0 €"
+        } else {
+            nachzahlungStr = "(nicht ausgewiesen)"
+        }
 
         let flaecheNF = NumberFormatter()
         flaecheNF.numberStyle = .decimal

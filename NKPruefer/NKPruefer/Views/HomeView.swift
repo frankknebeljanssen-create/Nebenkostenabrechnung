@@ -27,6 +27,9 @@ struct HomeView: View {
     /// Speichern im Setup-Sheet.
     @State private var navigiereZuCapture: Bool = false
 
+    /// v4-21: Programmatischer Push zur Demo-Analyse.
+    @State private var navigiereZuDemo: Bool = false
+
     var body: some View {
         ScrollView {
             VStack(spacing: AppSpacing.xxl) {
@@ -34,9 +37,10 @@ struct HomeView: View {
                 logoBereich
                 headlineBereich
                 ctaButton
+                demoLink
                 soFunktionierts
                 letztePruefung
-                NKSecurityStrip(text: "Deine Daten bleiben auf deinem Gerät")
+                NKSecurityStrip(text: "Deine Daten werden anonymisiert übertragen und nach der Analyse gelöscht")
             }
             .padding(.horizontal, AppSpacing.xl)
             .padding(.top, AppSpacing.lg)
@@ -68,6 +72,40 @@ struct HomeView: View {
         .navigationDestination(isPresented: $navigiereZuCapture) {
             PreCaptureView()
         }
+        // v4-21: Demo-Flow ohne API-Calls
+        .navigationDestination(isPresented: $navigiereZuDemo) {
+            DemoAnalyseView()
+        }
+    }
+
+    // MARK: - Demo-Link (v4-21)
+
+    private var demoLink: some View {
+        Button {
+            navigiereZuDemo = true
+        } label: {
+            HStack(spacing: AppSpacing.sm) {
+                Image(systemName: "play.circle.fill")
+                    .font(.system(size: 18))
+                    .foregroundStyle(AppTheme.accent)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Demo ausprobieren")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(AppTheme.accent)
+                    Text("Sieh dir an wie eine Prüfung abläuft — ohne eigene Daten.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppTheme.textSecondary)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, AppSpacing.xs)
+        .accessibilityLabel("Demo-Prüfung mit Beispieldaten ausprobieren")
     }
 
     // MARK: - CTA-Routing
@@ -102,9 +140,12 @@ struct HomeView: View {
         VStack(spacing: AppSpacing.sm) {
             NKAppLogo(size: 60)
 
+            // v4-20 Light-Mode-Fix: `.white` war in Light Mode auf
+            // hellem Hintergrund unsichtbar. `AppTheme.textPrimary`
+            // ist adaptiv (schwarz im Light, weiß im Dark).
             Text("Nebenkosten-Prüfer")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(AppTheme.accent)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(AppTheme.textPrimary)
                 .tracking(2)
                 .textCase(.uppercase)
         }

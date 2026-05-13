@@ -70,8 +70,27 @@ final class OrchestrationService {
 
     // MARK: - Observable State
 
-    var status: Status = .idle
-    var aktuellePhase: Phase? = nil
+    var status: Status = .idle {
+        didSet {
+            #if DEBUG
+            if oldValue != status {
+                print("🔄 OrchestrationService.status: \(oldValue) → \(status)")
+                if status == .failed, let msg = fehlerMeldung {
+                    print("❌ Fehler: \(msg)")
+                }
+            }
+            #endif
+        }
+    }
+    var aktuellePhase: Phase? = nil {
+        didSet {
+            #if DEBUG
+            if oldValue != aktuellePhase, let p = aktuellePhase {
+                print("▶️  Phase: \(p.rawValue) (Schritt \(abgeschlosseneSchritte + 1)/\(gesamtSchritte))")
+            }
+            #endif
+        }
+    }
     var bericht: Pruefbericht? = nil
     var fehlerMeldung: String? = nil
     var abgeschlosseneSchritte: Int = 0
@@ -584,11 +603,13 @@ final class OrchestrationService {
             "- \(entry.kostenart): \(entry.umlagefaehig ? "umlagefähig" : "NICHT umlagefähig") (\(entry.rechtsgrundlage))"
         }.joined(separator: "\n")
 
+        let gesamtkostenStr = position.gesamtkosten.map { "\($0)" } ?? "(nicht ausgewiesen)"
+
         let userMessage = """
         Bewerte folgende Kostenposition:
 
         Bezeichnung: \(position.bezeichnungOriginal)
-        Gesamtkosten: \(position.gesamtkosten)
+        Gesamtkosten: \(gesamtkostenStr)
         Mieteranteil: \(position.mieterAnteil)
         Verteilerschlüssel: \(position.verteilerschluessel.rawValue)
 

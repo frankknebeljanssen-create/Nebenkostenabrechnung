@@ -16,10 +16,11 @@ enum AgentPrompts {
     REGELN:
     1. Extrahiere NUR Informationen, die tatsächlich im Dokument stehen
     2. Wenn du einen Wert nicht findest, setze ihn auf null — erfinde NICHTS
-    3. Bei unleserlichen oder unsicheren Stellen: setze "confidence": "low"
-    4. Zahlen immer als Dezimalzahlen mit Punkt (nicht Komma): 1234.56
-    5. Datumsformat: "YYYY-MM-DD"
-    6. Kostenarten so benennen, wie sie im Dokument stehen (exakter Wortlaut)
+    3. ALLE Felder außer `zeitraum.von`, `zeitraum.bis` und den Kern-Feldern jeder Kostenposition (`id`, `bezeichnung_original`, `mieter_anteil`, `verteilerschluessel`) DÜRFEN null sein. Lieber null als geraten.
+    4. Bei unleserlichen oder unsicheren Stellen: setze "confidence": "low"
+    5. Zahlen immer als Dezimalzahlen mit Punkt (nicht Komma): 1234.56
+    6. Datumsformat: "YYYY-MM-DD"
+    7. Kostenarten so benennen, wie sie im Dokument stehen (exakter Wortlaut)
 
     AUSGABE:
     Antworte AUSSCHLIESSLICH mit validem JSON. Kein Text davor oder danach.

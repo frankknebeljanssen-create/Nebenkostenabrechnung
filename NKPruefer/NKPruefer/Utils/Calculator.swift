@@ -14,8 +14,11 @@ struct Calculator {
     // MARK: - Methode 1: checkSummen
 
     static func checkSummen(abrechnung: Abrechnung) -> [Finding] {
+        // Ohne ausgewiesene Gesamtsumme können wir nicht abgleichen.
+        guard let ausgewieseneSumme = abrechnung.summeAnteile else { return [] }
+
         let berechneteSumme = abrechnung.kostenpositionen.reduce(Decimal(0)) { $0 + $1.mieterAnteil }
-        let differenz = berechneteSumme - abrechnung.summeAnteile
+        let differenz = berechneteSumme - ausgewieseneSumme
 
         guard abs(differenz) > toleranzSummeEur else { return [] }
 
@@ -28,7 +31,7 @@ struct Calculator {
             positionId: 0,
             bezeichnung: "Gesamtsumme",
             beschreibung: "Die Summe der Einzelposten weicht von der ausgewiesenen Gesamtsumme ab.",
-            betragAbrechnung: abrechnung.summeAnteile,
+            betragAbrechnung: ausgewieseneSumme,
             betragKorrekt: berechneteSumme,
             differenz: differenz,
             rechtsgrundlage: nil,
@@ -51,24 +54,28 @@ struct Calculator {
         let anzahlEinheiten = abrechnung.meta.objekt.anzahlEinheiten
 
         for position in abrechnung.kostenpositionen {
+            // Ohne Gesamtkosten der Position können wir den Anteil nicht
+            // gegen-rechnen — Position überspringen.
+            guard let gesamtkosten = position.gesamtkosten else { continue }
+
             let berechneterAnteil: Decimal
             let konfidenz: Konfidenz
 
             switch position.verteilerschluessel {
             case .wohnflaeche:
-                guard objektFlaeche > 0 else { continue }
-                berechneterAnteil = position.gesamtkosten * userFlaecheQm / objektFlaeche
+                guard let oFlaeche = objektFlaeche, oFlaeche > 0 else { continue }
+                berechneterAnteil = gesamtkosten * userFlaecheQm / oFlaeche
                 konfidenz = .sicher
 
             case .einheiten:
-                guard anzahlEinheiten > 0 else { continue }
-                berechneterAnteil = position.gesamtkosten / Decimal(anzahlEinheiten)
+                guard let einheiten = anzahlEinheiten, einheiten > 0 else { continue }
+                berechneterAnteil = gesamtkosten / Decimal(einheiten)
                 konfidenz = .sicher
 
             case .personenzahl:
                 // Gesamtpersonen unbekannt — Fallback auf Wohnfläche, Konfidenz reduziert.
-                guard objektFlaeche > 0 else { continue }
-                berechneterAnteil = position.gesamtkosten * userFlaecheQm / objektFlaeche
+                guard let oFlaeche = objektFlaeche, oFlaeche > 0 else { continue }
+                berechneterAnteil = gesamtkosten * userFlaecheQm / oFlaeche
                 konfidenz = .wahrscheinlich
 
             case .verbrauch, .miteigentumsanteil, .unbekannt:
@@ -112,9 +119,10 @@ struct Calculator {
         var findings: [Finding] = []
         var counter = 1
 
-        // a) Gesamt-NK pro m² pro Monat außerhalb des üblichen Bereichs
-        if userFlaecheQm > 0 {
-            let proQmProMonat = abrechnung.summeAnteile / userFlaecheQm / Decimal(12)
+        // a) Gesamt-NK pro m² pro Monat außerhalb des üblichen Bereichs.
+        // Ohne `summeAnteile` können wir den Quotienten nicht bilden.
+        if userFlaecheQm > 0, let summeAnteile = abrechnung.summeAnteile {
+            let proQmProMonat = summeAnteile / userFlaecheQm / Decimal(12)
 
             if proQmProMonat < plausibilitaetMinProQmMonat || proQmProMonat > plausibilitaetMaxProQmMonat {
                 let finding = Finding(
@@ -126,7 +134,7 @@ struct Calculator {
                     positionId: 0,
                     bezeichnung: "Gesamtkosten",
                     beschreibung: "Die Nebenkosten pro m² liegen außerhalb des üblichen Bereichs (\(formatGeld(proQmProMonat)) €/m²/Monat). Üblich sind 2,00–5,50 €/m²/Monat.",
-                    betragAbrechnung: abrechnung.summeAnteile,
+                    betragAbrechnung: summeAnteile,
                     betragKorrekt: nil,
                     differenz: 0,
                     rechtsgrundlage: nil,
@@ -143,8 +151,8 @@ struct Calculator {
         }
         let heizSumme = heizPositionen.reduce(Decimal(0)) { $0 + $1.mieterAnteil }
 
-        if abrechnung.summeAnteile > 0 && heizSumme > 0 {
-            let heizAnteil = heizSumme / abrechnung.summeAnteile
+        if let summeAnteile = abrechnung.summeAnteile, summeAnteile > 0, heizSumme > 0 {
+            let heizAnteil = heizSumme / summeAnteile
             if heizAnteil > heizkostenAnteilMax {
                 let finding = Finding(
                     id: idFor(counter),

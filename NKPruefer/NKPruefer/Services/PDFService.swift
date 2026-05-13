@@ -103,4 +103,173 @@ struct PDFService {
             return nil
         }
     }
+
+    // MARK: - Bericht-PDF (v4-19 Fix 5)
+
+    /// Erzeugt eine PDF-Zusammenfassung des Prüfberichts: Eckdaten,
+    /// alle Positionen mit Status, Findings, Disclaimer. Geht über
+    /// mehrere Seiten wenn nötig (einfaches Seitenumbruch-Handling).
+    static func generateBerichtPDF(bericht: Pruefbericht, mietobjekt: Mietobjekt) -> Data {
+        let pageRect = CGRect(x: 0, y: 0, width: 595.2, height: 841.8)
+        let margin: CGFloat = 56
+        let usableWidth = pageRect.width - 2 * margin
+        let pageBottom = pageRect.height - margin
+
+        let renderer = UIGraphicsPDFRenderer(bounds: pageRect)
+
+        let titleFont = UIFont.boldSystemFont(ofSize: 18)
+        let h2Font = UIFont.boldSystemFont(ofSize: 13)
+        let bodyFont = UIFont.systemFont(ofSize: 11)
+        let smallFont = UIFont.systemFont(ofSize: 9)
+
+        return renderer.pdfData { ctx in
+            ctx.beginPage()
+            var y: CGFloat = margin
+
+            // Hilfsfunktionen
+            func zeile(_ s: String, _ font: UIFont, lineSpacing: CGFloat = 3) {
+                let para = NSMutableParagraphStyle()
+                para.lineSpacing = lineSpacing
+                let attrs: [NSAttributedString.Key: Any] = [
+                    .font: font,
+                    .paragraphStyle: para,
+                    .foregroundColor: UIColor.black
+                ]
+                let attr = NSAttributedString(string: s, attributes: attrs)
+                let h = attr.boundingRect(
+                    with: CGSize(width: usableWidth, height: .greatestFiniteMagnitude),
+                    options: [.usesLineFragmentOrigin, .usesFontLeading],
+                    context: nil
+                ).height
+                if y + h > pageBottom {
+                    ctx.beginPage()
+                    y = margin
+                }
+                attr.draw(in: CGRect(x: margin, y: y, width: usableWidth, height: h))
+                y += h
+            }
+
+            func abstand(_ d: CGFloat) {
+                y += d
+                if y > pageBottom { ctx.beginPage(); y = margin }
+            }
+
+            // ── 1. Kopf
+            zeile("NEBENKOSTEN-PRÜFER", h2Font)
+            abstand(2)
+            let datumFmt = DateFormatter()
+            datumFmt.dateStyle = .long
+            datumFmt.locale = Locale(identifier: "de_DE")
+            zeile("Prüfbericht vom \(datumFmt.string(from: bericht.pruefDatum))", bodyFont)
+            abstand(16)
+
+            // ── 2. Titel
+            zeile(bericht.findings.isEmpty ? "Alles korrekt" : "\(bericht.findings.count) Auffälligkeiten gefunden", titleFont)
+            abstand(16)
+
+            // ── 3. Eckdaten
+            zeile("Eckdaten der Abrechnung", h2Font)
+            abstand(4)
+            let zr = bericht.abrechnung.meta.zeitraum
+            let kurzDate: (Date) -> String = {
+                let f = DateFormatter()
+                f.dateFormat = "dd.MM.yyyy"
+                f.locale = Locale(identifier: "de_DE")
+                return f.string(from: $0)
+            }
+            zeile("Zeitraum:      \(kurzDate(zr.von)) – \(kurzDate(zr.bis))", bodyFont)
+            if let obj = bericht.abrechnung.meta.objekt.adresse, !obj.isEmpty {
+                zeile("Objekt:        \(obj)", bodyFont)
+            } else {
+                zeile("Objekt:        \(mietobjekt.adresse)", bodyFont)
+            }
+            if let bez = bericht.abrechnung.meta.mieterEinheit.bezeichnung, !bez.isEmpty {
+                zeile("Wohnung:       \(bez)", bodyFont)
+            }
+            if let flaeche = bericht.abrechnung.meta.mieterEinheit.flaecheQm {
+                zeile("Wohnfläche:    \(formatDecimal(flaeche, fraction: 1)) m²", bodyFont)
+            }
+            if let vz = bericht.abrechnung.meta.vorauszahlungenGesamt {
+                zeile("Vorauszahlung: \(formatEuro(vz))", bodyFont)
+            }
+            if let ergebnis = bericht.abrechnung.meta.nachzahlungOderGuthaben {
+                let typ = bericht.abrechnung.meta.typ
+                let label = typ == .guthaben ? "Guthaben" : (typ == .nachzahlung ? "Nachzahlung" : "")
+                zeile("Ergebnis:      \(formatEuro(abs(ergebnis))) \(label)".trimmingCharacters(in: .whitespaces), bodyFont)
+            }
+            abstand(16)
+
+            // ── 4. Geprüfte Positionen
+            zeile("Geprüfte Positionen", h2Font)
+            abstand(4)
+            for pos in bericht.abrechnung.kostenpositionen {
+                let finding = bericht.findings.first(where: { $0.positionId == pos.id })
+                let statusZeichen: String
+                if let f = finding {
+                    switch f.schwere {
+                    case .fehler: statusZeichen = "[FEHLER]"
+                    case .warnung: statusZeichen = "[!]"
+                    case .info: statusZeichen = "[i]"
+                    }
+                } else {
+                    statusZeichen = "[OK]"
+                }
+                let betragStr = formatEuro(pos.mieterAnteil)
+                zeile("\(statusZeichen)  \(pos.bezeichnungOriginal) — \(betragStr)", bodyFont)
+
+                if let f = finding {
+                    let detail = "    \(f.beschreibung)"
+                    zeile(detail, smallFont)
+                    if let rg = f.rechtsgrundlage, !rg.isEmpty {
+                        zeile("    Grundlage: \(rg)", smallFont)
+                    }
+                    if let tip = f.handlungsempfehlung, !tip.isEmpty {
+                        zeile("    → \(tip)", smallFont)
+                    }
+                    abstand(4)
+                }
+            }
+            abstand(16)
+
+            // ── 5. Footer
+            zeile("Erstellt mit Nebenkosten-Prüfer.", smallFont)
+            zeile("Diese Datei ist keine Rechtsberatung im Sinne des RDG.", smallFont)
+        }
+    }
+
+    /// Schreibt das Bericht-PDF in eine Temp-Datei für den Share-Sheet.
+    static func writeBerichtPDF(bericht: Pruefbericht, mietobjekt: Mietobjekt) -> URL? {
+        let data = generateBerichtPDF(bericht: bericht, mietobjekt: mietobjekt)
+        let dateiSeg = (mietobjekt.bezeichnung ?? mietobjekt.adresse)
+            .replacingOccurrences(of: " ", with: "_")
+            .replacingOccurrences(of: "/", with: "-")
+            .prefix(60)
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("Pruefbericht_\(dateiSeg)")
+            .appendingPathExtension("pdf")
+        do {
+            try data.write(to: url, options: .atomic)
+            return url
+        } catch {
+            return nil
+        }
+    }
+
+    // MARK: - Formatter-Helfer
+
+    private static func formatEuro(_ wert: Decimal) -> String {
+        let nf = NumberFormatter()
+        nf.numberStyle = .currency
+        nf.currencyCode = "EUR"
+        nf.locale = Locale(identifier: "de_DE")
+        return nf.string(from: wert as NSDecimalNumber) ?? "\(wert) €"
+    }
+
+    private static func formatDecimal(_ wert: Decimal, fraction: Int) -> String {
+        let nf = NumberFormatter()
+        nf.numberStyle = .decimal
+        nf.maximumFractionDigits = fraction
+        nf.locale = Locale(identifier: "de_DE")
+        return nf.string(from: wert as NSDecimalNumber) ?? "\(wert)"
+    }
 }

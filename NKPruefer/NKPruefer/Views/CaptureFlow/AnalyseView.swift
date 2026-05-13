@@ -48,7 +48,7 @@ struct AnalyseView: View {
         UIPhase(label: "Rechtliche Bewertung",
                 icon: "scale.3d",
                 phasen: [.recht, .jurist]),
-        UIPhase(label: "Ergebnisse hinterfragen",
+        UIPhase(label: "Qualitätsprüfung",
                 icon: "bubble.left.and.bubble.right",
                 phasen: [.debatte]),
         UIPhase(label: "Bericht erstellen",
@@ -229,6 +229,7 @@ struct AnalyseView: View {
         case .aktiv:
             ProgressView()
                 .controlSize(.small)
+                .tint(Color.orange)
         case .wartend:
             Image(systemName: "circle")
                 .foregroundStyle(AppTheme.textTertiary)
