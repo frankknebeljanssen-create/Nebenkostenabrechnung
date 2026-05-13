@@ -1,0 +1,235 @@
+{
+  "version": "1.0",
+  "stand": "2026-05-07",
+  "quelle": "Betriebskostenverordnung (BetrKV) vom 25.11.2003",
+  "kostenarten": [
+    {
+      "kostenart": "grundsteuer",
+      "bezeichnungen": ["Grundsteuer", "Grundbesitzabgaben", "Grundabgaben"],
+      "umlagefaehig": true,
+      "rechtsgrundlage": "§ 2 Nr. 1 BetrKV",
+      "bedingungen": null,
+      "hinweise": "Vollständig umlagefähig. Verteilung meist nach Wohnfläche.",
+      "bgh_urteile": []
+    },
+    {
+      "kostenart": "wasserversorgung",
+      "bezeichnungen": ["Wasserversorgung", "Wasser", "Frischwasser", "Kaltwasser"],
+      "umlagefaehig": true,
+      "rechtsgrundlage": "§ 2 Nr. 2 BetrKV",
+      "bedingungen": null,
+      "hinweise": "Umlagefähig. Kann nach Verbrauch (Zähler) oder Fläche verteilt werden. Verbrauchsabrechnung ist für Mieter oft günstiger.",
+      "bgh_urteile": []
+    },
+    {
+      "kostenart": "entwaesserung",
+      "bezeichnungen": ["Entwässerung", "Abwasser", "Kanalgebühren", "Schmutzwasser"],
+      "umlagefaehig": true,
+      "rechtsgrundlage": "§ 2 Nr. 3 BetrKV",
+      "bedingungen": null,
+      "hinweise": "Umlagefähig. Niederschlagswassergebühr ist separat umlagefähig.",
+      "bgh_urteile": []
+    },
+    {
+      "kostenart": "heizung",
+      "bezeichnungen": ["Heizkosten", "Heizung", "Zentralheizung", "Fernwärme", "Heizöl", "Gas"],
+      "umlagefaehig": true,
+      "rechtsgrundlage": "§ 2 Nr. 4 BetrKV, Heizkostenverordnung (HeizKV)",
+      "bedingungen": "Muss zu 50-70% nach Verbrauch und 30-50% nach Fläche aufgeteilt werden (HeizKV).",
+      "hinweise": "Besondere Regeln durch HeizKV. Vermieter muss Verbrauchserfassung installieren. 100% Flächenverteilung ist UNZULÄSSIG.",
+      "bgh_urteile": [
+        {
+          "aktenzeichen": "BGH VIII ZR 67/15",
+          "zusammenfassung": "Vermieter muss verbrauchsabhängig abrechnen, sonst Kürzungsrecht des Mieters um 15%"
+        }
+      ]
+    },
+    {
+      "kostenart": "warmwasser",
+      "bezeichnungen": ["Warmwasser", "Warmwasserbereitung", "Warmwasserversorgung"],
+      "umlagefaehig": true,
+      "rechtsgrundlage": "§ 2 Nr. 5 BetrKV, HeizKV",
+      "bedingungen": "Verbrauchserfassung wie bei Heizung erforderlich.",
+      "hinweise": "Muss getrennt von Heizkosten ausgewiesen werden. Selbe Aufteilungsregeln wie Heizung (50-70% Verbrauch).",
+      "bgh_urteile": []
+    },
+    {
+      "kostenart": "aufzug",
+      "bezeichnungen": ["Aufzug", "Fahrstuhl", "Aufzugswartung", "Liftkosten"],
+      "umlagefaehig": true,
+      "rechtsgrundlage": "§ 2 Nr. 7 BetrKV",
+      "bedingungen": null,
+      "hinweise": "Umlagefähig, auch auf Erdgeschoss-Mieter (wenn im Mietvertrag vereinbart). Nur Betriebskosten, keine Reparaturen.",
+      "bgh_urteile": [
+        {
+          "aktenzeichen": "BGH VIII ZR 103/06",
+          "zusammenfassung": "Auch EG-Mieter können an Aufzugskosten beteiligt werden, wenn mietvertraglich vereinbart"
+        }
+      ]
+    },
+    {
+      "kostenart": "strassenreinigung",
+      "bezeichnungen": ["Straßenreinigung", "Winterdienst", "Schneeräumung", "Streudienst"],
+      "umlagefaehig": true,
+      "rechtsgrundlage": "§ 2 Nr. 8 BetrKV",
+      "bedingungen": null,
+      "hinweise": "Öffentliche und private Straßenreinigung umlagefähig. Winterdienst gehört dazu.",
+      "bgh_urteile": []
+    },
+    {
+      "kostenart": "muellabfuhr",
+      "bezeichnungen": ["Müllabfuhr", "Müllentsorgung", "Abfallentsorgung", "Abfallgebühren"],
+      "umlagefaehig": true,
+      "rechtsgrundlage": "§ 2 Nr. 8 BetrKV",
+      "bedingungen": null,
+      "hinweise": "Umlagefähig. Sperrmüll-Einzelentsorgung ist NICHT umlagefähig.",
+      "bgh_urteile": []
+    },
+    {
+      "kostenart": "gebaeudereinigung",
+      "bezeichnungen": ["Gebäudereinigung", "Hausreinigung", "Treppenhausreinigung", "Flurreinigung"],
+      "umlagefaehig": true,
+      "rechtsgrundlage": "§ 2 Nr. 9 BetrKV",
+      "bedingungen": null,
+      "hinweise": "Umlagefähig, aber nur laufende Reinigungskosten. Grundreinigung/Sonderreinigung ist NICHT umlagefähig.",
+      "bgh_urteile": []
+    },
+    {
+      "kostenart": "gartenpflege",
+      "bezeichnungen": ["Gartenpflege", "Grünanlagen", "Grünflächenpflege", "Landschaftspflege"],
+      "umlagefaehig": true,
+      "rechtsgrundlage": "§ 2 Nr. 10 BetrKV",
+      "bedingungen": null,
+      "hinweise": "Laufende Pflege umlagefähig. Neuanlage eines Gartens ist NICHT umlagefähig. Baumfällkosten sind umstritten.",
+      "bgh_urteile": [
+        {
+          "aktenzeichen": "BGH VIII ZR 135/03",
+          "zusammenfassung": "Gartenpflegekosten umfassen auch das Erneuern von Pflanzen und Gehölzen im Rahmen der üblichen Pflege"
+        }
+      ]
+    },
+    {
+      "kostenart": "beleuchtung",
+      "bezeichnungen": ["Beleuchtung", "Allgemeinstrom", "Treppenhauslicht", "Außenbeleuchtung", "Hausstrom"],
+      "umlagefaehig": true,
+      "rechtsgrundlage": "§ 2 Nr. 11 BetrKV",
+      "bedingungen": null,
+      "hinweise": "Strom für Gemeinschaftsflächen. NICHT umlagefähig: Strom für Verwaltungsräume des Vermieters.",
+      "bgh_urteile": []
+    },
+    {
+      "kostenart": "schornsteinfeger",
+      "bezeichnungen": ["Schornsteinfeger", "Schornsteinreinigung", "Kaminkehrer", "Immissionsmessung"],
+      "umlagefaehig": true,
+      "rechtsgrundlage": "§ 2 Nr. 12 BetrKV",
+      "bedingungen": null,
+      "hinweise": "Kehr- und Überprüfungsgebühren umlagefähig. Auch Emissionsmessungen.",
+      "bgh_urteile": []
+    },
+    {
+      "kostenart": "versicherung",
+      "bezeichnungen": ["Gebäudeversicherung", "Sachversicherung", "Haftpflichtversicherung", "Feuerversicherung", "Leitungswasserversicherung"],
+      "umlagefaehig": true,
+      "rechtsgrundlage": "§ 2 Nr. 13 BetrKV",
+      "bedingungen": null,
+      "hinweise": "Sach- und Haftpflichtversicherung umlagefähig. Mietausfallversicherung ist NICHT umlagefähig. Rechtsschutzversicherung des Vermieters NICHT umlagefähig.",
+      "bgh_urteile": []
+    },
+    {
+      "kostenart": "hauswart",
+      "bezeichnungen": ["Hauswart", "Hausmeister", "Hausmeisterkosten"],
+      "umlagefaehig": true,
+      "rechtsgrundlage": "§ 2 Nr. 14 BetrKV",
+      "bedingungen": "Nur der Anteil für Betriebskosten-Tätigkeiten. Verwaltungs- und Reparaturanteile müssen abgezogen werden.",
+      "hinweise": "ACHTUNG: Hauswartkosten enthalten oft Verwaltungs- und Reparaturanteile (20-30%), die NICHT umlagefähig sind. Vermieter muss aufschlüsseln.",
+      "bgh_urteile": [
+        {
+          "aktenzeichen": "BGH VIII ZR 78/05",
+          "zusammenfassung": "Vermieter muss Hauswartkosten aufschlüsseln und nicht umlagefähige Anteile herausrechnen"
+        }
+      ]
+    },
+    {
+      "kostenart": "antenne",
+      "bezeichnungen": ["Kabelanschluss", "Kabel-TV", "Antennenanlage", "SAT-Anlage", "Breitbandkabel"],
+      "umlagefaehig": true,
+      "rechtsgrundlage": "§ 2 Nr. 15 BetrKV",
+      "bedingungen": "Ab 01.07.2024: Nebenkostenprivileg für Kabel-TV entfällt. Vermieter darf Kabelkosten NICHT mehr auf alle Mieter umlegen.",
+      "hinweise": "WICHTIGE ÄNDERUNG 2024: Nach dem TKMoG dürfen TV-Kabelkosten seit 01.07.2024 nicht mehr über die Nebenkosten umgelegt werden. Für Abrechnungszeiträume ab Juli 2024 sind diese Kosten NICHT mehr umlagefähig.",
+      "bgh_urteile": []
+    },
+    {
+      "kostenart": "waeschepflege",
+      "bezeichnungen": ["Waschküche", "Wäschepflege", "Waschmaschine Gemeinschaft"],
+      "umlagefaehig": true,
+      "rechtsgrundlage": "§ 2 Nr. 16 BetrKV",
+      "bedingungen": null,
+      "hinweise": "Betriebskosten der Waschküche (Strom, Wasser). Nicht: Anschaffung oder Reparatur der Geräte.",
+      "bgh_urteile": []
+    },
+    {
+      "kostenart": "sonstige",
+      "bezeichnungen": ["Sonstige Betriebskosten"],
+      "umlagefaehig": true,
+      "rechtsgrundlage": "§ 2 Nr. 17 BetrKV",
+      "bedingungen": "Müssen im Mietvertrag konkret benannt sein. Pauschale Klausel 'sonstige Betriebskosten' reicht NICHT.",
+      "hinweise": "Nur umlagefähig wenn im Mietvertrag ausdrücklich vereinbart. Typisch: Dachrinnenreinigung, Wartung Rauchmelder, Wartung Feuerlöscher.",
+      "bgh_urteile": [
+        {
+          "aktenzeichen": "BGH VIII ZR 137/15",
+          "zusammenfassung": "Sonstige Betriebskosten müssen im Mietvertrag konkret bezeichnet werden"
+        }
+      ]
+    },
+    {
+      "kostenart": "verwaltung",
+      "bezeichnungen": ["Verwaltungskosten", "Hausverwaltung", "WEG-Verwaltung", "Verwaltungspauschale"],
+      "umlagefaehig": false,
+      "rechtsgrundlage": "§ 1 Abs. 2 BetrKV",
+      "bedingungen": null,
+      "hinweise": "NICHT umlagefähig. Einer der häufigsten Fehler in Abrechnungen. Verwaltungskosten sind KEINE Betriebskosten.",
+      "bgh_urteile": [
+        {
+          "aktenzeichen": "BGH VIII ZR 159/05",
+          "zusammenfassung": "Verwaltungskosten sind keine Betriebskosten und nicht auf den Mieter umlegbar"
+        }
+      ]
+    },
+    {
+      "kostenart": "reparatur",
+      "bezeichnungen": ["Reparaturen", "Instandhaltung", "Instandsetzung", "Wartung"],
+      "umlagefaehig": false,
+      "rechtsgrundlage": "§ 1 Abs. 2 BetrKV",
+      "bedingungen": null,
+      "hinweise": "NICHT umlagefähig (Ausnahme: Wartung bestimmter Anlagen wie Heizung kann umlagefähig sein, nicht aber Reparaturen).",
+      "bgh_urteile": []
+    },
+    {
+      "kostenart": "bankgebuehren",
+      "bezeichnungen": ["Bankgebühren", "Kontoführungsgebühren", "Mietkonto"],
+      "umlagefaehig": false,
+      "rechtsgrundlage": "§ 1 Abs. 2 BetrKV",
+      "bedingungen": null,
+      "hinweise": "NICHT umlagefähig. Gehört zu den Verwaltungskosten.",
+      "bgh_urteile": []
+    },
+    {
+      "kostenart": "rechtsschutz",
+      "bezeichnungen": ["Rechtsschutzversicherung", "Mietrechtsschutz"],
+      "umlagefaehig": false,
+      "rechtsgrundlage": "Nicht in § 2 BetrKV aufgeführt",
+      "bedingungen": null,
+      "hinweise": "NICHT umlagefähig. Nur Sach- und Haftpflichtversicherung sind umlagefähig.",
+      "bgh_urteile": []
+    },
+    {
+      "kostenart": "mietausfallversicherung",
+      "bezeichnungen": ["Mietausfallversicherung", "Mietnomadenversicherung"],
+      "umlagefaehig": false,
+      "rechtsgrundlage": "Nicht in § 2 BetrKV aufgeführt",
+      "bedingungen": null,
+      "hinweise": "NICHT umlagefähig. Dient ausschließlich dem Vermieterinteresse.",
+      "bgh_urteile": []
+    }
+  ]
+}

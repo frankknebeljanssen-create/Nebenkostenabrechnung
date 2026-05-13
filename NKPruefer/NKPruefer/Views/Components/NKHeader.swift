@@ -9,15 +9,16 @@ struct NKHeader: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        HStack(alignment: .center, spacing: AppSpacing.md) {
+        HStack(alignment: .center, spacing: AppSpacing.sm) {
             if showBack {
                 Button {
                     dismiss()
                 } label: {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 17, weight: .medium))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(AppTheme.accent)
-                        .frame(minWidth: 24, minHeight: 24)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
                 .accessibilityLabel("Zurück")
             }
@@ -29,24 +30,29 @@ struct NKHeader: View {
                 Text(title)
                     .font(AppTypography.screenHeadline)
                     .foregroundStyle(AppTheme.textPrimary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
             }
 
-            Spacer()
+            Spacer(minLength: AppSpacing.sm)
 
             if showInfo {
                 Button {
                     onInfo?()
                 } label: {
                     Image(systemName: "info.circle")
-                        .font(.system(size: 18))
+                        .font(.system(size: 17))
                         .foregroundStyle(AppTheme.accent)
-                        .frame(minWidth: 24, minHeight: 24)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
                 .accessibilityLabel("Info")
             }
         }
         .padding(.horizontal, AppSpacing.contentPadding)
-        .padding(.vertical, AppSpacing.sm)
+        // Vertikales Padding bewusst klein, da die Buttons schon 44pt sind —
+        // Header-Gesamthöhe damit ~48pt, kompakt aber barrierefrei.
+        .padding(.vertical, 2)
     }
 }
 

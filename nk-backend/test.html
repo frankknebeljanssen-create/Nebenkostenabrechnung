@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NK-Abrechnung — Test</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, sans-serif; max-width: 600px; margin: 40px auto; padding: 0 20px; color: #1a1a1a; }
+        h1 { font-size: 1.4rem; margin-bottom: 8px; }
+        p.sub { color: #666; margin-bottom: 24px; font-size: 0.9rem; }
+        textarea { width: 100%; height: 120px; padding: 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.95rem; resize: vertical; }
+        button { margin-top: 12px; padding: 10px 24px; background: #2563eb; color: white; border: none; border-radius: 6px; font-size: 0.95rem; cursor: pointer; }
+        button:hover { background: #1d4ed8; }
+        button:disabled { background: #93c5fd; cursor: wait; }
+        #result { margin-top: 24px; padding: 16px; background: #f8f9fa; border-radius: 6px; white-space: pre-wrap; font-size: 0.9rem; display: none; }
+        #meta { margin-top: 8px; font-size: 0.75rem; color: #999; }
+    </style>
+</head>
+<body>
+    <h1>NK-Abrechnung Backend Test</h1>
+    <p class="sub">Schick Text an dein lokales Backend → Claude antwortet server-side.</p>
+
+    <textarea id="input" placeholder="z.B.: Zählerstand Strom: 4521 kWh, Vorjahr: 3980 kWh. Preis pro kWh: 0,32 €.">Zählerstand Strom: 4521 kWh, Vorjahr: 3980 kWh. Preis pro kWh: 0,32 €. Bitte berechne den Verbrauch und die Kosten.</textarea>
+    <button id="btn" onclick="send()">Analysieren</button>
+
+    <div id="result"></div>
+    <div id="meta"></div>
+
+    <script>
+        async function send() {
+            const btn = document.getElementById('btn');
+            const resultDiv = document.getElementById('result');
+            const metaDiv = document.getElementById('meta');
+            const text = document.getElementById('input').value.trim();
+
+            if (!text) return;
+
+            btn.disabled = true;
+            btn.textContent = 'Läuft...';
+            resultDiv.style.display = 'block';
+            resultDiv.textContent = 'Warte auf Antwort vom Backend...';
+            metaDiv.textContent = '';
+
+            try {
+                const res = await fetch('http://localhost:8000/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text })
+                });
+
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+                const data = await res.json();
+                resultDiv.textContent = data.result;
+                metaDiv.textContent = `Model: ${data.model} | Tokens: ${data.usage.input_tokens} in → ${data.usage.output_tokens} out`;
+            } catch (err) {
+                resultDiv.textContent = 'Fehler: ' + err.message;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Analysieren';
+            }
+        }
+    </script>
+</body>
+</html>
