@@ -48,6 +48,9 @@ Icon?
 secrets.plist
 GoogleService-Info.plist.local
 
+# ───── Archive / Backups ─────
+*.zip
+
 # ───── Editor / IDE ─────
 .vscode/
 .idea/
